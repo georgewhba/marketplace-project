@@ -46,7 +46,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, (err as any)?.error?.message || 'حدث خطأ');
+    let msg = (err as any)?.error?.message || 'حدث خطأ';
+    const details = (err as any)?.error?.details;
+    if (Array.isArray(details) && details.length > 0 && details[0].message) {
+      msg = details[0].message;
+    }
+    throw new ApiError(res.status, msg);
   }
 
   const json = await res.json() as { data: T; pagination?: any };
