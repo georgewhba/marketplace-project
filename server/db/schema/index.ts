@@ -18,3 +18,5 @@ export { auditLog, type AuditLogEntry, type NewAuditLogEntry } from './audit-log
 export { siteSettings, type SiteSetting, type NewSiteSetting } from './site-settings.js';
 export { payments, type Payment, type NewPayment } from './payments.js';
 export { refundRequests, type RefundRequest, type NewRefundRequest } from './refund-requests.js';
+export * from './shipments';
+export * from './shipment-events';

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db/index.js';
 import {
   vendors, products, productImages, orderItems, orders,
-  transactions, notifications, users,
+  transactions, notifications, users, shipments, shipmentEvents
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import { authenticate, loadVendor } from '../middleware/authenticate.js';
@@ -15,6 +15,7 @@ import { processImage, deleteImage, validateImageMagicBytes } from '../utils/ima
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import type { AppEnv } from '../types/env.js';
 import { calculateOrderStatus, shouldAdvanceOrderStatus } from '../utils/calculateOrderStatus.js';
+import { ShippingFactory } from '../services/shipping/shipping.factory.js';
 
 const vendorRoutes = new Hono<AppEnv>();
 vendorRoutes.use('*', authenticate, loadVendor);
@@ -34,6 +35,10 @@ const productSchema = z.object({
 const updateStatusSchema = z.object({
   status: z.enum(['confirmed', 'shipped', 'delivered']),
   trackingNumber: z.string().max(100).optional(),
+}).strict();
+
+const createShipmentSchema = z.object({
+  provider: z.enum(['bosta', 'manual']),
 }).strict();
 
 const updateSettingsSchema = z.object({
@@ -441,6 +446,96 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
   }
 
   return sendSuccess(c, updated);
+});
+
+// POST /api/vendor/orders/:itemId/ship
+vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema), async (c) => {
+  const vendor = c.get('vendor');
+  const itemId = parseInt(c.req.param('itemId')!, 10);
+  const input = getValidated<z.infer<typeof createShipmentSchema>>(c, 'body');
+
+  const [item] = await db
+    .select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      vendorStatus: orderItems.vendorStatus,
+      quantity: orderItems.quantity,
+      productName: orderItems.productName,
+    })
+    .from(orderItems)
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.vendorId, vendor.id)))
+    .limit(1);
+
+  if (!item) throw AppError.notFound('عنصر الطلب');
+  if (item.vendorStatus !== 'confirmed') {
+    throw AppError.badRequest('يجب أن يكون الطلب مؤكدًا قبل الشحن');
+  }
+
+  const [order] = await db.select().from(orders).where(eq(orders.id, item.orderId)).limit(1);
+  if (!order) throw AppError.notFound('الطلب غير موجود');
+
+  const pickupAddress = { city: 'VendorCity' }; // Could be loaded from vendor settings
+  const dropoffAddress = {
+    city: order.shippingCity,
+    address: order.shippingAddressLine1,
+    phone: order.shippingPhone,
+  };
+
+  const provider = ShippingFactory.getProvider(input.provider);
+  const shipmentResult = await provider.createShipment({
+    orderId: order.id,
+    vendorId: vendor.id,
+    pickupAddress,
+    dropoffAddress,
+    items: [item],
+  });
+
+  const [shipment] = await db.transaction(async (tx) => {
+    const [newShipment] = await tx.insert(shipments).values({
+      orderId: order.id,
+      vendorId: vendor.id,
+      provider: input.provider,
+      providerShipmentId: shipmentResult.providerShipmentId,
+      trackingNumber: shipmentResult.trackingNumber,
+      status: 'created',
+      cost: shipmentResult.cost.toString(),
+    }).returning();
+
+    if (!newShipment) {
+      throw AppError.internal('فشل إنشاء الشحنة');
+    }
+
+    await tx.insert(shipmentEvents).values({
+      shipmentId: newShipment.id,
+      status: 'created',
+      description: 'Shipment created successfully',
+    });
+
+    await tx.update(orderItems)
+      .set({ 
+        vendorStatus: 'shipped', 
+        trackingNumber: shipmentResult.trackingNumber || undefined,
+        shippedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(orderItems.id, itemId));
+      
+    const allSiblings = await tx
+      .select({ id: orderItems.id, vendorStatus: orderItems.vendorStatus })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, order.id));
+      
+    const computedStatus = calculateOrderStatus(allSiblings, itemId, 'shipped');
+    if (shouldAdvanceOrderStatus(order.status, computedStatus)) {
+      await tx.update(orders)
+        .set({ status: computedStatus, updatedAt: new Date() })
+        .where(eq(orders.id, order.id));
+    }
+    
+    return [newShipment];
+  });
+
+  return sendCreated(c, shipment);
 });
 
 

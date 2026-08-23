@@ -116,6 +116,7 @@ export const orderApi = {
     api.post<any>('/orders', data),
   getOrders: (page = 1) => api.get<any>(`/orders?page=${page}`),
   getOrder: (id: number) => api.get<any>(`/orders/${id}`),
+  getTracking: (id: number) => api.get<any>(`/orders/${id}/tracking`),
   cancelOrder: (id: number) => api.put<any>(`/orders/${id}/cancel`),
 };
 
@@ -157,6 +158,8 @@ export const vendorApi = {
   getOrders: (page = 1) => api.get<any>(`/vendor/orders?page=${page}`),
   updateOrderStatus: (itemId: number, data: { status: string; trackingNumber?: string }) =>
     api.put<any>(`/vendor/orders/${itemId}/status`, data),
+  createShipment: (itemId: number, data: { provider: 'bosta' | 'manual' }) =>
+    api.post<any>(`/vendor/orders/${itemId}/ship`, data),
   getEarnings: (page = 1) => api.get<any>(`/vendor/earnings?page=${page}`),
   getSettings: () => api.get<any>('/vendor/settings'),
   updateSettings: (data: any) => api.put<any>('/vendor/settings', data),

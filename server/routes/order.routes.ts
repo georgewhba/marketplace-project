@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { orders, orderItems, cartItems, products, vendors, productImages, coupons, addresses, notifications } from '../db/schema/index.js';
+import { orders, orderItems, cartItems, products, vendors, productImages, coupons, addresses, notifications, shipments, shipmentEvents } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
@@ -290,6 +290,39 @@ orderRoutes.get('/:id', async (c) => {
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
 
   return sendSuccess(c, { ...order, items });
+});
+
+// GET /api/orders/:id/tracking
+orderRoutes.get('/:id/tracking', async (c) => {
+  const user = c.get('user');
+  const orderId = parseInt(c.req.param('id')!, 10);
+
+  const [order] = await db.select({ id: orders.id }).from(orders)
+    .where(and(eq(orders.id, orderId), eq(orders.customerId, user.id)))
+    .limit(1);
+
+  if (!order) throw AppError.notFound('الطلب');
+
+  // Fetch shipments for this order
+  const orderShipments = await db.select().from(shipments).where(eq(shipments.orderId, order.id));
+  
+  if (orderShipments.length === 0) {
+    return sendSuccess(c, { shipments: [] });
+  }
+
+  const shipmentIds = orderShipments.map(s => s.id);
+  
+  // Fetch events for these shipments
+  const events = await db.select().from(shipmentEvents)
+    .where(sql`${shipmentEvents.shipmentId} IN ${shipmentIds}`)
+    .orderBy(asc(shipmentEvents.occurredAt));
+
+  const trackingData = orderShipments.map(shipment => ({
+    ...shipment,
+    events: events.filter(e => e.shipmentId === shipment.id)
+  }));
+
+  return sendSuccess(c, { shipments: trackingData });
 });
 
 // PUT /api/orders/:id/cancel — atomic: status re-check + stock restore + coupon restore

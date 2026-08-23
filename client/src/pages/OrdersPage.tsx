@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { orderApi, api } from '../api';
 import { useToast } from '../toast';
-import { Package, XCircle, Undo } from 'lucide-react';
+import { Package, XCircle, Undo, Truck, X } from 'lucide-react';
 
 const statusMap: Record<string, { label: string; class: string }> = {
   pending: { label: 'قيد الانتظار', class: 'badge-warning' },
@@ -22,6 +22,11 @@ export default function OrdersPage() {
   const [refundOrderId, setRefundOrderId] = useState<number | null>(null);
   const [refundReason, setRefundReason] = useState('');
   const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
+
+  // Tracking modal state
+  const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
+  const [trackingData, setTrackingData] = useState<any[]>([]);
+  const [isLoadingTracking, setIsLoadingTracking] = useState(false);
 
   useEffect(() => {
     orderApi.getOrders()
@@ -61,6 +66,20 @@ export default function OrdersPage() {
       toast.error(e.response?.data?.error || 'حدث خطأ أثناء طلب الاسترجاع');
     } finally {
       setIsSubmittingRefund(false);
+    }
+  };
+
+  const handleTrackOrder = async (orderId: number) => {
+    setTrackingOrderId(orderId);
+    setIsLoadingTracking(true);
+    setTrackingData([]);
+    try {
+      const res = await orderApi.getTracking(orderId);
+      setTrackingData(res.shipments || []);
+    } catch (e: any) {
+      toast.error('فشل جلب تفاصيل التتبع');
+    } finally {
+      setIsLoadingTracking(false);
     }
   };
 
@@ -134,6 +153,11 @@ export default function OrdersPage() {
                     <Undo size={14} /> طلب استرجاع
                   </button>
                 )}
+                {['shipped', 'delivered'].includes(order.status) && (
+                  <button className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary-600)' }} onClick={() => handleTrackOrder(order.id)}>
+                    <Truck size={14} /> تتبع الشحنة
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -177,6 +201,67 @@ export default function OrdersPage() {
                 تقديم الطلب
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tracking Modal */}
+      {trackingOrderId && (
+        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+          <div className="card card-body" style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+            <button
+              className="icon-btn"
+              style={{ position: 'absolute', top: 12, left: 12 }}
+              onClick={() => setTrackingOrderId(null)}
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold mb-6 flex gap-2 items-center">
+              <Truck size={20} style={{ color: 'var(--primary-600)' }} /> تتبع شحنة الطلب #{orders.find(o => o.id === trackingOrderId)?.orderNumber}
+            </h3>
+
+            {isLoadingTracking ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {[1,2].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
+              </div>
+            ) : trackingData.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__title">لا توجد تفاصيل تتبع لهذا الطلب بعد</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                {trackingData.map((shipment, idx) => (
+                  <div key={shipment.id} style={{ borderBottom: idx < trackingData.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: idx < trackingData.length - 1 ? 'var(--space-4)' : 0 }}>
+                    <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
+                      <div style={{ fontWeight: 600 }}>شحنة من البائع</div>
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-600)' }}>
+                        بوليصة: <strong style={{ color: 'var(--primary-600)' }}>{shipment.trackingNumber || 'غير متوفر'}</strong>
+                      </div>
+                    </div>
+                    
+                    <div style={{ position: 'relative', paddingRight: 'var(--space-4)' }}>
+                      {/* Timeline line */}
+                      <div style={{ position: 'absolute', right: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--neutral-200)' }} />
+                      
+                      {shipment.events?.map((event: any, eIdx: number) => {
+                        const isLast = eIdx === shipment.events.length - 1;
+                        return (
+                          <div key={event.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 'var(--space-4)' }}>
+                            <div style={{ position: 'absolute', right: -16, top: 4, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-500)', zIndex: 1 }} />
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{event.description || statusMap[event.status]?.label || event.status}</div>
+                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-500)' }}>
+                                {new Date(event.occurredAt).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
