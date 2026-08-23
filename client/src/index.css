@@ -1505,6 +1505,10 @@ input, textarea, select, button {
   min-height: calc(100vh - var(--header-height));
 }
 
+.dashboard-mobile-header {
+  display: none;
+}
+
 .sidebar {
   width: 240px;
   background: var(--bg-surface);
@@ -1584,19 +1588,76 @@ input, textarea, select, button {
 
 @media (max-width: 768px) {
   .dashboard-layout { flex-direction: column; }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    border-left: none;
-    border-bottom: 1px solid var(--border-color);
-    padding: var(--space-3) 0;
-  }
-  .sidebar__section {
+  
+  .dashboard-mobile-header {
     display: flex;
-    gap: var(--space-1);
-    overflow-x: auto;
-    padding: 0 var(--space-3);
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .sidebar-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+  }
+  
+  .sidebar-toggle:hover {
+    background: var(--bg-surface-2);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: var(--header-height);
+    bottom: 0;
+    right: 0;
+    left: auto;
+    width: 280px;
+    height: calc(100vh - var(--header-height));
+    z-index: 50;
+    transform: translateX(100%); /* Start hidden (RTL) */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-right: 1px solid var(--border-color);
+    border-left: none;
+    border-bottom: none;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  /* LTR fallback */
+  [dir="ltr"] .sidebar {
+    left: 0;
+    right: auto;
+    transform: translateX(-100%);
+    border-left: none;
+    border-right: 1px solid var(--border-color);
+  }
+  
+  [dir="ltr"] .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar__section {
+    display: block;
+    overflow-x: visible;
   }
   .sidebar__section-title { display: none; }
   .sidebar__link { white-space: nowrap; }

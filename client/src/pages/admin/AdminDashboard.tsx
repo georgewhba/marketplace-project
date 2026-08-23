@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu } from 'lucide-react';
 
 const sidebarLinks = [
   { to: '/admin', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
@@ -21,16 +21,33 @@ const sidebarLinks = [
 
 export function AdminLayout() {
   const location = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="dashboard-layout">
-      <aside className="sidebar">
+      <div className="dashboard-mobile-header">
+        <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <Menu size={24} />
+        </button>
+        <span style={{ fontWeight: 'bold' }}>لوحة الإدارة</span>
+      </div>
+      
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} />
+      )}
+      
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar__section">
           <div className="sidebar__section-title">لوحة الإدارة</div>
           {sidebarLinks.map(link => {
             const isActive = link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
             return (
-              <Link key={link.to} to={link.to} className={`sidebar__link ${isActive ? 'active' : ''}`}>
+              <Link 
+                key={link.to} 
+                to={link.to} 
+                className={`sidebar__link ${isActive ? 'active' : ''}`}
+                onClick={() => setIsSidebarOpen(false)}
+              >
                 <link.icon size={18} />
                 {link.label}
               </Link>
