@@ -1680,6 +1680,5 @@ input, textarea, select, button {
   .sidebar__section-title { display: none; }
   .sidebar__link { white-space: nowrap; }
 }
-@ m e d i a   ( m i n - w i d t h :   7 6 9 p x )   {   . d a s h b o a r d - m o b i l e - h e a d e r   {   d i s p l a y :   n o n e   ! i m p o r t a n t ;   }   }  
- 
+
 @media (min-width: 769px) { .dashboard-mobile-header { display: none !important; } }
