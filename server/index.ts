@@ -148,6 +148,16 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 // In production, serve the built client
 if (env.NODE_ENV === 'production') {
   app.use('*', serveStatic({ root: './client/dist' }));
+  
+  // SPA fallback for React Router
+  app.get('*', async (c) => {
+    try {
+      const indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
+      return c.html(indexHtml);
+    } catch (err) {
+      return c.notFound();
+    }
+  });
 }
 
 // Schedule settlements generation (runs daily at midnight)
