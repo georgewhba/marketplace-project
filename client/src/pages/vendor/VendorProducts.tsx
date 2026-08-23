@@ -47,12 +47,10 @@ export default function VendorProducts() {
         name: form.name,
         description: form.description,
         price: form.price,
-        compareAtPrice: form.compareAtPrice || undefined,
+        comparePrice: form.compareAtPrice || undefined,
         stock: form.stock,
         categoryId: form.categoryId,
         sku: form.sku || undefined,
-        weight: form.weight || undefined,
-        shippingCost: form.shippingCost || undefined,
       };
       if (editId) {
         return vendorApi.updateProduct(editId, payload);
@@ -169,18 +167,10 @@ export default function VendorProducts() {
                     <input className="input" type="number" required value={form.categoryId || ''} onChange={e => setForm(f => ({ ...f, categoryId: parseInt(e.target.value) || 0 }))} />
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)' }}>
                   <div className="form-group">
                     <label className="form-label">SKU</label>
                     <input className="input" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">الوزن (كجم)</label>
-                    <input className="input" type="number" step="0.01" value={form.weight} onChange={e => setForm(f => ({ ...f, weight: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">تكلفة الشحن</label>
-                    <input className="input" type="number" step="0.01" value={form.shippingCost} onChange={e => setForm(f => ({ ...f, shippingCost: e.target.value }))} />
                   </div>
                 </div>
                 {!editId && (
