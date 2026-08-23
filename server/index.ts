@@ -178,15 +178,17 @@ cron.schedule('0 0 * * *', async () => {
 // Initialize analytics background jobs
 initAnalyticsJobs();
 
-// Start server
-serve({
-  fetch: app.fetch,
-  port: env.PORT,
-}, (info) => {
-  console.log(`\n  Marketplace server running at http://localhost:${info.port}`);
-  console.log(`  Environment: ${env.NODE_ENV}`);
-  console.log(`  CORS origin: ${env.CORS_ORIGIN}\n`);
-});
+// Start server only if not in test environment
+if (env.NODE_ENV !== 'test') {
+  serve({
+    fetch: app.fetch,
+    port: env.PORT,
+  }, (info) => {
+    console.log(`\n  Marketplace server running at http://localhost:${info.port}`);
+    console.log(`  Environment: ${env.NODE_ENV}`);
+    console.log(`  CORS origin: ${env.CORS_ORIGIN}\n`);
+  });
+}
 
 export default app;
 export { app };

@@ -62,7 +62,9 @@ export function handleError(err: unknown, c: Context): Response {
   // Unexpected error — log server-side only, return generic message to client
   const error = err instanceof Error ? err : new Error(String(err));
   
-  if (process.env['NODE_ENV'] !== 'test') {
+  if (process.env['NODE_ENV'] === 'test') {
+    console.error('[TEST ERROR]', error);
+  } else {
     // 1. Log with Pino
     logger.error({
       requestId,

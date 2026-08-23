@@ -14,7 +14,7 @@ import {
 import {
   orders, orderItems, products, vendors, transactions, reviews,
 } from '../../db/schema/index.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 
 const ts = Date.now();
 
@@ -67,7 +67,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const id of reviewIds) await db.delete(reviews).where(eq(reviews.id, id));
-  for (const id of transactionIds) await db.delete(transactions).where(eq(transactions.id, id));
+  await db.delete(transactions).where(inArray(transactions.vendorId, [vendor1Id, vendor2Id]));
   for (const orderId of orderIds) {
     await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
     await db.delete(orders).where(eq(orders.id, orderId));

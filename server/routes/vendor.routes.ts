@@ -348,26 +348,31 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
     // Re-fetching item inside the tx with FOR UPDATE prevents double-delivery races
     // (two concurrent requests for the same itemId both passing the pre-flight above)
     await db.transaction(async (tx) => {
-      // Re-read + lock the item inside the transaction
+      // Get the order item to lock it (without leftJoin to avoid Postgres FOR UPDATE outer join error)
       const [lockedItem] = await tx
-        .select({
-          id: orderItems.id,
-          vendorStatus: orderItems.vendorStatus,
-          total: orderItems.total,
-          commissionRate: orderItems.commissionRate,
-          productId: orderItems.productId,
-          productName: orderItems.productName,
-          quantity: orderItems.quantity,
-          orderId: orderItems.orderId,
-          categoryId: products.categoryId
-        })
+        .select()
         .from(orderItems)
-        .leftJoin(products, eq(orderItems.productId, products.id))
-        .where(and(eq(orderItems.id, itemId), eq(orderItems.vendorId, vendor.id)))
-        .for('update')
-        .limit(1);
+        .where(
+          and(
+            eq(orderItems.id, itemId),
+            eq(orderItems.vendorId, vendor.id)
+          )
+        )
+        .limit(1)
+        .for('update');
 
-      if (!lockedItem) throw AppError.notFound('عنصر الطلب');
+      if (!lockedItem) {
+        throw AppError.notFound('عنصر الطلب');
+      }
+      
+      let categoryId: number | undefined = undefined;
+      if (lockedItem.productId) {
+        const [prod] = await tx.select({ categoryId: products.categoryId })
+          .from(products)
+          .where(eq(products.id, lockedItem.productId));
+        categoryId = prod?.categoryId ?? undefined;
+      }
+
       if (lockedItem.vendorStatus === 'delivered') {
         throw AppError.badRequest('هذا العنصر تم تسليمه بالفعل');
       }
@@ -377,8 +382,7 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
 
       const saleAmount = parseFloat(lockedItem.total);
       
-      const categoryId = lockedItem.categoryId ?? 0;
-      const commissionRate = await resolveCommissionRate(vendor.id, categoryId);
+      const commissionRate = await resolveCommissionRate(vendor.id, categoryId ?? 0);
       const commissionAmount = saleAmount * (commissionRate / 100);
       const vendorAmount = saleAmount - commissionAmount;
 
