@@ -1,4 +1,4 @@
-import { ShippingProvider, CreateShipmentParams, CreateShipmentResult, ShipmentStatus } from './provider.interface';
+import { ShippingProvider, CreateShipmentParams, CreateShipmentResult, ShipmentStatus } from './provider.interface.js';
 
 export class ManualProvider implements ShippingProvider {
   async createShipment(params: CreateShipmentParams): Promise<CreateShipmentResult> {

@@ -1,6 +1,6 @@
-import { ShippingProvider } from './provider.interface';
-import { BostaProvider } from './bosta.provider';
-import { ManualProvider } from './manual.provider';
+import { ShippingProvider } from './provider.interface.js';
+import { BostaProvider } from './bosta.provider.js';
+import { ManualProvider } from './manual.provider.js';
 
 export class ShippingFactory {
   static getProvider(providerName: 'bosta' | 'manual'): ShippingProvider {

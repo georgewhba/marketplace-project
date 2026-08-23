@@ -1,4 +1,4 @@
-import { ShippingProvider, CreateShipmentParams, CreateShipmentResult, ShipmentStatus } from './provider.interface';
+import { ShippingProvider, CreateShipmentParams, CreateShipmentResult, ShipmentStatus } from './provider.interface.js';
 import { randomUUID } from 'crypto';
 
 export class BostaProvider implements ShippingProvider {
