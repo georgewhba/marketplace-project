@@ -1,0 +1,474 @@
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { db } from '../db/index.js';
+import {
+  users, vendors, products, productImages, orders, orderItems,
+  categories, transactions, notifications, auditLog, siteSettings, coupons,
+} from '../db/schema/index.js';
+import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
+import { authenticate } from '../middleware/authenticate.js';
+import { authorize } from '../middleware/authorize.js';
+import { validate, getValidated } from '../middleware/validate.js';
+import { sendSuccess, sendCreated } from '../utils/response.js';
+import { AppError } from '../utils/errors.js';
+import { slugify } from '../utils/slugify.js';
+import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
+import type { AppEnv } from '../types/env.js';
+
+const adminRoutes = new Hono<AppEnv>();
+adminRoutes.use('*', authenticate, authorize('admin'));
+
+async function logAction(adminId: number, action: string, targetType: string, targetId: number, details?: unknown) {
+  await db.insert(auditLog).values({
+    adminId,
+    action,
+    targetType,
+    targetId,
+    details: details ?? null,
+  });
+}
+
+// GET /api/admin/dashboard
+adminRoutes.get('/dashboard', async (c) => {
+  const [userCount] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+  const [vendorCount] = await db.select({ count: sql<number>`count(*)::int` }).from(vendors).where(eq(vendors.status, 'approved'));
+  const [productCount] = await db.select({ count: sql<number>`count(*)::int` }).from(products).where(eq(products.isActive, true));
+  const [orderCount] = await db.select({ count: sql<number>`count(*)::int` }).from(orders);
+  const [revenueResult] = await db.select({
+    total: sql<string>`COALESCE(SUM(${orders.total}::numeric), 0)`,
+  }).from(orders).where(sql`${orders.status} != 'cancelled'`);
+
+  const [pendingVendors] = await db.select({ count: sql<number>`count(*)::int` }).from(vendors).where(eq(vendors.status, 'pending'));
+
+  const recentOrders = await db.select({
+    id: orders.id, orderNumber: orders.orderNumber, total: orders.total,
+    status: orders.status, createdAt: orders.createdAt,
+    customerName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+  }).from(orders)
+    .innerJoin(users, eq(orders.customerId, users.id))
+    .orderBy(desc(orders.createdAt)).limit(10);
+
+  return sendSuccess(c, {
+    stats: {
+      totalUsers: userCount?.count ?? 0,
+      totalVendors: vendorCount?.count ?? 0,
+      totalProducts: productCount?.count ?? 0,
+      totalOrders: orderCount?.count ?? 0,
+      totalRevenue: revenueResult?.total ?? '0',
+      pendingVendors: pendingVendors?.count ?? 0,
+    },
+    recentOrders,
+  });
+});
+
+// GET /api/admin/vendors
+adminRoutes.get('/vendors', validate('query', paginationSchema.extend({
+  status: z.string().optional(),
+})), async (c) => {
+  const { page, limit, status } = getValidated<z.infer<typeof paginationSchema> & { status?: string }>(c, 'query');
+  
+  const conditions = [];
+  if (status) conditions.push(eq(vendors.status, status));
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(vendors).where(whereClause);
+  const total = countResult?.count ?? 0;
+
+  const vendorList = await db
+    .select({
+      id: vendors.id, storeName: vendors.storeName, storeSlug: vendors.storeSlug,
+      status: vendors.status, commissionRate: vendors.commissionRate,
+      totalSales: vendors.totalSales, totalProducts: vendors.totalProducts,
+      rating: vendors.rating, createdAt: vendors.createdAt,
+      ownerName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+      ownerEmail: users.email,
+    })
+    .from(vendors)
+    .innerJoin(users, eq(vendors.userId, users.id))
+    .where(whereClause)
+    .orderBy(desc(vendors.createdAt))
+    .limit(limit).offset(getOffset(page, limit));
+
+  return sendSuccess(c, vendorList, 200, getPaginationMeta(page, limit, total));
+});
+
+// GET /api/admin/vendors/:id
+adminRoutes.get('/vendors/:id', async (c) => {
+  const vendorId = parseInt(c.req.param('id')!, 10);
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw AppError.notFound('البائع');
+
+  const [owner] = await db.select({
+    email: users.email, firstName: users.firstName, lastName: users.lastName, phone: users.phone,
+  }).from(users).where(eq(users.id, vendor.userId)).limit(1);
+
+  const vendorProducts = await db.select().from(products)
+    .where(eq(products.vendorId, vendorId)).orderBy(desc(products.createdAt)).limit(20);
+
+  return sendSuccess(c, { ...vendor, owner, products: vendorProducts });
+});
+
+const approveSchema = z.object({ commissionRate: z.string().regex(/^\d+(\.\d{1,2})?$/).optional() }).strict();
+const rejectSchema = z.object({ reason: z.string().min(1, 'سبب الرفض مطلوب').max(1000) }).strict();
+
+// PUT /api/admin/vendors/:id/approve
+adminRoutes.put('/vendors/:id/approve', validate('body', approveSchema), async (c) => {
+  const admin = c.get('user');
+  const vendorId = parseInt(c.req.param('id')!, 10);
+  const input = getValidated<z.infer<typeof approveSchema>>(c, 'body');
+
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw AppError.notFound('البائع');
+
+  const updateData: Record<string, unknown> = {
+    status: 'approved', approvedAt: new Date(), updatedAt: new Date(),
+  };
+  if (input.commissionRate) updateData['commissionRate'] = input.commissionRate;
+
+  await db.update(vendors).set(updateData).where(eq(vendors.id, vendorId));
+
+  await db.insert(notifications).values({
+    userId: vendor.userId,
+    title: 'تم تفعيل متجرك',
+    message: 'تمت الموافقة على متجرك ويمكنك الآن إضافة المنتجات',
+    type: 'vendor_approved',
+    actionUrl: '/vendor/dashboard',
+  });
+
+  await logAction(admin.id, 'vendor.approve', 'vendor', vendorId, { commissionRate: input.commissionRate });
+  return sendSuccess(c, { message: 'تمت الموافقة على البائع' });
+});
+
+// PUT /api/admin/vendors/:id/reject
+adminRoutes.put('/vendors/:id/reject', validate('body', rejectSchema), async (c) => {
+  const admin = c.get('user');
+  const vendorId = parseInt(c.req.param('id')!, 10);
+  const input = getValidated<z.infer<typeof rejectSchema>>(c, 'body');
+
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw AppError.notFound('البائع');
+
+  await db.update(vendors).set({
+    status: 'rejected', rejectionReason: input.reason, updatedAt: new Date(),
+  }).where(eq(vendors.id, vendorId));
+
+  await db.insert(notifications).values({
+    userId: vendor.userId,
+    title: 'تم رفض طلب المتجر',
+    message: `سبب الرفض: ${input.reason}`,
+    type: 'vendor_rejected',
+  });
+
+  await logAction(admin.id, 'vendor.reject', 'vendor', vendorId, { reason: input.reason });
+  return sendSuccess(c, { message: 'تم رفض البائع' });
+});
+
+// PUT /api/admin/vendors/:id/suspend
+adminRoutes.put('/vendors/:id/suspend', async (c) => {
+  const admin = c.get('user');
+  const vendorId = parseInt(c.req.param('id')!, 10);
+
+  await db.update(vendors).set({ status: 'suspended', updatedAt: new Date() })
+    .where(eq(vendors.id, vendorId));
+  await logAction(admin.id, 'vendor.suspend', 'vendor', vendorId);
+  return sendSuccess(c, { message: 'تم تعليق البائع' });
+});
+
+// GET /api/admin/products
+adminRoutes.get('/products', validate('query', paginationSchema.extend({
+  search: z.string().optional(),
+})), async (c) => {
+  const { page, limit, search } = getValidated<z.infer<typeof paginationSchema> & { search?: string }>(c, 'query');
+  
+  const conditions = [];
+  if (search) conditions.push(ilike(products.name, `%${search}%`));
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(products).where(whereClause);
+  const total = countResult?.count ?? 0;
+
+  const productList = await db
+    .select({
+      id: products.id, name: products.name, slug: products.slug,
+      price: products.price, stock: products.stock, isActive: products.isActive,
+      isFeatured: products.isFeatured, rating: products.rating,
+      totalSold: products.totalSold, createdAt: products.createdAt,
+      vendorName: vendors.storeName,
+      categoryName: categories.name,
+    })
+    .from(products)
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(whereClause)
+    .orderBy(desc(products.createdAt))
+    .limit(limit).offset(getOffset(page, limit));
+
+  return sendSuccess(c, productList, 200, getPaginationMeta(page, limit, total));
+});
+
+// PUT /api/admin/products/:id/feature
+adminRoutes.put('/products/:id/feature', async (c) => {
+  const admin = c.get('user');
+  const productId = parseInt(c.req.param('id')!, 10);
+  const [product] = await db.select({ isFeatured: products.isFeatured }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) throw AppError.notFound('المنتج');
+
+  await db.update(products).set({ isFeatured: !product.isFeatured, updatedAt: new Date() })
+    .where(eq(products.id, productId));
+  await logAction(admin.id, 'product.feature', 'product', productId, { featured: !product.isFeatured });
+  return sendSuccess(c, { isFeatured: !product.isFeatured });
+});
+
+// PUT /api/admin/products/:id/toggle
+adminRoutes.put('/products/:id/toggle', async (c) => {
+  const admin = c.get('user');
+  const productId = parseInt(c.req.param('id')!, 10);
+  const [product] = await db.select({ isActive: products.isActive }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) throw AppError.notFound('المنتج');
+
+  await db.update(products).set({ isActive: !product.isActive, updatedAt: new Date() })
+    .where(eq(products.id, productId));
+  await logAction(admin.id, 'product.toggle', 'product', productId, { active: !product.isActive });
+  return sendSuccess(c, { isActive: !product.isActive });
+});
+
+// DELETE /api/admin/products/:id
+adminRoutes.delete('/products/:id', async (c) => {
+  const admin = c.get('user');
+  const productId = parseInt(c.req.param('id')!, 10);
+  await db.delete(products).where(eq(products.id, productId));
+  await logAction(admin.id, 'product.delete', 'product', productId);
+  return sendSuccess(c, { message: 'تم حذف المنتج' });
+});
+
+// GET /api/admin/categories
+adminRoutes.get('/categories', async (c) => {
+  const allCats = await db.select().from(categories).orderBy(asc(categories.sortOrder));
+  const tree = allCats.filter(cat => !cat.parentId).map(parent => ({
+    ...parent,
+    children: allCats.filter(child => child.parentId === parent.id),
+  }));
+  return sendSuccess(c, tree);
+});
+
+const categorySchema = z.object({
+  name: z.string().min(2).max(255).trim(),
+  description: z.string().max(1000).optional(),
+  icon: z.string().max(50).optional(),
+  parentId: z.number().int().positive().optional().nullable(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+}).strict();
+
+// POST /api/admin/categories
+adminRoutes.post('/categories', validate('body', categorySchema), async (c) => {
+  const admin = c.get('user');
+  const input = getValidated<z.infer<typeof categorySchema>>(c, 'body');
+  const slug = slugify(input.name);
+
+  const [existing] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, slug)).limit(1);
+  if (existing) throw AppError.conflict('اسم القسم مستخدم بالفعل');
+
+  const [cat] = await db.insert(categories).values({ ...input, slug }).returning();
+  await logAction(admin.id, 'category.create', 'category', cat!.id);
+  return sendCreated(c, cat);
+});
+
+// PUT /api/admin/categories/:id
+adminRoutes.put('/categories/:id', validate('body', categorySchema.partial()), async (c) => {
+  const admin = c.get('user');
+  const catId = parseInt(c.req.param('id')!, 10);
+  const input = getValidated<Partial<z.infer<typeof categorySchema>>>(c, 'body');
+
+  if (input.name) {
+    (input as Record<string, unknown>)['slug'] = slugify(input.name);
+  }
+
+  const [updated] = await db.update(categories).set(input).where(eq(categories.id, catId)).returning();
+  if (!updated) throw AppError.notFound('القسم');
+  await logAction(admin.id, 'category.update', 'category', catId);
+  return sendSuccess(c, updated);
+});
+
+// DELETE /api/admin/categories/:id
+adminRoutes.delete('/categories/:id', async (c) => {
+  const admin = c.get('user');
+  const catId = parseInt(c.req.param('id')!, 10);
+
+  // Check for products
+  const [productCount] = await db.select({ count: sql<number>`count(*)::int` }).from(products)
+    .where(eq(products.categoryId, catId));
+  if ((productCount?.count ?? 0) > 0) {
+    throw AppError.badRequest('لا يمكن حذف قسم يحتوي على منتجات');
+  }
+
+  // Check for subcategories
+  const [subCount] = await db.select({ count: sql<number>`count(*)::int` }).from(categories)
+    .where(eq(categories.parentId, catId));
+  if ((subCount?.count ?? 0) > 0) {
+    throw AppError.badRequest('لا يمكن حذف قسم يحتوي على أقسام فرعية');
+  }
+
+  await db.delete(categories).where(eq(categories.id, catId));
+  await logAction(admin.id, 'category.delete', 'category', catId);
+  return sendSuccess(c, { message: 'تم حذف القسم' });
+});
+
+// GET /api/admin/orders
+adminRoutes.get('/orders', validate('query', paginationSchema.extend({
+  status: z.string().optional(),
+})), async (c) => {
+  const { page, limit, status } = getValidated<z.infer<typeof paginationSchema> & { status?: string }>(c, 'query');
+  
+  const conditions = [];
+  if (status) conditions.push(eq(orders.status, status));
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(orders).where(whereClause);
+  const total = countResult?.count ?? 0;
+
+  const orderList = await db
+    .select({
+      id: orders.id, orderNumber: orders.orderNumber, total: orders.total,
+      status: orders.status, paymentMethod: orders.paymentMethod,
+      shippingCity: orders.shippingCity, createdAt: orders.createdAt,
+      customerName: sql<string>`concat(${users.firstName}, ' ', ${users.lastName})`,
+      customerEmail: users.email,
+    })
+    .from(orders)
+    .innerJoin(users, eq(orders.customerId, users.id))
+    .where(whereClause)
+    .orderBy(desc(orders.createdAt))
+    .limit(limit).offset(getOffset(page, limit));
+
+  return sendSuccess(c, orderList, 200, getPaginationMeta(page, limit, total));
+});
+
+// GET /api/admin/users
+adminRoutes.get('/users', validate('query', paginationSchema), async (c) => {
+  const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+  const total = countResult?.count ?? 0;
+
+  const userList = await db.select({
+    id: users.id, email: users.email, firstName: users.firstName,
+    lastName: users.lastName, role: users.role, isActive: users.isActive,
+    createdAt: users.createdAt,
+  }).from(users).orderBy(desc(users.createdAt)).limit(limit).offset(getOffset(page, limit));
+
+  return sendSuccess(c, userList, 200, getPaginationMeta(page, limit, total));
+});
+
+// PUT /api/admin/users/:id/toggle
+adminRoutes.put('/users/:id/toggle', async (c) => {
+  const admin = c.get('user');
+  const userId = parseInt(c.req.param('id')!, 10);
+  if (userId === admin.id) throw AppError.badRequest('لا يمكنك تعطيل حسابك');
+
+  const [user] = await db.select({ isActive: users.isActive }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) throw AppError.notFound('المستخدم');
+
+  await db.update(users).set({ isActive: !user.isActive, updatedAt: new Date() }).where(eq(users.id, userId));
+  await logAction(admin.id, 'user.toggle', 'user', userId, { active: !user.isActive });
+  return sendSuccess(c, { isActive: !user.isActive });
+});
+
+// GET /api/admin/transactions
+adminRoutes.get('/transactions', validate('query', paginationSchema), async (c) => {
+  const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
+
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(transactions);
+  const total = countResult?.count ?? 0;
+
+  const txList = await db
+    .select({
+      id: transactions.id, type: transactions.type, amount: transactions.amount,
+      balanceBefore: transactions.balanceBefore, balanceAfter: transactions.balanceAfter,
+      description: transactions.description, createdAt: transactions.createdAt,
+      vendorName: vendors.storeName,
+    })
+    .from(transactions)
+    .innerJoin(vendors, eq(transactions.vendorId, vendors.id))
+    .orderBy(desc(transactions.createdAt))
+    .limit(limit).offset(getOffset(page, limit));
+
+  return sendSuccess(c, txList, 200, getPaginationMeta(page, limit, total));
+});
+
+// GET /api/admin/settings
+adminRoutes.get('/settings', async (c) => {
+  const settings = await db.select().from(siteSettings);
+  const settingsMap: Record<string, string> = {};
+  for (const s of settings) {
+    settingsMap[s.key] = s.value;
+  }
+  return sendSuccess(c, settingsMap);
+});
+
+// PUT /api/admin/settings — strict Zod validation, only allowed keys
+const updateSiteSettingsSchema = z.object({
+  site_name: z.string().min(1).max(255).optional(),
+  default_commission_rate: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  contact_email: z.string().email().max(255).optional(),
+  contact_phone: z.string().max(20).optional(),
+  default_shipping_fee: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  currency: z.string().max(10).optional(),
+  min_order_amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+}).strict();
+
+adminRoutes.put('/settings', validate('body', updateSiteSettingsSchema), async (c) => {
+  const admin = c.get('user');
+  const input = getValidated<z.infer<typeof updateSiteSettingsSchema>>(c, 'body');
+
+  const entries = Object.entries(input).filter(([, v]) => v !== undefined) as [string, string][];
+  if (entries.length === 0) {
+    throw AppError.badRequest('لم يتم إرسال أي إعدادات للتحديث');
+  }
+
+  for (const [key, value] of entries) {
+    await db.insert(siteSettings).values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: siteSettings.key, set: { value, updatedAt: new Date() } });
+  }
+
+  await logAction(admin.id, 'settings.update', 'settings', 0, { keys: entries.map(([k]) => k) });
+  return sendSuccess(c, { message: 'تم تحديث الإعدادات' });
+});
+
+// Coupons management
+const couponSchema = z.object({
+  code: z.string().min(3).max(50).transform(s => s.toUpperCase()),
+  type: z.enum(['percentage', 'fixed']),
+  value: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  minOrderAmount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  usageLimit: z.number().int().positive().optional().nullable(),
+  isActive: z.boolean().default(true),
+  expiresAt: z.string().datetime().optional().nullable(),
+}).strict();
+
+adminRoutes.get('/coupons', async (c) => {
+  const list = await db.select().from(coupons).orderBy(desc(coupons.createdAt));
+  return sendSuccess(c, list);
+});
+
+adminRoutes.post('/coupons', validate('body', couponSchema), async (c) => {
+  const admin = c.get('user');
+  const input = getValidated<z.infer<typeof couponSchema>>(c, 'body');
+  const [coupon] = await db.insert(coupons).values({
+    ...input,
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+  }).returning();
+
+  await logAction(admin.id, 'coupon.create', 'coupon', coupon!.id, { code: input.code });
+  return sendCreated(c, coupon);
+});
+
+adminRoutes.delete('/coupons/:id', async (c) => {
+  const admin = c.get('user');
+  const couponId = parseInt(c.req.param('id')!, 10);
+  await db.delete(coupons).where(eq(coupons.id, couponId));
+  await logAction(admin.id, 'coupon.delete', 'coupon', couponId);
+  return sendSuccess(c, { message: 'تم حذف الكوبون' });
+});
+
+export default adminRoutes;
