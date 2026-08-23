@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1787433530813,
+      "tag": "0000_real_maria_hill",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787439363293,
+      "tag": "0001_curvy_butterfly",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787479664988,
+      "tag": "0002_nice_microchip",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787481346035,
+      "tag": "0003_keen_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787485049318,
+      "tag": "0004_dazzling_king_bedlam",
+      "breakpoints": true
+    }
+  ]
+}

@@ -22,7 +22,6 @@ uploads/*
 Thumbs.db
 
 # Drizzle
-drizzle/meta/
 
 # Logs
 *.log
