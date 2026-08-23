@@ -12,6 +12,7 @@ export { reviews, type Review, type NewReview } from './reviews.js';
 export { transactions, type Transaction, type NewTransaction } from './transactions.js';
 export { wishlists, type Wishlist, type NewWishlist } from './wishlists.js';
 export { notifications, type Notification, type NewNotification } from './notifications.js';
+export * from './notifications-config.js';
 export { coupons, type Coupon, type NewCoupon } from './coupons.js';
 export { stockAlerts, type StockAlert, type NewStockAlert } from './stock-alerts.js';
 export { auditLog, type AuditLogEntry, type NewAuditLogEntry } from './audit-log.js';
@@ -25,3 +26,4 @@ export { settlements, type Settlement, type NewSettlement } from './settlements.
 export { payoutRequests, type PayoutRequest, type NewPayoutRequest } from './payout-requests.js';
 export { mfaSecrets, type MfaSecret, type NewMfaSecret } from './mfa-secrets.js';
 export * from './rbac.js';
+export { dailySalesSummary } from './analytics.js';

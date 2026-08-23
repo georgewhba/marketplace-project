@@ -16,6 +16,7 @@ const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const PaymentCallbackPage = lazy(() => import('./pages/PaymentCallbackPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const WishlistPage = lazy(() => import('./pages/WishlistPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazy(() => import('./pages/ServerErrorPage'));
@@ -31,6 +32,7 @@ const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
 const VendorOrders = lazy(() => import('./pages/vendor/VendorOrders'));
 const VendorEarnings = lazy(() => import('./pages/vendor/VendorEarnings'));
 const VendorSettings = lazy(() => import('./pages/vendor/VendorSettings'));
+const VendorAnalytics = lazy(() => import('./pages/vendor/VendorAnalytics'));
 
 // Admin pages
 const AdminVendors = lazy(() => import('./pages/admin/AdminVendors'));
@@ -43,6 +45,8 @@ const AdminCommissionRules = lazy(() => import('./pages/admin/AdminCommissionRul
 const AdminSettlements = lazy(() => import('./pages/admin/AdminSettlements').then(m => ({ default: m.AdminSettlements })));
 const AdminPayouts = lazy(() => import('./pages/admin/AdminPayouts').then(m => ({ default: m.AdminPayouts })));
 const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
+const AdminMessageLogs = lazy(() => import('./pages/admin/AdminMessageLogs'));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
@@ -109,6 +113,7 @@ export default function App() {
               <Route path="/orders" element={<StoreLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StoreLayout>} />
               <Route path="/wishlist" element={<StoreLayout><ProtectedRoute><WishlistPage /></ProtectedRoute></StoreLayout>} />
               <Route path="/profile" element={<StoreLayout><ProtectedRoute><ProfilePage /></ProtectedRoute></StoreLayout>} />
+              <Route path="/notifications" element={<StoreLayout><ProtectedRoute><NotificationsPage /></ProtectedRoute></StoreLayout>} />
               <Route path="/terms" element={<StoreLayout><Suspense fallback={<Loading />}><TermsPage /></Suspense></StoreLayout>} />
               <Route path="/privacy" element={<StoreLayout><Suspense fallback={<Loading />}><PrivacyPage /></Suspense></StoreLayout>} />
               <Route path="/return-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ReturnPolicyPage /></Suspense></StoreLayout>} />
@@ -122,6 +127,7 @@ export default function App() {
                 <Route path="products" element={<Suspense fallback={<Loading />}><VendorProducts /></Suspense>} />
                 <Route path="orders" element={<Suspense fallback={<Loading />}><VendorOrders /></Suspense>} />
                 <Route path="earnings" element={<Suspense fallback={<Loading />}><VendorEarnings /></Suspense>} />
+                <Route path="analytics" element={<Suspense fallback={<Loading />}><VendorAnalytics /></Suspense>} />
                 <Route path="settings" element={<Suspense fallback={<Loading />}><VendorSettings /></Suspense>} />
               </Route>
 
@@ -138,6 +144,8 @@ export default function App() {
                 <Route path="settlements" element={<Suspense fallback={<Loading />}><AdminSettlements /></Suspense>} />
                 <Route path="payouts" element={<Suspense fallback={<Loading />}><AdminPayouts /></Suspense>} />
                 <Route path="roles" element={<Suspense fallback={<Loading />}><AdminRoles /></Suspense>} />
+                <Route path="message-logs" element={<Suspense fallback={<Loading />}><AdminMessageLogs /></Suspense>} />
+                <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
                 <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
                 <Route path="coupons" element={<div style={{ padding: 'var(--space-6)' }}><h2>الكوبونات — قريباً</h2></div>} />
                 <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />

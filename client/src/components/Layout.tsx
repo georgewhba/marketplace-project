@@ -1,7 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard } from 'lucide-react';
+import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../auth';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../api';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -9,6 +11,15 @@ export function Header() {
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['notifications', 'unread'],
+    queryFn: () => api.get<any>('/auth/me/notifications/unread-count').then(res => res.data),
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = unreadData?.count || 0;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -54,6 +65,17 @@ export function Header() {
         <div className="header__actions">
           {user && (
             <>
+              <Link to="/notifications" className="header__icon-btn" title="الإشعارات" style={{ position: 'relative' }}>
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -5, background: 'var(--color-primary)', color: 'white',
+                    fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold'
+                  }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Link>
               <Link to="/wishlist" className="header__icon-btn" title="المفضلة">
                 <Heart size={20} />
               </Link>

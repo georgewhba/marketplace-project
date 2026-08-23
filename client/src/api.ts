@@ -94,6 +94,8 @@ export const authApi = {
   verifyMfa: (token: string) => api.post<any>('/auth/mfa/verify', { token }),
   challengeMfa: (token: string) => api.post<any>('/auth/mfa/challenge', { token }),
   disableMfa: (token: string) => api.post<any>('/auth/mfa/disable', { token }),
+  getNotificationPreferences: () => api.get<any>('/auth/me/notification-preferences'),
+  updateNotificationPreference: (data: any) => api.put<any>('/auth/me/notification-preferences', data),
 };
 
 // Store
@@ -231,4 +233,22 @@ export const adminApi = {
   getPayouts: () => api.get<any>('/admin/payouts'),
   approvePayout: (id: number) => api.put<any>(`/admin/payouts/${id}/approve`),
   rejectPayout: (id: number, reason: string) => api.put<any>(`/admin/payouts/${id}/reject`, { reason }),
+  getMessageLogs: (page = 1, filters?: { channel?: string; status?: string }) => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (filters?.channel) params.set('channel', filters.channel);
+    if (filters?.status) params.set('status', filters.status);
+    return api.get<any>(`/admin/message-logs?${params}`);
+  },
 };
+
+// ==========================================
+// ANALYTICS
+// ==========================================
+export const getAdminOverview = (days: number = 30) => api.get<any>(`/admin/analytics/overview?days=${days}`);
+export const getAdminTopProducts = (days: number = 30) => api.get<any>(`/admin/analytics/top-products?days=${days}`);
+export const getAdminTopVendors = (days: number = 30) => api.get<any>(`/admin/analytics/top-vendors?days=${days}`);
+export const getAdminFunnel = () => api.get<any>(`/admin/analytics/funnel`);
+export const getAdminCategoriesAnalytics = () => api.get<any>(`/admin/analytics/categories`);
+
+export const getVendorOverview = (days: number = 30) => api.get<any>(`/vendor/analytics/overview?days=${days}`);
+export const getVendorAnalyticsProducts = (days: number = 30) => api.get<any>(`/vendor/analytics/products?days=${days}`);

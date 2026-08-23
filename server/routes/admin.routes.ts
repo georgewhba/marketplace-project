@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import {
   users, vendors, products, productImages, orders, orderItems,
   categories, transactions, notifications, auditLog, siteSettings, coupons,
-  commissionRules, settlements, payoutRequests,
+  commissionRules, settlements, payoutRequests, messageLogs
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
@@ -14,6 +14,13 @@ import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
+import { 
+  getAdminOverview, 
+  getTopProducts, 
+  getTopVendors, 
+  getFunnel, 
+  getCategoriesAnalytics 
+} from '../services/analytics.service.js';
 import type { AppEnv } from '../types/env.js';
 
 const adminRoutes = new Hono<AppEnv>();
@@ -28,6 +35,39 @@ async function logAction(adminId: number, action: string, targetType: string, ta
     details: details ?? null,
   });
 }
+
+// GET /api/admin/analytics/overview
+adminRoutes.get('/analytics/overview', async (c) => {
+  const days = parseInt(c.req.query('days') || '30', 10);
+  const data = await getAdminOverview(days);
+  return sendSuccess(c, data);
+});
+
+// GET /api/admin/analytics/top-products
+adminRoutes.get('/analytics/top-products', async (c) => {
+  const days = parseInt(c.req.query('days') || '30', 10);
+  const data = await getTopProducts(days);
+  return sendSuccess(c, data);
+});
+
+// GET /api/admin/analytics/top-vendors
+adminRoutes.get('/analytics/top-vendors', async (c) => {
+  const days = parseInt(c.req.query('days') || '30', 10);
+  const data = await getTopVendors(days);
+  return sendSuccess(c, data);
+});
+
+// GET /api/admin/analytics/funnel
+adminRoutes.get('/analytics/funnel', async (c) => {
+  const data = await getFunnel();
+  return sendSuccess(c, data);
+});
+
+// GET /api/admin/analytics/categories
+adminRoutes.get('/analytics/categories', async (c) => {
+  const data = await getCategoriesAnalytics();
+  return sendSuccess(c, data);
+});
 
 // GET /api/admin/dashboard
 adminRoutes.get('/dashboard', async (c) => {
@@ -627,4 +667,28 @@ adminRoutes.put('/payouts/:id/reject', validate('body', payoutActionSchema), asy
   
   return sendSuccess(c, request);
 });
+// GET /api/admin/message-logs
+adminRoutes.get('/message-logs', async (c) => {
+  const query = c.req.query();
+  const page = Math.max(1, parseInt(query.page || '1'));
+  const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20')));
+  const offset = (page - 1) * limit;
+
+  const conditions = [];
+  if (query.channel) conditions.push(eq(messageLogs.channel, query.channel));
+  if (query.status) conditions.push(eq(messageLogs.status, query.status));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [logs, totalCount] = await Promise.all([
+    db.select().from(messageLogs).where(where).orderBy(desc(messageLogs.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(messageLogs).where(where)
+  ]);
+
+  return sendSuccess(c, {
+    logs,
+    meta: getPaginationMeta(Number(totalCount[0]?.count ?? 0), page, limit)
+  });
+});
+
 export default adminRoutes;

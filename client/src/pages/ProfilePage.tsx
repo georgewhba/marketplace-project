@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth';
 import { authApi } from '../api';
 import { useToast } from '../toast';
@@ -227,6 +227,91 @@ export default function ProfilePage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Notification Preferences */}
+      <NotificationPreferences />
+    </div>
+  );
+}
+
+function NotificationPreferences() {
+  const { addToast } = useToast();
+  
+  const { data: prefs, isLoading, refetch } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: () => authApi.getNotificationPreferences().then(res => res.data)
+  });
+
+  const updatePrefMutation = useMutation({
+    mutationFn: (data: { category: string; channel: string; enabled: boolean }) => 
+      authApi.updateNotificationPreference(data),
+    onSuccess: () => {
+      addToast('تم تحديث التفضيلات', 'success');
+      refetch();
+    },
+    onError: () => addToast('حدث خطأ', 'error'),
+  });
+
+  const categories = [
+    { id: 'order_updates', label: 'تحديثات الطلبات' },
+    { id: 'promotions', label: 'العروض والخصومات' },
+    { id: 'stock_alerts', label: 'تنبيهات المخزون' },
+    { id: 'system', label: 'إشعارات النظام' }
+  ];
+
+  const channels = [
+    { id: 'email', label: 'البريد الإلكتروني' },
+    { id: 'sms', label: 'الرسائل النصية' },
+    { id: 'in_app', label: 'إشعارات التطبيق' }
+  ];
+
+  if (isLoading) return <div>جاري تحميل التفضيلات...</div>;
+
+  // Find if a pref exists and is enabled (or true by default if not set)
+  const isEnabled = (cat: string, chan: string) => {
+    const pref = prefs?.find((p: any) => p.category === cat && p.channel === chan);
+    if (pref) return pref.enabled;
+    if (cat === 'promotions' && chan === 'sms') return false; // Default off for expensive channels
+    return true; 
+  };
+
+  return (
+    <div className="card" style={{ padding: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
+      <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-base)', fontWeight: 600 }}>
+        تفضيلات الإشعارات
+      </h3>
+      
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 'var(--space-4)' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'right', padding: 'var(--space-2)', borderBottom: '1px solid var(--neutral-200)' }}>النوع</th>
+              {channels.map(chan => (
+                <th key={chan.id} style={{ textAlign: 'center', padding: 'var(--space-2)', borderBottom: '1px solid var(--neutral-200)' }}>{chan.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map(cat => (
+              <tr key={cat.id}>
+                <td style={{ padding: 'var(--space-3) var(--space-2)', borderBottom: '1px solid var(--neutral-100)' }}>
+                  {cat.label}
+                </td>
+                {channels.map(chan => (
+                  <td key={chan.id} style={{ textAlign: 'center', padding: 'var(--space-3) var(--space-2)', borderBottom: '1px solid var(--neutral-100)' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isEnabled(cat.id, chan.id)} 
+                      onChange={(e) => updatePrefMutation.mutate({ category: cat.id, channel: chan.id, enabled: e.target.checked })}
+                      disabled={updatePrefMutation.isPending}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

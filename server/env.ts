@@ -22,6 +22,7 @@ const envSchema = z.object({
   PAYMOB_INTEGRATION_ID_CARD: z.string().optional(),
   PAYMOB_IFRAME_ID: z.string().optional(),
   PAYMOB_HMAC: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

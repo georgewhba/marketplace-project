@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2 } from 'lucide-react';
 
 const sidebarLinks = [
   { to: '/admin', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
+  { to: '/admin/analytics', icon: BarChart2, label: 'التحليلات' },
   { to: '/admin/vendors', icon: Store, label: 'البائعين' },
   { to: '/admin/commission-rules', icon: Tag, label: 'قواعد العمولة' },
   { to: '/admin/products', icon: Package, label: 'المنتجات' },
@@ -22,6 +23,7 @@ const sidebarLinks = [
 
 export function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -31,6 +33,17 @@ export function AdminLayout() {
           <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
             <Menu size={24} />
           </button>
+          
+          {location.pathname !== '/admin' && (
+            <button 
+              onClick={() => navigate(-1)} 
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)', padding: 'var(--space-1)' }}
+              title="رجوع"
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
+
           <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة الإدارة</span>
         </div>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>

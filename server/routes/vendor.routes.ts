@@ -15,11 +15,31 @@ import { slugify } from '../utils/slugify.js';
 import { processImage, deleteImage, validateImageMagicBytes } from '../utils/image.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import type { AppEnv } from '../types/env.js';
+import { 
+  getVendorOverview, 
+  getVendorProducts 
+} from '../services/analytics.service.js';
 import { calculateOrderStatus, shouldAdvanceOrderStatus } from '../utils/calculateOrderStatus.js';
 import { ShippingFactory } from '../services/shipping/shipping.factory.js';
 
 const vendorRoutes = new Hono<AppEnv>();
 vendorRoutes.use('*', authenticate, loadVendor);
+
+// GET /api/vendor/analytics/overview
+vendorRoutes.get('/analytics/overview', async (c) => {
+  const vendor = c.var.vendor!;
+  const days = parseInt(c.req.query('days') || '30', 10);
+  const data = await getVendorOverview(vendor.id, days);
+  return sendSuccess(c, data);
+});
+
+// GET /api/vendor/analytics/products
+vendorRoutes.get('/analytics/products', async (c) => {
+  const vendor = c.var.vendor!;
+  const days = parseInt(c.req.query('days') || '30', 10);
+  const data = await getVendorProducts(vendor.id, days);
+  return sendSuccess(c, data);
+});
 
 const productSchema = z.object({
   categoryId: z.number().int().positive(),

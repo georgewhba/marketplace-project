@@ -162,6 +162,8 @@ if (env.NODE_ENV === 'production') {
   });
 }
 
+import { initAnalyticsJobs } from './jobs/analytics.js';
+
 // Schedule settlements generation (runs daily at midnight)
 cron.schedule('0 0 * * *', async () => {
   try {
@@ -172,6 +174,9 @@ cron.schedule('0 0 * * *', async () => {
     console.error('[Cron] Error generating settlements:', error);
   }
 });
+
+// Initialize analytics background jobs
+initAnalyticsJobs();
 
 // Start server
 serve({

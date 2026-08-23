@@ -103,4 +103,44 @@ authRoutes.post('/mfa/disable', authenticate, validate('body', mfaTokenSchema), 
   return sendSuccess(c, { message: 'تم تعطيل المصادقة الثنائية بنجاح' });
 });
 
+import { db } from '../db/index.js';
+import { notificationPreferences } from '../db/schema/notifications-config.js';
+import { notifications } from '../db/schema/notifications.js';
+import { and, eq, count } from 'drizzle-orm';
+
+// GET /api/auth/me/notification-preferences
+authRoutes.get('/me/notification-preferences', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  const prefs = await db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
+  return sendSuccess(c, prefs);
+});
+
+// PUT /api/auth/me/notification-preferences
+authRoutes.put('/me/notification-preferences', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  const body = await c.req.json();
+  // Expect { category: string, channel: string, enabled: boolean }
+  
+  await db.insert(notificationPreferences)
+    .values({
+      userId,
+      category: body.category,
+      channel: body.channel,
+      enabled: body.enabled,
+    })
+    .onConflictDoUpdate({
+      target: [notificationPreferences.userId, notificationPreferences.category, notificationPreferences.channel],
+      set: { enabled: body.enabled },
+    });
+
+  return sendSuccess(c, { success: true });
+});
+
+// GET /api/auth/me/notifications/unread-count
+authRoutes.get('/me/notifications/unread-count', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  const result = await db.select({ value: count() }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+  return sendSuccess(c, { count: result[0]?.value ?? 0 });
+});
+
 export default authRoutes;

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2 } from 'lucide-react';
 
 const sidebarLinks = [
   { to: '/vendor', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
+  { to: '/vendor/analytics', icon: BarChart2, label: 'التحليلات' },
   { to: '/vendor/products', icon: Package, label: 'المنتجات' },
   { to: '/vendor/orders', icon: ShoppingCart, label: 'الطلبات' },
   { to: '/vendor/earnings', icon: DollarSign, label: 'الأرباح' },
@@ -14,6 +15,7 @@ const sidebarLinks = [
 
 export function VendorLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -23,6 +25,17 @@ export function VendorLayout() {
           <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
             <Menu size={24} />
           </button>
+          
+          {location.pathname !== '/vendor' && (
+            <button 
+              onClick={() => navigate(-1)} 
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)', padding: 'var(--space-1)' }}
+              title="رجوع"
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
+
           <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة البائع</span>
         </div>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
