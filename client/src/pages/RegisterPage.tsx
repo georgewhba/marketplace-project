@@ -26,7 +26,8 @@ export default function RegisterPage() {
         await registerVendor(form);
         toast.success('تم تسجيل متجرك — في انتظار الموافقة');
       } else {
-        await register(form);
+        const { storeName, storeDescription, ...userData } = form;
+        await register(userData);
         toast.success('تم إنشاء الحساب بنجاح');
       }
       navigate('/');
