@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 
+import { ArrowRight } from 'lucide-react';
+
 export default function RegisterPage() {
   const { pathname } = window.location;
   const isVendor = pathname.includes('/vendor');
@@ -40,6 +42,10 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-page">
+      <Link to="/" className="auth-back-btn">
+        <ArrowRight size={18} />
+        <span>العودة للمتجر</span>
+      </Link>
       <div className="auth-card" style={{ maxWidth: isVendor ? 520 : 440 }}>
         <h1 className="auth-card__title">{isVendor ? 'سجّل متجرك' : 'إنشاء حساب'}</h1>
         <p className="auth-card__subtitle">

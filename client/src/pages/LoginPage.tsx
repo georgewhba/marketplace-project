@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 
+import { ArrowRight } from 'lucide-react';
+
 export default function LoginPage() {
   const { login } = useAuth();
   const toast = useToast();
@@ -27,6 +29,10 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
+      <Link to="/" className="auth-back-btn">
+        <ArrowRight size={18} />
+        <span>العودة للمتجر</span>
+      </Link>
       <div className="auth-card">
         <h1 className="auth-card__title">تسجيل الدخول</h1>
         <p className="auth-card__subtitle">أهلاً بك في سوق مصر</p>
