@@ -19,6 +19,12 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const WishlistPage = lazy(() => import('./pages/WishlistPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const ServerErrorPage = lazy(() => import('./pages/ServerErrorPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const ReturnPolicyPage = lazy(() => import('./pages/ReturnPolicyPage'));
+const ShippingPolicyPage = lazy(() => import('./pages/ShippingPolicyPage'));
+const FaqPage = lazy(() => import('./pages/FaqPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
 
 // Vendor pages
 const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
@@ -102,6 +108,12 @@ export default function App() {
               <Route path="/orders" element={<StoreLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StoreLayout>} />
               <Route path="/wishlist" element={<StoreLayout><ProtectedRoute><WishlistPage /></ProtectedRoute></StoreLayout>} />
               <Route path="/profile" element={<StoreLayout><ProtectedRoute><ProfilePage /></ProtectedRoute></StoreLayout>} />
+              <Route path="/terms" element={<StoreLayout><Suspense fallback={<Loading />}><TermsPage /></Suspense></StoreLayout>} />
+              <Route path="/privacy" element={<StoreLayout><Suspense fallback={<Loading />}><PrivacyPage /></Suspense></StoreLayout>} />
+              <Route path="/return-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ReturnPolicyPage /></Suspense></StoreLayout>} />
+              <Route path="/shipping-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ShippingPolicyPage /></Suspense></StoreLayout>} />
+              <Route path="/faq" element={<StoreLayout><Suspense fallback={<Loading />}><FaqPage /></Suspense></StoreLayout>} />
+              <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
 
               {/* Vendor dashboard */}
               <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>

@@ -126,18 +126,18 @@ export function Footer() {
         <div>
           <div className="footer__title">خدمة العملاء</div>
           <div className="footer__links">
-            <a href="#">سياسة الإرجاع</a>
-            <a href="#">الشحن والتوصيل</a>
-            <a href="#">الأسئلة الشائعة</a>
-            <a href="#">تواصل معنا</a>
+            <Link to="/return-policy">سياسة الإرجاع</Link>
+            <Link to="/shipping-policy">الشحن والتوصيل</Link>
+            <Link to="/faq">الأسئلة الشائعة</Link>
+            <Link to="/contact">تواصل معنا</Link>
           </div>
         </div>
         <div>
           <div className="footer__title">انضم كبائع</div>
           <div className="footer__links">
             <Link to="/register/vendor">سجّل متجرك</Link>
-            <a href="#">شروط الاستخدام</a>
-            <a href="#">سياسة الخصوصية</a>
+            <Link to="/terms">شروط الاستخدام</Link>
+            <Link to="/privacy">سياسة الخصوصية</Link>
           </div>
         </div>
       </div>
