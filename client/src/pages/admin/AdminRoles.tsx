@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useToast } from '../../toast';
-import { Shield, Plus, Edit, Trash2 } from 'lucide-react';
+import { Shield, Plus, Edit } from 'lucide-react';
 
 export default function AdminRoles() {
   const queryClient = useQueryClient();
