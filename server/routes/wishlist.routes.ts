@@ -36,8 +36,20 @@ wishlistRoutes.get('/', async (c) => {
     : [];
 
   const enriched = items.map(item => ({
-    ...item,
-    productImage: images.find(img => img.productId === item.productId)?.imageUrl ?? null,
+    id: item.id,
+    createdAt: item.createdAt,
+    product: {
+      id: item.productId,
+      name: item.productName,
+      slug: item.productSlug,
+      price: item.productPrice,
+      compareAtPrice: item.productComparePrice,
+      rating: item.productRating,
+      stock: item.productStock,
+      images: images.find(img => img.productId === item.productId)
+        ? [{ url: images.find(img => img.productId === item.productId)!.imageUrl }]
+        : [],
+    }
   }));
 
   return sendSuccess(c, enriched);
