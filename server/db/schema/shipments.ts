@@ -1,6 +1,6 @@
 import { pgTable, serial, integer, varchar, decimal, timestamp, index } from 'drizzle-orm/pg-core';
-import { orders } from './orders';
-import { vendors } from './vendors';
+import { orders } from './orders.js';
+import { vendors } from './vendors.js';
 
 export const shipments = pgTable('shipments', {
   id: serial('id').primaryKey(),
