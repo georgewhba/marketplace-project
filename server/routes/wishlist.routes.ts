@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db/index.js';
 import { wishlists, products, productImages } from '../db/schema/index.js';
-import { eq, and, sql, asc } from 'drizzle-orm';
+import { eq, and, sql, asc, inArray } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
@@ -32,7 +32,7 @@ wishlistRoutes.get('/', async (c) => {
 
   const productIds = items.map(i => i.productId);
   const images = productIds.length > 0
-    ? await db.select().from(productImages).where(sql`${productImages.productId} IN ${productIds}`).orderBy(asc(productImages.sortOrder))
+    ? await db.select().from(productImages).where(inArray(productImages.productId, productIds)).orderBy(asc(productImages.sortOrder))
     : [];
 
   const enriched = items.map(item => ({
