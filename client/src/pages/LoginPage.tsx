@@ -74,40 +74,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo credentials */}
-        <div style={{
-          marginTop: 'var(--space-6)', padding: 'var(--space-4)',
-          background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)',
-          fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)',
-        }}>
-          <strong>حسابات تجريبية:</strong>
-          <div style={{ marginTop: 'var(--space-2)' }}>
-            <button
-              type="button"
-              className="btn-link"
-              style={{ fontSize: 'var(--font-size-xs)', display: 'block', marginBottom: 4 }}
-              onClick={() => { setEmail('admin@marketplace.com'); setPassword('Admin@123456'); }}
-            >
-              مدير: admin@marketplace.com
-            </button>
-            <button
-              type="button"
-              className="btn-link"
-              style={{ fontSize: 'var(--font-size-xs)', display: 'block', marginBottom: 4 }}
-              onClick={() => { setEmail('sony@marketplace.com'); setPassword('Vendor@123456'); }}
-            >
-              بائع: sony@marketplace.com
-            </button>
-            <button
-              type="button"
-              className="btn-link"
-              style={{ fontSize: 'var(--font-size-xs)', display: 'block' }}
-              onClick={() => { setEmail('omar@example.com'); setPassword('Customer@123456'); }}
-            >
-              عميل: omar@example.com
-            </button>
-          </div>
-        </div>
+
       </div>
     </div>
   );
