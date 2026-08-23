@@ -1,5 +1,5 @@
 import { pgTable, serial, varchar, integer, boolean, timestamp, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { users } from './users';
+import { users } from './users.js';
 
 export const notificationPreferences = pgTable('notification_preferences', {
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
