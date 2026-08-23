@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield } from 'lucide-react';
 
 const sidebarLinks = [
   { to: '/admin', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
@@ -13,6 +13,7 @@ const sidebarLinks = [
   { to: '/admin/settlements', icon: DollarSign, label: 'التسويات' },
   { to: '/admin/payouts', icon: DollarSign, label: 'طلبات السحب' },
   { to: '/admin/users', icon: Users, label: 'المستخدمين' },
+  { to: '/admin/roles', icon: Shield, label: 'الأدوار والصلاحيات' },
   { to: '/admin/categories', icon: Tag, label: 'الأقسام' },
   { to: '/admin/refunds', icon: Undo, label: 'المرتجعات' },
   { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات' },
@@ -25,11 +26,16 @@ export function AdminLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header">
-        <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-          <Menu size={24} />
-        </button>
-        <span style={{ fontWeight: 'bold' }}>لوحة الإدارة</span>
+      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'white', borderBottom: '1px solid var(--neutral-200)', position: 'sticky', top: 0, zIndex: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
+            <Menu size={24} />
+          </button>
+          <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة الإدارة</span>
+        </div>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+          العودة للمتجر
+        </Link>
       </div>
       
       {isSidebarOpen && (

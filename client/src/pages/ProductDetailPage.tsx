@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { storeApi, cartApi, wishlistApi } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
@@ -10,6 +11,7 @@ export default function ProductDetailPage() {
   const { slug } = useParams();
   const { user } = useAuth();
   const toast = useToast();
+  const qc = useQueryClient();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -44,6 +46,7 @@ export default function ProductDetailPage() {
       const res = await wishlistApi.toggle(product.id) as any;
       const data = res.data || res;
       toast.success(data.wishlisted ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة');
+      qc.invalidateQueries({ queryKey: ['wishlist'] });
     } catch (e: any) {
       toast.error(e.message);
     }

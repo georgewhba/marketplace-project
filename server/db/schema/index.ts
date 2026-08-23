@@ -23,3 +23,5 @@ export * from './shipment-events.js';
 export { commissionRules, type CommissionRule, type NewCommissionRule } from './commission-rules.js';
 export { settlements, type Settlement, type NewSettlement } from './settlements.js';
 export { payoutRequests, type PayoutRequest, type NewPayoutRequest } from './payout-requests.js';
+export { mfaSecrets, type MfaSecret, type NewMfaSecret } from './mfa-secrets.js';
+export * from './rbac.js';

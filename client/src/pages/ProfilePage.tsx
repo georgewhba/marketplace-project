@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '../auth';
 import { authApi } from '../api';
 import { useToast } from '../toast';
-import { User, Mail, Phone, Lock, Save } from 'lucide-react';
+import { User, Mail, Phone, Lock, Save, Shield } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -11,6 +11,10 @@ export default function ProfilePage() {
 
   const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  
+  // MFA state
+  const [mfaSetup, setMfaSetup] = useState<any>(null);
+  const [mfaToken, setMfaToken] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -36,6 +40,37 @@ export default function ProfilePage() {
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     },
     onError: (err: Error) => addToast(err.message || 'حدث خطأ', 'error'),
+  });
+
+  const setupMfaMutation = useMutation({
+    mutationFn: () => authApi.setupMfa(),
+    onSuccess: (data) => {
+      setMfaSetup(data);
+    },
+    onError: (err: any) => addToast(err.message || 'حدث خطأ في إعداد المصادقة', 'error'),
+  });
+
+  const verifyMfaMutation = useMutation({
+    mutationFn: () => authApi.verifyMfa(mfaToken),
+    onSuccess: () => {
+      addToast('تم تفعيل المصادقة الثنائية بنجاح', 'success');
+      setMfaSetup(null);
+      setMfaToken('');
+      // Force refresh user to update mfaEnabled flag
+      window.dispatchEvent(new Event('auth:refresh'));
+      window.location.reload();
+    },
+    onError: (err: any) => addToast(err.message || 'رمز التحقق غير صحيح', 'error'),
+  });
+
+  const disableMfaMutation = useMutation({
+    mutationFn: () => authApi.disableMfa(mfaToken),
+    onSuccess: () => {
+      addToast('تم تعطيل المصادقة الثنائية بنجاح', 'success');
+      setMfaToken('');
+      window.location.reload();
+    },
+    onError: (err: any) => addToast(err.message || 'رمز التحقق غير صحيح', 'error'),
   });
 
   return (
@@ -102,6 +137,96 @@ export default function ProfilePage() {
             <Lock size={16} /> {passwordMutation.isPending ? 'جاري التغيير...' : 'تغيير كلمة المرور'}
           </button>
         </form>
+      </div>
+
+      {/* Two-Factor Authentication (MFA) */}
+      <div className="card" style={{ padding: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
+        <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-base)', fontWeight: 600 }}>
+          <Shield size={18} color="var(--primary-500)" /> المصادقة الثنائية (2FA)
+        </h3>
+        
+        {user?.mfaEnabled ? (
+          <div>
+            <p style={{ color: 'var(--success-600)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
+              المصادقة الثنائية مفعلة حالياً لحسابك.
+            </p>
+            <div className="form-group">
+              <label className="form-label">رمز التحقق لتعطيل المصادقة</label>
+              <input 
+                className="input" 
+                type="text" 
+                value={mfaToken} 
+                onChange={e => setMfaToken(e.target.value)} 
+                placeholder="123456" 
+                style={{ textAlign: 'center', letterSpacing: '0.2em' }} 
+              />
+            </div>
+            <button 
+              className="btn btn--danger" 
+              onClick={() => disableMfaMutation.mutate()} 
+              disabled={disableMfaMutation.isPending || mfaToken.length < 6}
+            >
+              {disableMfaMutation.isPending ? 'جاري التعطيل...' : 'تعطيل المصادقة الثنائية'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ marginBottom: 'var(--space-4)' }}>
+              أضف طبقة حماية إضافية لحسابك باستخدام تطبيق مصادقة (مثل Google Authenticator).
+            </p>
+            
+            {!mfaSetup ? (
+              <button 
+                className="btn btn--outline" 
+                onClick={() => setupMfaMutation.mutate()} 
+                disabled={setupMfaMutation.isPending}
+              >
+                {setupMfaMutation.isPending ? 'جاري الإعداد...' : 'إعداد المصادقة الثنائية'}
+              </button>
+            ) : (
+              <div style={{ background: 'var(--neutral-50)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>1. قم بمسح رمز الاستجابة السريعة (QR Code):</p>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: '#fff', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                  <img src={mfaSetup.qrCodeUrl} alt="MFA QR Code" style={{ maxWidth: '100%', height: 'auto' }} />
+                </div>
+                
+                <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>2. أو أدخل الرمز السري يدوياً:</p>
+                <code style={{ display: 'block', padding: 'var(--space-3)', background: '#fff', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)' }}>
+                  {mfaSetup.secret}
+                </code>
+
+                <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>3. أدخل الرمز المكون من 6 أرقام للتفعيل:</p>
+                <div className="form-group" style={{ marginBottom: 'var(--space-3)' }}>
+                  <input 
+                    className="input" 
+                    type="text" 
+                    value={mfaToken} 
+                    onChange={e => setMfaToken(e.target.value)} 
+                    placeholder="123456" 
+                    style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: '1.2rem' }} 
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <button 
+                    className="btn btn--primary" 
+                    onClick={() => verifyMfaMutation.mutate()} 
+                    disabled={verifyMfaMutation.isPending || mfaToken.length < 6}
+                    style={{ flex: 1 }}
+                  >
+                    {verifyMfaMutation.isPending ? 'جاري التفعيل...' : 'تفعيل المصادقة'}
+                  </button>
+                  <button 
+                    className="btn btn--outline" 
+                    onClick={() => setMfaSetup(null)}
+                    style={{ flex: 1 }}
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

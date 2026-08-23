@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vendorApi } from '../../api';
+import { vendorApi, storeApi } from '../../api';
 import { useToast } from '../../toast';
 import { Plus, Edit2, Trash2, Eye, EyeOff, Image, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 
@@ -38,8 +38,14 @@ export default function VendorProducts() {
     queryFn: () => vendorApi.getProducts(page),
   });
 
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => storeApi.getCategories(),
+  });
+
   const products: Product[] = data?.data ?? [];
   const meta = data?.meta;
+  const categories = categoriesData || [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -72,7 +78,7 @@ export default function VendorProducts() {
       qc.invalidateQueries({ queryKey: ['vendor-products'] });
       resetForm();
     },
-    onError: () => addToast('حدث خطأ أثناء الحفظ', 'error'),
+    onError: (err: any) => addToast(err?.message || 'حدث خطأ أثناء الحفظ', 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -81,7 +87,7 @@ export default function VendorProducts() {
       addToast('تم حذف المنتج', 'success');
       qc.invalidateQueries({ queryKey: ['vendor-products'] });
     },
-    onError: () => addToast('حدث خطأ أثناء الحذف', 'error'),
+    onError: (err: any) => addToast(err?.message || 'حدث خطأ أثناء الحذف', 'error'),
   });
 
   function resetForm() {
@@ -163,8 +169,18 @@ export default function VendorProducts() {
                     <input className="input" type="number" required value={form.stock} onChange={e => setForm(f => ({ ...f, stock: parseInt(e.target.value) || 0 }))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">رقم القسم *</label>
-                    <input className="input" type="number" required value={form.categoryId || ''} onChange={e => setForm(f => ({ ...f, categoryId: parseInt(e.target.value) || 0 }))} />
+                    <label className="form-label">القسم *</label>
+                    <select 
+                      className="input" 
+                      value={form.categoryId || ''} 
+                      onChange={e => setForm({ ...form, categoryId: parseInt(e.target.value) })}
+                      required
+                    >
+                      <option value="" disabled>اختر القسم</option>
+                      {categories.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)' }}>

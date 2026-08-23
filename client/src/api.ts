@@ -46,11 +46,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    let msg = (err as any)?.error?.message || 'حدث خطأ';
     const details = (err as any)?.error?.details;
-    if (Array.isArray(details) && details.length > 0 && details[0].message) {
-      msg = details[0].message;
-    }
+    const msg = (Array.isArray(details) && details.length > 0 && details[0].message) 
+      ? details[0].message 
+      : ((err as any)?.error?.message || 'حدث خطأ');
+      
     throw new ApiError(res.status, msg);
   }
 
@@ -90,6 +90,10 @@ export const authApi = {
   getProfile: () => api.get<any>('/auth/me'),
   updateProfile: (data: any) => api.put<any>('/auth/me', data),
   changePassword: (data: any) => api.put<any>('/auth/me/password', data),
+  setupMfa: () => api.post<any>('/auth/mfa/setup'),
+  verifyMfa: (token: string) => api.post<any>('/auth/mfa/verify', { token }),
+  challengeMfa: (token: string) => api.post<any>('/auth/mfa/challenge', { token }),
+  disableMfa: (token: string) => api.post<any>('/auth/mfa/disable', { token }),
 };
 
 // Store
@@ -132,6 +136,11 @@ export const addressApi = {
   updateAddress: (id: number, data: any) => api.put<any>(`/addresses/${id}`, data),
   deleteAddress: (id: number) => api.delete<any>(`/addresses/${id}`),
   setDefault: (id: number) => api.put<any>(`/addresses/${id}/default`),
+};
+
+// Payments
+export const paymentApi = {
+  initiate: (data: { orderId: number; method: string }) => api.post<any>('/payments/initiate', data),
 };
 
 // Reviews

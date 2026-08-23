@@ -28,6 +28,7 @@ import uploadRoutes from './routes/upload.routes.js';
 import paymentsRoutes from './routes/payments.routes.js';
 import refundsRoutes from './routes/refunds.routes.js';
 import webhooksRoutes from './routes/webhooks.routes.js';
+import roleRoutes from './routes/roles.routes.js';
 
 // Initialize Sentry before anything else
 if (env.SENTRY_DSN) {
@@ -141,6 +142,7 @@ app.route('/api/upload', uploadRoutes);
 app.route('/api/payments', paymentsRoutes);
 app.route('/api/refunds', refundsRoutes);
 app.route('/api/webhooks', webhooksRoutes);
+app.route('/api/roles', roleRoutes);
 
 // Serve uploaded files
 app.use('/uploads/*', serveStatic({ root: './' }));

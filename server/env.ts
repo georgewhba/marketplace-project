@@ -6,7 +6,8 @@ config();
 const envSchema = z.object({
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection string'),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
-  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'Refresh secret must be at least 32 characters'),
+  SMTP_HOST: z.string().optional(),
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
   PORT: z.coerce.number().int().positive().default(3000),

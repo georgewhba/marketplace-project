@@ -18,11 +18,16 @@ export function VendorLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header">
-        <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-          <Menu size={24} />
-        </button>
-        <span style={{ fontWeight: 'bold' }}>لوحة البائع</span>
+      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'white', borderBottom: '1px solid var(--neutral-200)', position: 'sticky', top: 0, zIndex: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
+            <Menu size={24} />
+          </button>
+          <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة البائع</span>
+        </div>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+          العودة للمتجر
+        </Link>
       </div>
       
       {isSidebarOpen && (

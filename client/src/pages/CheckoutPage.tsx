@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { addressApi, orderApi, cartApi } from '../api';
+import { useNavigate, Link } from 'react-router-dom';
+import { addressApi, orderApi, cartApi, paymentApi } from '../api';
 import { useToast } from '../toast';
-import { MapPin, Plus, CheckCircle } from 'lucide-react';
+import { MapPin, Plus, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function CheckoutPage() {
   const toast = useToast();
@@ -63,26 +63,11 @@ export default function CheckoutPage() {
       const orderId = order.id || order.orderId || order.data?.id; // fallback depending on response format
 
       // 2. Initiate Payment
-      const paymentRes = await fetch('/api/payments/initiate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({
-          orderId,
-          method: paymentMethod
-        })
-      });
+      const paymentData = await paymentApi.initiate({ orderId, method: paymentMethod }) as any;
+      const data = paymentData.data || paymentData;
 
-      const paymentData = await paymentRes.json();
-      
-      if (!paymentRes.ok) {
-        throw new Error(paymentData?.error?.message || paymentData?.error || 'فشل تهيئة الدفع');
-      }
-
-      if (paymentMethod === 'card' && paymentData.data?.iframeUrl) {
-        window.location.href = paymentData.data.iframeUrl;
+      if (paymentMethod === 'card' && data?.iframeUrl) {
+        window.location.href = data.iframeUrl;
       } else {
         toast.success(`تم تأكيد الطلب بنجاح`);
         navigate(`/orders`);
@@ -100,7 +85,12 @@ export default function CheckoutPage() {
 
   return (
     <div className="container page-content">
-      <h1 className="page-header__title mb-8">إتمام الشراء</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
+        <Link to="/cart" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--primary-600)', textDecoration: 'none', fontWeight: 500 }}>
+          <ArrowRight size={18} /> العودة للسلة
+        </Link>
+        <h1 className="page-header__title mb-0">إتمام الشراء</h1>
+      </div>
 
       <div className="flex gap-8" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 500px' }}>

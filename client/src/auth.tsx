@@ -10,12 +10,14 @@ interface User {
   phone?: string;
   avatarUrl?: string;
   vendor?: any;
+  mfaEnabled?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
+  mfaLogin: (tempToken: string, token: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   registerVendor: (data: any) => Promise<void>;
   logout: () => Promise<void>;
@@ -50,9 +52,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:logout', onLogout);
   }, [refreshProfile]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<any> => {
     const res = await authApi.login({ email, password }) as any;
     const data = res.data || res;
+    
+    if (data.requiresMfa) {
+      return { requiresMfa: true, tempToken: data.tempToken };
+    }
+    
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+    return { requiresMfa: false };
+  };
+  
+  const mfaLogin = async (tempToken: string, token: string) => {
+    // Override default header behavior to pass tempToken, since it's a special route
+    const res = await fetch('/api/auth/mfa/challenge', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tempToken}`
+      },
+      body: JSON.stringify({ token })
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'رمز غير صحيح');
+    }
+    
+    const json = await res.json();
+    const data = json.data || json;
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setUser(data.user);
@@ -85,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, registerVendor, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, isLoading, login, mfaLogin, register, registerVendor, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

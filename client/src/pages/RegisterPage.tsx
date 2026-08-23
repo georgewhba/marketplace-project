@@ -94,9 +94,13 @@ export default function RegisterPage() {
             </>
           )}
 
-          <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', marginBottom: 'var(--space-4)' }} disabled={loading}>
             {loading ? 'جارٍ التسجيل...' : (isVendor ? 'سجّل متجرك' : 'إنشاء حساب')}
           </button>
+          
+          <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', textAlign: 'center' }}>
+            بإنشائك للحساب، أنت توافق على <Link to="/terms" style={{ textDecoration: 'underline' }}>شروط الاستخدام</Link> و <Link to="/privacy" style={{ textDecoration: 'underline' }}>سياسة الخصوصية</Link> الخاصة بنا.
+          </p>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-6)', fontSize: 'var(--font-size-sm)' }}>

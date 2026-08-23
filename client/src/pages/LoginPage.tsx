@@ -6,20 +6,35 @@ import { useToast } from '../toast';
 import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, mfaLogin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaToken, setMfaToken] = useState('');
+  const [tempToken, setTempToken] = useState('');
+  const [showMfa, setShowMfa] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      toast.success('تم تسجيل الدخول بنجاح');
-      navigate('/');
+      if (showMfa) {
+        await mfaLogin(tempToken, mfaToken);
+        toast.success('تم تسجيل الدخول بنجاح');
+        navigate('/');
+      } else {
+        const result = await login(email, password);
+        if (result?.requiresMfa) {
+          setShowMfa(true);
+          setTempToken(result.tempToken);
+          toast.success('يرجى إدخال رمز التحقق (MFA)');
+        } else {
+          toast.success('تم تسجيل الدخول بنجاح');
+          navigate('/');
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || 'فشل تسجيل الدخول');
     } finally {
@@ -38,31 +53,49 @@ export default function LoginPage() {
         <p className="auth-card__subtitle">أهلاً بك في سوق مصر</p>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group mb-4">
-            <label className="form-label">البريد الإلكتروني</label>
-            <input
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-              required
-              dir="ltr"
-            />
-          </div>
+          {showMfa ? (
+            <div className="form-group mb-4">
+              <label className="form-label">رمز التحقق (Authenticator App)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={mfaToken}
+                onChange={(e) => setMfaToken(e.target.value)}
+                placeholder="123456"
+                required
+                dir="ltr"
+                style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: '1.2rem' }}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="form-group mb-4">
+                <label className="form-label">البريد الإلكتروني</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  required
+                  dir="ltr"
+                />
+              </div>
 
-          <div className="form-group mb-6">
-            <label className="form-label">كلمة المرور</label>
-            <input
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              dir="ltr"
-            />
-          </div>
+              <div className="form-group mb-4">
+                <label className="form-label">كلمة المرور</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  dir="ltr"
+                />
+              </div>
+            </>
+          )}
 
           <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'جارٍ التسجيل...' : 'تسجيل الدخول'}

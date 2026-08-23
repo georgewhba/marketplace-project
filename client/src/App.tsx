@@ -42,6 +42,7 @@ const AdminRefunds = lazy(() => import('./pages/admin/AdminRefunds'));
 const AdminCommissionRules = lazy(() => import('./pages/admin/AdminCommissionRules').then(m => ({ default: m.AdminCommissionRules })));
 const AdminSettlements = lazy(() => import('./pages/admin/AdminSettlements').then(m => ({ default: m.AdminSettlements })));
 const AdminPayouts = lazy(() => import('./pages/admin/AdminPayouts').then(m => ({ default: m.AdminPayouts })));
+const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
 
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
@@ -136,6 +137,7 @@ export default function App() {
                 <Route path="commission-rules" element={<Suspense fallback={<Loading />}><AdminCommissionRules /></Suspense>} />
                 <Route path="settlements" element={<Suspense fallback={<Loading />}><AdminSettlements /></Suspense>} />
                 <Route path="payouts" element={<Suspense fallback={<Loading />}><AdminPayouts /></Suspense>} />
+                <Route path="roles" element={<Suspense fallback={<Loading />}><AdminRoles /></Suspense>} />
                 <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
                 <Route path="coupons" element={<div style={{ padding: 'var(--space-6)' }}><h2>الكوبونات — قريباً</h2></div>} />
                 <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />

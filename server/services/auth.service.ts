@@ -2,11 +2,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { users, refreshTokens, vendors } from '../db/schema/index.js';
+import { users, refreshTokens, vendors, mfaSecrets } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
+import { encryptSecret, decryptSecret, generateSecret, generateQRCode, verifyTOTP, generateBackupCodes } from '../utils/mfa.js';
 import type {
   RegisterInput,
   VendorRegisterInput,
@@ -176,6 +177,21 @@ export async function login(input: LoginInput) {
     throw AppError.unauthorized('بريد إلكتروني أو كلمة مرور غير صحيحة');
   }
 
+  // Check MFA
+  const [mfa] = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, user.id)).limit(1);
+
+  if (mfa?.enabled) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role, purpose: 'mfa_temp' },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: '5m' }
+    );
+    return {
+      requiresMfa: true,
+      tempToken,
+    };
+  }
+
   const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
   const refreshTokenValue = generateRefreshTokenValue();
   const refreshTokenHash = hashToken(refreshTokenValue);
@@ -256,9 +272,15 @@ export async function logout(tokenValue: string) {
 export async function getProfile(userId: number) {
   const [user] = await db
     .select({
-      id: users.id, email: users.email, firstName: users.firstName,
-      lastName: users.lastName, phone: users.phone, role: users.role,
-      avatarUrl: users.avatarUrl, createdAt: users.createdAt,
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      role: users.role,
+      avatarUrl: users.avatarUrl,
+      isActive: users.isActive,
+      createdAt: users.createdAt,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -273,7 +295,9 @@ export async function getProfile(userId: number) {
     vendorInfo = vendor ?? null;
   }
 
-  return { ...user, vendor: vendorInfo };
+  const [mfa] = await db.select({ enabled: mfaSecrets.enabled }).from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+
+  return { ...user, vendor: vendorInfo, mfaEnabled: mfa?.enabled ?? false };
 }
 
 export async function updateProfile(userId: number, input: UpdateProfileInput) {
@@ -287,33 +311,130 @@ export async function updateProfile(userId: number, input: UpdateProfileInput) {
     .set(updateData)
     .where(eq(users.id, userId))
     .returning({
-      id: users.id, email: users.email, firstName: users.firstName,
-      lastName: users.lastName, phone: users.phone, role: users.role,
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      role: users.role,
       avatarUrl: users.avatarUrl,
     });
 
-  if (!updated) throw AppError.notFound('المستخدم');
+  if (!updated) throw AppError.internal();
   return updated;
 }
 
 export async function changePassword(userId: number, input: ChangePasswordInput) {
-  const [user] = await db
-    .select({ passwordHash: users.passwordHash })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!user) throw AppError.notFound('المستخدم');
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) throw AppError.unauthorized();
 
   const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
-  if (!valid) {
-    throw AppError.badRequest('كلمة المرور الحالية غير صحيحة');
-  }
+  if (!valid) throw AppError.badRequest('كلمة المرور الحالية غير صحيحة');
 
   const newHash = await bcrypt.hash(input.newPassword, SALT_ROUNDS);
+  await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
 
-  await db.update(users).set({ passwordHash: newHash, updatedAt: new Date() }).where(eq(users.id, userId));
-
-  // Revoke ALL refresh tokens for this user — forces re-login on all devices
+  // Invalidate refresh tokens
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+}
+
+export async function setupMFA(userId: number, email: string) {
+  const { secret, uri } = generateSecret(email);
+  const encryptedSecret = encryptSecret(secret);
+  
+  const existing = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+  if (existing.length > 0) {
+    await db.update(mfaSecrets).set({ secretEncrypted: encryptedSecret, enabled: false }).where(eq(mfaSecrets.userId, userId));
+  } else {
+    await db.insert(mfaSecrets).values({ userId, secretEncrypted: encryptedSecret, enabled: false });
+  }
+
+  const qrCode = await generateQRCode(uri);
+  return { secret, qrCode };
+}
+
+export async function verifyAndEnableMFA(userId: number, token: string) {
+  const [mfa] = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+  if (!mfa || mfa.enabled) throw AppError.badRequest('MFA is not pending setup');
+
+  const secret = decryptSecret(mfa.secretEncrypted);
+  if (!verifyTOTP(token, secret)) {
+    throw AppError.badRequest('رمز التحقق غير صحيح');
+  }
+
+  const { plain: backupCodes, hashed: hashedCodes } = await generateBackupCodes();
+
+  await db.update(mfaSecrets).set({ enabled: true, backupCodesHashed: hashedCodes }).where(eq(mfaSecrets.userId, userId));
+  
+  return { backupCodes };
+}
+
+export async function verifyMFAChallenge(userId: number, token: string) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [mfa] = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+  
+  if (!user || !mfa || !mfa.enabled) {
+    throw AppError.badRequest('MFA is not enabled');
+  }
+
+  let isValid = false;
+  let usedBackupCodeIndex = -1;
+
+  const secret = decryptSecret(mfa.secretEncrypted);
+  isValid = verifyTOTP(token, secret);
+
+  const mfaBackupCodes = (mfa.backupCodesHashed as string[]) || [];
+
+  if (!isValid && mfaBackupCodes && mfaBackupCodes.length > 0) {
+    for (let i = 0; i < mfaBackupCodes.length; i++) {
+      if (await bcrypt.compare(token, mfaBackupCodes[i]!)) {
+        isValid = true;
+        usedBackupCodeIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (!isValid) {
+    throw AppError.unauthorized('رمز التحقق غير صحيح');
+  }
+
+  if (usedBackupCodeIndex !== -1) {
+    const newBackupCodes = [...mfaBackupCodes];
+    newBackupCodes.splice(usedBackupCodeIndex, 1);
+    await db.update(mfaSecrets).set({ backupCodesHashed: newBackupCodes }).where(eq(mfaSecrets.userId, userId));
+  }
+
+  const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
+  const refreshTokenValue = generateRefreshTokenValue();
+  const refreshTokenHash = hashToken(refreshTokenValue);
+  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+
+  await db.insert(refreshTokens).values({
+    userId: user.id,
+    tokenHash: refreshTokenHash,
+    expiresAt,
+  });
+
+  return {
+    user: {
+      id: user.id, email: user.email, firstName: user.firstName,
+      lastName: user.lastName, role: user.role, phone: user.phone,
+      avatarUrl: user.avatarUrl,
+    },
+    accessToken,
+    refreshToken: refreshTokenValue,
+  };
+}
+
+export async function disableMFA(userId: number, token: string) {
+  const [mfa] = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+  if (!mfa || !mfa.enabled) throw AppError.badRequest('MFA is already disabled');
+
+  const secret = decryptSecret(mfa.secretEncrypted);
+  if (!verifyTOTP(token, secret)) {
+    throw AppError.badRequest('رمز التحقق غير صحيح');
+  }
+
+  await db.delete(mfaSecrets).where(eq(mfaSecrets.userId, userId));
 }

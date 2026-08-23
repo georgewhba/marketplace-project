@@ -5,6 +5,7 @@ import {
   users, vendors, categories, products, productImages,
   addresses, orders, orderItems, reviews, transactions,
   notifications, coupons, siteSettings, wishlists,
+  roles, permissions, rolePermissions, userRoles,
 } from './schema/index.js';
 import { env } from '../env.js';
 
@@ -14,6 +15,10 @@ async function seed() {
   console.log('🌱 Seeding database...\n');
 
   // Clear existing data in reverse dependency order
+  await db.delete(userRoles);
+  await db.delete(rolePermissions);
+  await db.delete(permissions);
+  await db.delete(roles);
   await db.delete(wishlists);
   await db.delete(notifications);
   await db.delete(transactions);
@@ -31,6 +36,43 @@ async function seed() {
 
   console.log('  ✓ Cleared existing data');
 
+  // ─── RBAC: ROLES & PERMISSIONS ───
+  const [superAdminRole] = await db.insert(roles).values({
+    name: 'super_admin',
+    isSystem: true,
+  }).returning();
+  
+  const [supportRole] = await db.insert(roles).values({
+    name: 'support_agent',
+    isSystem: true,
+  }).returning();
+
+  const permissionsList = [
+    { key: 'vendors.approve', description: 'Approve or reject vendors' },
+    { key: 'vendors.suspend', description: 'Suspend vendors' },
+    { key: 'products.moderate', description: 'Edit or delete any product' },
+    { key: 'orders.view', description: 'View all orders' },
+    { key: 'orders.refund', description: 'Process order refunds' },
+    { key: 'users.manage', description: 'Manage users and roles' },
+    { key: 'settings.edit', description: 'Edit site settings' },
+    { key: 'commission.manage', description: 'Manage commission rules' },
+    { key: 'payouts.approve', description: 'Approve vendor payouts' },
+    { key: 'analytics.view', description: 'View advanced analytics' },
+  ];
+
+  const insertedPerms = await db.insert(permissions).values(permissionsList).returning();
+  
+  // Assign all permissions to super_admin
+  await db.insert(rolePermissions).values(
+    insertedPerms.map(p => ({ roleId: superAdminRole!.id, permissionId: p.id }))
+  );
+  // Assign basic permissions to support_agent
+  await db.insert(rolePermissions).values([
+    { roleId: supportRole!.id, permissionId: insertedPerms.find(p => p.key === 'orders.view')!.id }
+  ]);
+
+  console.log('  ✓ Roles and permissions created');
+
   // ─── ADMIN ───
   const adminHash = await bcrypt.hash(env.SEED_ADMIN_PASSWORD, SALT_ROUNDS);
   const [admin] = await db.insert(users).values({
@@ -43,6 +85,9 @@ async function seed() {
     isActive: true,
     emailVerifiedAt: new Date(),
   }).returning();
+  
+  // Attach super_admin role to admin user
+  await db.insert(userRoles).values({ userId: admin!.id, roleId: superAdminRole!.id });
   console.log('  ✓ Admin created');
 
   // ─── VENDOR USERS ───

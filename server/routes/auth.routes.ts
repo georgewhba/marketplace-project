@@ -6,9 +6,9 @@ import { sendSuccess, sendCreated } from '../utils/response.js';
 import * as authService from '../services/auth.service.js';
 import {
   registerSchema, vendorRegisterSchema, loginSchema,
-  refreshSchema, updateProfileSchema, changePasswordSchema,
+  refreshSchema, updateProfileSchema, changePasswordSchema, mfaTokenSchema,
   type RegisterInput, type VendorRegisterInput, type LoginInput,
-  type RefreshInput, type UpdateProfileInput, type ChangePasswordInput,
+  type RefreshInput, type UpdateProfileInput, type ChangePasswordInput, type MfaTokenInput,
 } from '../validators/auth.validators.js';
 import type { AppEnv } from '../types/env.js';
 
@@ -70,6 +70,37 @@ authRoutes.put('/me/password', authenticate, validate('body', changePasswordSche
   const input = getValidated<ChangePasswordInput>(c, 'body');
   await authService.changePassword(user.id, input);
   return sendSuccess(c, { message: 'تم تغيير كلمة المرور بنجاح' });
+});
+
+// POST /api/auth/mfa/setup
+authRoutes.post('/mfa/setup', authenticate, async (c) => {
+  const user = c.get('user');
+  const result = await authService.setupMFA(user.id, user.email);
+  return sendSuccess(c, result);
+});
+
+// POST /api/auth/mfa/verify
+authRoutes.post('/mfa/verify', authenticate, validate('body', mfaTokenSchema), async (c) => {
+  const user = c.get('user');
+  const input = getValidated<MfaTokenInput>(c, 'body');
+  const result = await authService.verifyAndEnableMFA(user.id, input.token);
+  return sendSuccess(c, result);
+});
+
+// POST /api/auth/mfa/challenge
+authRoutes.post('/mfa/challenge', authenticate, validate('body', mfaTokenSchema), async (c) => {
+  const user = c.get('user');
+  const input = getValidated<MfaTokenInput>(c, 'body');
+  const result = await authService.verifyMFAChallenge(user.id, input.token);
+  return sendSuccess(c, result);
+});
+
+// POST /api/auth/mfa/disable
+authRoutes.post('/mfa/disable', authenticate, validate('body', mfaTokenSchema), async (c) => {
+  const user = c.get('user');
+  const input = getValidated<MfaTokenInput>(c, 'body');
+  await authService.disableMFA(user.id, input.token);
+  return sendSuccess(c, { message: 'تم تعطيل المصادقة الثنائية بنجاح' });
 });
 
 export default authRoutes;

@@ -42,9 +42,14 @@ export const changePasswordSchema = z.object({
     .regex(passwordRegex, 'كلمة المرور يجب أن تحتوي على حرف كبير وحرف صغير ورقم'),
 }).strict();
 
+export const mfaTokenSchema = z.object({
+  token: z.string().min(6, 'رمز التحقق مطلوب').max(10),
+}).strict();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VendorRegisterInput = z.infer<typeof vendorRegisterSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type MfaTokenInput = z.infer<typeof mfaTokenSchema>;

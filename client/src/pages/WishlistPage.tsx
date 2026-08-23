@@ -25,7 +25,7 @@ export default function WishlistPage() {
     queryFn: wishlistApi.getWishlist,
   });
 
-  const items: WishlistItem[] = data?.data ?? [];
+  const items: WishlistItem[] = Array.isArray(data?.data) ? data.data : [];
 
   const removeMutation = useMutation({
     mutationFn: (productId: number) => wishlistApi.remove(productId),
@@ -57,8 +57,11 @@ export default function WishlistPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
           {items.map(item => {
-            const p = item.product;
-            const hasDiscount = p.compareAtPrice && parseFloat(p.compareAtPrice) > parseFloat(p.price);
+            const p = item?.product;
+            if (!p) return null;
+            const price = parseFloat(p.price || '0');
+            const comparePrice = p.compareAtPrice ? parseFloat(p.compareAtPrice) : 0;
+            const hasDiscount = comparePrice > price;
             return (
               <div key={item.id} className="card product-card" style={{ overflow: 'hidden' }}>
                 <Link to={`/products/${p.slug}`} style={{ display: 'block' }}>
@@ -77,10 +80,10 @@ export default function WishlistPage() {
                     <h4 style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sm)', fontWeight: 600, lineHeight: 1.4 }}>{p.name}</h4>
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--primary-600)' }}>{parseFloat(p.price).toLocaleString('ar-EG')} ج.م</span>
+                    <span style={{ fontWeight: 700, color: 'var(--primary-600)' }}>{price.toLocaleString('ar-EG')} ج.م</span>
                     {hasDiscount && (
                       <span style={{ textDecoration: 'line-through', fontSize: 'var(--text-xs)', color: 'var(--neutral-400)' }}>
-                        {parseFloat(p.compareAtPrice!).toLocaleString('ar-EG')} ج.م
+                        {comparePrice.toLocaleString('ar-EG')} ج.م
                       </span>
                     )}
                   </div>
