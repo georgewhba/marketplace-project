@@ -6,6 +6,7 @@ import { orders } from '../db/schema/orders.js';
 import { orderItems } from '../db/schema/order-items.js';
 import { payments } from '../db/schema/payments.js';
 import { transactions } from '../db/schema/transactions.js';
+import { vendors } from '../db/schema/vendors.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
@@ -119,35 +120,50 @@ router.put('/admin/:id/approve', authenticate, authorize('admin'), validate('bod
     }
   }
 
-  // Update refund request status
-  await db.update(refundRequests)
-    .set({
-      status: 'approved',
-      adminId: user.id,
-      adminNote,
-      processedAt: new Date()
-    })
-    .where(eq(refundRequests.id, id));
+  // Execute the refund state changes and ledger deduction inside a transaction
+  await db.transaction(async (tx) => {
+    // Update refund request status
+    await tx.update(refundRequests)
+      .set({
+        status: 'approved',
+        adminId: user.id,
+        adminNote,
+        processedAt: new Date()
+      })
+      .where(eq(refundRequests.id, id));
 
-  // If a specific item was refunded, we should deduct from the vendor's total_sales and record a negative transaction
-  // For brevity, we handle it if orderItemId exists
-  if (req.orderItemId) {
-    const items = await db.select().from(orderItems).where(eq(orderItems.id, req.orderItemId));
-    const item = items[0];
-    if (item && item.vendorAmount) {
-      // Record negative transaction for vendor
-      await db.insert(transactions).values({
-        vendorId: item.vendorId,
-        orderItemId: item.id,
-        type: 'refund',
-        amount: (-Number(item.vendorAmount)).toString(),
-        balanceBefore: '0', // In a full implementation we calculate balance
-        balanceAfter: '0',
-        description: `استرجاع للعنصر #${item.id}`,
-      });
-      // Updating vendor sales would also happen here
+    if (req.orderItemId) {
+      const [item] = await tx.select().from(orderItems).where(eq(orderItems.id, req.orderItemId));
+      
+      if (item && item.vendorAmount) {
+        // Lock vendor balance
+        const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
+          .from(vendors)
+          .where(eq(vendors.id, item.vendorId))
+          .for('update');
+
+        const balanceBefore = parseFloat(vendorRecord!.totalSales);
+        const refundAmount = parseFloat(item.vendorAmount);
+        const balanceAfter = balanceBefore - refundAmount;
+
+        // Record negative transaction for vendor
+        await tx.insert(transactions).values({
+          vendorId: item.vendorId,
+          orderItemId: item.id,
+          type: 'refund',
+          amount: (-refundAmount).toFixed(2),
+          balanceBefore: balanceBefore.toFixed(2),
+          balanceAfter: balanceAfter.toFixed(2),
+          description: `استرجاع للعنصر #${item.id}`,
+        });
+        
+        // Atomically update vendor totalSales (balance)
+        await tx.update(vendors)
+          .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
+          .where(eq(vendors.id, item.vendorId));
+      }
     }
-  }
+  });
 
   return c.json({ success: true, message: 'تم الموافقة على الاسترجاع بنجاح' });
 });

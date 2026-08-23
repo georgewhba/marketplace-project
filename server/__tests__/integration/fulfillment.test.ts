@@ -159,7 +159,7 @@ describe('Fulfillment — Vendor lifecycle', () => {
     // Verify vendor.totalSales updated
     const [vendorAfter] = await db.select({ totalSales: vendors.totalSales })
       .from(vendors).where(eq(vendors.id, vendor1Id));
-    expect(parseFloat(vendorAfter!.totalSales)).toBe(salesBefore + 500);
+    expect(parseFloat(vendorAfter!.totalSales)).toBe(salesBefore + 450);
   });
 });
 

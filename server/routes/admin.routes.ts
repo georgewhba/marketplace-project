@@ -613,38 +613,48 @@ adminRoutes.put('/payouts/:id/approve', async (c) => {
   const id = parseInt(c.req.param('id')!, 10);
   const admin = c.get('user');
   
-  const [request] = await db.update(payoutRequests)
-    .set({ 
-      status: 'paid', 
-      adminId: admin.id,
-      processedAt: new Date()
-    })
-    .where(and(eq(payoutRequests.id, id), eq(payoutRequests.status, 'pending')))
-    .returning();
+  const request = await db.transaction(async (tx) => {
+    const [req] = await tx.update(payoutRequests)
+      .set({ 
+        status: 'paid', 
+        adminId: admin.id,
+        processedAt: new Date()
+      })
+      .where(and(eq(payoutRequests.id, id), eq(payoutRequests.status, 'pending')))
+      .returning();
+      
+    if (!req) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
     
-  if (!request) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
-  
-  if (request.settlementId) {
-    await db.update(settlements)
-      .set({ status: 'paid', paidAt: new Date() })
-      .where(eq(settlements.id, request.settlementId));
-  }
-  
-  // Create payout transaction
-  const [vendorRecord] = await db.select({ totalSales: vendors.totalSales }).from(vendors).where(eq(vendors.id, request.vendorId));
-  const balanceBefore = parseFloat(vendorRecord!.totalSales);
-  const balanceAfter = balanceBefore - parseFloat(request.amount);
-  
-  await db.insert(transactions).values({
-    vendorId: request.vendorId,
-    type: 'payout',
-    amount: request.amount,
-    balanceBefore: balanceBefore.toFixed(2),
-    balanceAfter: balanceAfter.toFixed(2),
-    description: `سحب أرباح #${request.id}`,
+    if (req.settlementId) {
+      await tx.update(settlements)
+        .set({ status: 'paid', paidAt: new Date() })
+        .where(eq(settlements.id, req.settlementId));
+    }
+    
+    // Create payout transaction using strict row lock
+    const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
+      .from(vendors)
+      .where(eq(vendors.id, req.vendorId))
+      .for('update');
+      
+    const balanceBefore = parseFloat(vendorRecord!.totalSales);
+    const balanceAfter = balanceBefore - parseFloat(req.amount);
+    
+    await tx.insert(transactions).values({
+      vendorId: req.vendorId,
+      type: 'payout',
+      amount: req.amount,
+      balanceBefore: balanceBefore.toFixed(2),
+      balanceAfter: balanceAfter.toFixed(2),
+      description: `سحب أرباح #${req.id}`,
+    });
+    
+    await tx.update(vendors)
+      .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
+      .where(eq(vendors.id, req.vendorId));
+
+    return req;
   });
-  
-  await db.update(vendors).set({ totalSales: balanceAfter.toFixed(2) }).where(eq(vendors.id, request.vendorId));
   
   return sendSuccess(c, request);
 });

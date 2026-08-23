@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono';
 import jwt from 'jsonwebtoken';
+import { getCookie } from 'hono/cookie';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
 import { db } from '../db/index.js';
@@ -24,17 +25,22 @@ export interface AuthVendor {
 }
 
 /**
- * Authentication middleware — verifies JWT access token from Authorization header.
+ * Authentication middleware — verifies JWT access token from Authorization header or Cookie.
  * Attaches user info to context.
  */
 export async function authenticate(c: Context, next: Next) {
-  const authHeader = c.req.header('Authorization');
+  let token = getCookie(c, 'accessToken');
   
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw AppError.unauthorized('رمز المصادقة مطلوب');
+  if (!token) {
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
   }
 
-  const token = authHeader.substring(7);
+  if (!token) {
+    throw AppError.unauthorized('رمز المصادقة مطلوب');
+  }
 
   try {
     const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as {

@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { products } from './products.js';
 
@@ -10,6 +10,7 @@ export const stockAlerts = pgTable('stock_alerts', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex('stock_alerts_unique').on(t.userId, t.productId),
+  index('alerts_product_idx').on(t.productId),
 ]);
 
 export type StockAlert = typeof stockAlerts.$inferSelect;

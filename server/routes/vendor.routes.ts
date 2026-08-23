@@ -409,7 +409,7 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
 
       // 2. Atomic vendor totalSales increment
       await tx.update(vendors).set({
-        totalSales: sql`${vendors.totalSales}::numeric + ${saleAmount}`,
+        totalSales: sql`${vendors.totalSales}::numeric + ${vendorAmount}`,
         updatedAt: new Date(),
       }).where(eq(vendors.id, vendor.id));
 

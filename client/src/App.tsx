@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
 import { Header, Footer } from './components/Layout';
@@ -91,71 +92,79 @@ function DashboardWrapper({ children }: { children: ReactNode }) {
   );
 }
 
+function AnimatedRoutes() {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Auth pages — no header/footer */}
+        <Route path="/login" element={<Suspense fallback={<Loading />}><LoginPage /></Suspense>} />
+        <Route path="/register" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
+        <Route path="/register/vendor" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
+
+        {/* Store pages */}
+        <Route path="/" element={<StoreLayout><HomePage /></StoreLayout>} />
+        <Route path="/products" element={<StoreLayout><ProductsPage /></StoreLayout>} />
+        <Route path="/products/:slug" element={<StoreLayout><ProductDetailPage /></StoreLayout>} />
+        <Route path="/cart" element={<StoreLayout><ProtectedRoute><CartPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/checkout" element={<StoreLayout><ProtectedRoute><CheckoutPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/payment-callback" element={<StoreLayout><ProtectedRoute><PaymentCallbackPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/orders" element={<StoreLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/wishlist" element={<StoreLayout><ProtectedRoute><WishlistPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/profile" element={<StoreLayout><ProtectedRoute><ProfilePage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/notifications" element={<StoreLayout><ProtectedRoute><NotificationsPage /></ProtectedRoute></StoreLayout>} />
+        <Route path="/terms" element={<StoreLayout><Suspense fallback={<Loading />}><TermsPage /></Suspense></StoreLayout>} />
+        <Route path="/privacy" element={<StoreLayout><Suspense fallback={<Loading />}><PrivacyPage /></Suspense></StoreLayout>} />
+        <Route path="/return-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ReturnPolicyPage /></Suspense></StoreLayout>} />
+        <Route path="/shipping-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ShippingPolicyPage /></Suspense></StoreLayout>} />
+        <Route path="/faq" element={<StoreLayout><Suspense fallback={<Loading />}><FaqPage /></Suspense></StoreLayout>} />
+        <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
+
+        {/* Vendor dashboard */}
+        <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>
+          <Route index element={<VendorDashboard />} />
+          <Route path="products" element={<Suspense fallback={<Loading />}><VendorProducts /></Suspense>} />
+          <Route path="orders" element={<Suspense fallback={<Loading />}><VendorOrders /></Suspense>} />
+          <Route path="earnings" element={<Suspense fallback={<Loading />}><VendorEarnings /></Suspense>} />
+          <Route path="analytics" element={<Suspense fallback={<Loading />}><VendorAnalytics /></Suspense>} />
+          <Route path="settings" element={<Suspense fallback={<Loading />}><VendorSettings /></Suspense>} />
+        </Route>
+
+        {/* Admin dashboard */}
+        <Route path="/admin" element={<DashboardWrapper><ProtectedRoute roles={['admin']}><AdminLayout /></ProtectedRoute></DashboardWrapper>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="vendors" element={<Suspense fallback={<Loading />}><AdminVendors /></Suspense>} />
+          <Route path="products" element={<Suspense fallback={<Loading />}><AdminProducts /></Suspense>} />
+          <Route path="orders" element={<Suspense fallback={<Loading />}><AdminOrders /></Suspense>} />
+          <Route path="users" element={<Suspense fallback={<Loading />}><AdminUsers /></Suspense>} />
+          <Route path="categories" element={<Suspense fallback={<Loading />}><AdminCategories /></Suspense>} />
+          <Route path="refunds" element={<Suspense fallback={<Loading />}><AdminRefunds /></Suspense>} />
+          <Route path="commission-rules" element={<Suspense fallback={<Loading />}><AdminCommissionRules /></Suspense>} />
+          <Route path="settlements" element={<Suspense fallback={<Loading />}><AdminSettlements /></Suspense>} />
+          <Route path="payouts" element={<Suspense fallback={<Loading />}><AdminPayouts /></Suspense>} />
+          <Route path="roles" element={<Suspense fallback={<Loading />}><AdminRoles /></Suspense>} />
+          <Route path="message-logs" element={<Suspense fallback={<Loading />}><AdminMessageLogs /></Suspense>} />
+          <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
+          <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
+          <Route path="coupons" element={<div style={{ padding: 'var(--space-6)' }}><h2>الكوبونات — قريباً</h2></div>} />
+          <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />
+        </Route>
+
+        {/* Fallbacks */}
+        <Route path="/server-error" element={<Suspense fallback={<Loading />}><ServerErrorPage /></Suspense>} />
+        <Route path="*" element={<Suspense fallback={<Loading />}><NotFoundPage /></Suspense>} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
-            <Routes>
-              {/* Auth pages — no header/footer */}
-              <Route path="/login" element={<Suspense fallback={<Loading />}><LoginPage /></Suspense>} />
-              <Route path="/register" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
-              <Route path="/register/vendor" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
-
-              {/* Store pages */}
-              <Route path="/" element={<StoreLayout><HomePage /></StoreLayout>} />
-              <Route path="/products" element={<StoreLayout><ProductsPage /></StoreLayout>} />
-              <Route path="/products/:slug" element={<StoreLayout><ProductDetailPage /></StoreLayout>} />
-              <Route path="/cart" element={<StoreLayout><ProtectedRoute><CartPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/checkout" element={<StoreLayout><ProtectedRoute><CheckoutPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/payment-callback" element={<StoreLayout><ProtectedRoute><PaymentCallbackPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/orders" element={<StoreLayout><ProtectedRoute><OrdersPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/wishlist" element={<StoreLayout><ProtectedRoute><WishlistPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/profile" element={<StoreLayout><ProtectedRoute><ProfilePage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/notifications" element={<StoreLayout><ProtectedRoute><NotificationsPage /></ProtectedRoute></StoreLayout>} />
-              <Route path="/terms" element={<StoreLayout><Suspense fallback={<Loading />}><TermsPage /></Suspense></StoreLayout>} />
-              <Route path="/privacy" element={<StoreLayout><Suspense fallback={<Loading />}><PrivacyPage /></Suspense></StoreLayout>} />
-              <Route path="/return-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ReturnPolicyPage /></Suspense></StoreLayout>} />
-              <Route path="/shipping-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ShippingPolicyPage /></Suspense></StoreLayout>} />
-              <Route path="/faq" element={<StoreLayout><Suspense fallback={<Loading />}><FaqPage /></Suspense></StoreLayout>} />
-              <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
-
-              {/* Vendor dashboard */}
-              <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>
-                <Route index element={<VendorDashboard />} />
-                <Route path="products" element={<Suspense fallback={<Loading />}><VendorProducts /></Suspense>} />
-                <Route path="orders" element={<Suspense fallback={<Loading />}><VendorOrders /></Suspense>} />
-                <Route path="earnings" element={<Suspense fallback={<Loading />}><VendorEarnings /></Suspense>} />
-                <Route path="analytics" element={<Suspense fallback={<Loading />}><VendorAnalytics /></Suspense>} />
-                <Route path="settings" element={<Suspense fallback={<Loading />}><VendorSettings /></Suspense>} />
-              </Route>
-
-              {/* Admin dashboard */}
-              <Route path="/admin" element={<DashboardWrapper><ProtectedRoute roles={['admin']}><AdminLayout /></ProtectedRoute></DashboardWrapper>}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="vendors" element={<Suspense fallback={<Loading />}><AdminVendors /></Suspense>} />
-                <Route path="products" element={<Suspense fallback={<Loading />}><AdminProducts /></Suspense>} />
-                <Route path="orders" element={<Suspense fallback={<Loading />}><AdminOrders /></Suspense>} />
-                <Route path="users" element={<Suspense fallback={<Loading />}><AdminUsers /></Suspense>} />
-                <Route path="categories" element={<Suspense fallback={<Loading />}><AdminCategories /></Suspense>} />
-                <Route path="refunds" element={<Suspense fallback={<Loading />}><AdminRefunds /></Suspense>} />
-                <Route path="commission-rules" element={<Suspense fallback={<Loading />}><AdminCommissionRules /></Suspense>} />
-                <Route path="settlements" element={<Suspense fallback={<Loading />}><AdminSettlements /></Suspense>} />
-                <Route path="payouts" element={<Suspense fallback={<Loading />}><AdminPayouts /></Suspense>} />
-                <Route path="roles" element={<Suspense fallback={<Loading />}><AdminRoles /></Suspense>} />
-                <Route path="message-logs" element={<Suspense fallback={<Loading />}><AdminMessageLogs /></Suspense>} />
-                <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
-                <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
-                <Route path="coupons" element={<div style={{ padding: 'var(--space-6)' }}><h2>الكوبونات — قريباً</h2></div>} />
-                <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />
-              </Route>
-
-              {/* 500 */}
-              <Route path="/500" element={<Suspense fallback={<Loading />}><ServerErrorPage /></Suspense>} />
-              {/* 404 */}
-              <Route path="*" element={<Suspense fallback={<Loading />}><NotFoundPage /></Suspense>} />
-            </Routes>
+            <AnimatedRoutes />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

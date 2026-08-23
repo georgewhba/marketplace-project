@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, decimal, varchar, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, decimal, varchar, timestamp, index } from 'drizzle-orm/pg-core';
 import { vendors } from './vendors.js';
 
 export const settlements = pgTable('settlements', {
@@ -12,7 +12,10 @@ export const settlements = pgTable('settlements', {
   status: varchar('status', { length: 20 }).notNull().default('draft'), // draft|finalized|paid
   paidAt: timestamp('paid_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index('settlements_vendor_idx').on(t.vendorId),
+  index('settlements_status_idx').on(t.status),
+]);
 
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;

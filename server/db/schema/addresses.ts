@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, varchar, text, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 
 export const addresses = pgTable('addresses', {
@@ -15,7 +15,9 @@ export const addresses = pgTable('addresses', {
   country: varchar('country', { length: 100 }).notNull().default('Egypt'),
   isDefault: boolean('is_default').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index('addresses_user_idx').on(t.userId),
+]);
 
 export type Address = typeof addresses.$inferSelect;
 export type NewAddress = typeof addresses.$inferInsert;

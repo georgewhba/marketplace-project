@@ -1,7 +1,10 @@
 import crypto from 'crypto';
 import QRCode from 'qrcode';
 import bcrypt from 'bcryptjs';
+import { authenticator } from 'otplib';
 import { env } from '../env.js';
+
+authenticator.options = { window: 1 };
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 12 bytes for GCM
@@ -39,9 +42,8 @@ export function decryptSecret(hash: string): string {
 }
 
 export function generateSecret(email: string) {
-  // Stub for TOTP
-  const secret = crypto.randomBytes(20).toString('hex');
-  const uri = `otpauth://totp/SouqMasr:${encodeURIComponent(email)}?secret=${secret}&issuer=SouqMasr`;
+  const secret = authenticator.generateSecret();
+  const uri = authenticator.keyuri(email, 'SouqMasr', secret);
   return { secret, uri };
 }
 
@@ -50,8 +52,11 @@ export async function generateQRCode(uri: string): Promise<string> {
 }
 
 export function verifyTOTP(token: string, secret: string): boolean {
-  // Stub
-  return token === '123456';
+  try {
+    return authenticator.verify({ token, secret });
+  } catch {
+    return false;
+  }
 }
 
 export async function generateBackupCodes(count = 10): Promise<{ plain: string[], hashed: string[] }> {

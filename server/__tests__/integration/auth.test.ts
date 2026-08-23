@@ -34,10 +34,15 @@ describe('Auth — Register', () => {
     });
 
     expect(res.status).toBe(201);
+    
+    // Tokens are now set as HttpOnly cookies
+    const cookies = res.headers.get('set-cookie');
+    expect(cookies).toBeDefined();
+    expect(cookies).toContain('accessToken=');
+    expect(cookies).toContain('refreshToken=');
+
     const data = res.body?.['data'] as Record<string, unknown>;
     expect(data).toBeDefined();
-    expect(data['accessToken']).toBeDefined();
-    expect(data['refreshToken']).toBeDefined();
 
     const user = data['user'] as Record<string, unknown>;
     expect(user['email']).toBe(email);
@@ -104,9 +109,11 @@ describe('Auth — Login', () => {
     });
 
     expect(res.status).toBe(200);
-    const data = res.body?.['data'] as Record<string, unknown>;
-    expect(data['accessToken']).toBeDefined();
-    expect(data['refreshToken']).toBeDefined();
+
+    const cookies = res.headers.get('set-cookie');
+    expect(cookies).toBeDefined();
+    expect(cookies).toContain('accessToken=');
+    expect(cookies).toContain('refreshToken=');
   });
 
   it('rejects login with wrong password', async () => {
@@ -168,22 +175,34 @@ describe('Auth — Refresh Token Rotation', () => {
     const userId = (regData['user'] as Record<string, unknown>)['id'] as number;
     createdUserIds.push(userId);
 
-    const refreshToken1 = regData['refreshToken'] as string;
+    const cookies1 = regRes.headers.get('set-cookie');
+    const match1 = cookies1?.match(/refreshToken=([^;]+)/);
+    const refreshToken1 = match1 ? match1[1] : '';
 
-    // Use refresh token to get new tokens
+    // Use refresh token cookie to get new tokens
     const refRes = await POST('/api/auth/refresh', {
-      body: { refreshToken: refreshToken1 },
+      headers: {
+        'Cookie': `refreshToken=${refreshToken1}`,
+      }
     });
     expect(refRes.status).toBe(200);
-    const refData = refRes.body?.['data'] as Record<string, unknown>;
-    expect(refData['accessToken']).toBeDefined();
-    expect(refData['refreshToken']).toBeDefined();
-    const refreshToken2 = refData['refreshToken'] as string;
+    
+    const cookies = refRes.headers.get('set-cookie');
+    expect(cookies).toBeDefined();
+    expect(cookies).toContain('accessToken=');
+    expect(cookies).toContain('refreshToken=');
+    
+    // Extract new refreshToken
+    const match = cookies!.match(/refreshToken=([^;]+)/);
+    const refreshToken2 = match ? match[1] : null;
+    expect(refreshToken2).not.toBeNull();
     expect(refreshToken2).not.toBe(refreshToken1);
 
     // Old refresh token should now be rejected (consumed)
     const replayRes = await POST('/api/auth/refresh', {
-      body: { refreshToken: refreshToken1 },
+      headers: {
+        'Cookie': `refreshToken=${refreshToken1}`,
+      }
     });
     expect(replayRes.status).toBe(401);
   });
@@ -205,20 +224,27 @@ describe('Auth — Logout', () => {
     expect(regRes.status).toBe(201);
     const regData = regRes.body?.['data'] as Record<string, unknown>;
     const userId = (regData['user'] as Record<string, unknown>)['id'] as number;
-    const accessToken = regData['accessToken'] as string;
-    const refreshToken = regData['refreshToken'] as string;
+    const cookies = regRes.headers.get('set-cookie')!;
+    const accessMatch = cookies.match(/accessToken=([^;]+)/);
+    const refreshMatch = cookies.match(/refreshToken=([^;]+)/);
+    const accessToken = accessMatch ? accessMatch[1] : '';
+    const refreshToken = refreshMatch ? refreshMatch[1] : '';
     createdUserIds.push(userId);
 
     // Logout
     const logoutRes = await POST('/api/auth/logout', {
       token: accessToken,
-      body: { refreshToken },
+      headers: {
+        'Cookie': `refreshToken=${refreshToken}`,
+      }
     });
     expect(logoutRes.status).toBe(200);
 
     // Refresh token should now be rejected
     const refRes = await POST('/api/auth/refresh', {
-      body: { refreshToken },
+      headers: {
+        'Cookie': `refreshToken=${refreshToken}`,
+      }
     });
     expect(refRes.status).toBe(401);
   });

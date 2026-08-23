@@ -1,9 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../auth';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
+
+const MotionLink = motion.create(Link);
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -65,36 +68,37 @@ export function Header() {
         <div className="header__actions">
           {user && (
             <>
-              <Link to="/notifications" className="header__icon-btn" title="الإشعارات" style={{ position: 'relative' }}>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn" title="الإشعارات" style={{ position: 'relative' }}>
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: -5, right: -5, background: 'var(--color-primary)', color: 'white',
-                    fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold'
+                    position: 'absolute', top: -5, right: -5, background: 'var(--brand-500)', color: 'white',
+                    fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
                   }}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
-              </Link>
-              <Link to="/wishlist" className="header__icon-btn" title="المفضلة">
+              </MotionLink>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn" title="المفضلة">
                 <Heart size={20} />
-              </Link>
-              <Link to="/cart" className="header__icon-btn" title="السلة">
+              </MotionLink>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/cart" className="header__icon-btn" title="السلة">
                 <ShoppingCart size={20} />
-              </Link>
+              </MotionLink>
             </>
           )}
 
           {!user ? (
-            <Link to="/login" className="btn btn-primary btn-sm">
+            <MotionLink whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} to="/login" className="btn btn-primary btn-sm">
               تسجيل الدخول
-            </Link>
+            </MotionLink>
           ) : (
             <div className="dropdown" ref={menuRef}>
-              <button className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <User size={18} />
                 <span style={{ fontSize: '0.8125rem' }}>{user.firstName}</span>
-              </button>
+              </motion.button>
 
               {menuOpen && (
                 <div className="dropdown__menu">

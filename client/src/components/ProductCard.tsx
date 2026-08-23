@@ -1,5 +1,6 @@
 import { Star, ShoppingCart, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 interface ProductCardProps {
   product: {
@@ -26,8 +27,13 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
   const rating = product.rating ? parseFloat(product.rating) : 0;
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
+  };
+
   return (
-    <div className="product-card">
+    <motion.div className="product-card" variants={itemVariants}>
       <Link to={`/products/${product.slug}`}>
         <div className="product-card__image-wrap">
           <img src={imageUrl} alt={product.name} className="product-card__image" loading="lazy" />
@@ -35,9 +41,12 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
           {isOutOfStock && (
             <div style={{
               position: 'absolute', inset: 0,
-              background: 'rgba(0,0,0,0.5)',
+              background: 'rgba(34, 28, 22, 0.65)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'white', fontSize: '0.875rem', fontWeight: 600,
+              color: 'white', fontSize: '1rem', fontWeight: 700,
+              letterSpacing: '0.05em'
             }}>
               نفذ من المخزون
             </div>
@@ -79,7 +88,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
           )}
         </div>
       </Link>
-    </div>
+    </motion.div>
   );
 }
 

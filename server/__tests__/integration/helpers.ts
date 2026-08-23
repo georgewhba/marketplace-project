@@ -225,7 +225,7 @@ async function httpRequest(method: string, path: string, opts: RequestOptions = 
 
   const res = await Promise.resolve(app.request(new Request(url, init)));
   const json = await res.json().catch(() => null);
-  return { status: res.status, body: json as Record<string, unknown> | null };
+  return { status: res.status, body: json as Record<string, unknown> | null, headers: res.headers };
 }
 
 export async function GET(path: string, opts: RequestOptions = {}) {

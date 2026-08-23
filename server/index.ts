@@ -7,7 +7,7 @@ import { errorHandler, handleError } from './middleware/errorHandler.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/logger.js';
 import * as Sentry from '@sentry/node';
-import { db } from './db/index.js';
+import { db, queryClient } from './db/index.js';
 import { sql } from 'drizzle-orm';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -64,8 +64,8 @@ app.use('/api/*', cors({
 app.use('*', async (c, next) => {
   await next();
   c.header('X-Content-Type-Options', 'nosniff');
-  c.header('X-Frame-Options', 'DENY');
-  c.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'");
+  c.header('X-Frame-Options', 'DENY'); // Note: This might conflict with our own iframes if we had any, but Paymob is framed BY us, so DENY is fine for others framing US.
+  c.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-src 'self' https://accept.paymob.com https://accept.paymobsolutions.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests;");
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -164,30 +164,60 @@ if (env.NODE_ENV === 'production') {
 
 import { initAnalyticsJobs } from './jobs/analytics.js';
 
-// Schedule settlements generation (runs daily at midnight)
-cron.schedule('0 0 * * *', async () => {
-  try {
-    console.log('[Cron] Running generateSettlements...');
-    const result = await generateSettlements();
-    console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
-  } catch (error) {
-    console.error('[Cron] Error generating settlements:', error);
-  }
-});
+// Determine if this process should run cron jobs (only the primary instance in a PM2 cluster)
+const isCronRunner = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
 
-// Initialize analytics background jobs
-initAnalyticsJobs();
+if (isCronRunner) {
+  // Schedule settlements generation (runs daily at midnight)
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      console.log('[Cron] Running generateSettlements...');
+      const result = await generateSettlements();
+      console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
+    } catch (error) {
+      console.error('[Cron] Error generating settlements:', error);
+    }
+  });
+
+  // Initialize analytics background jobs
+  initAnalyticsJobs();
+  console.log('[Cron] Background jobs initialized on this instance.');
+}
 
 // Start server only if not in test environment
 if (env.NODE_ENV !== 'test') {
-  serve({
+  const server = serve({
     fetch: app.fetch,
     port: env.PORT,
   }, (info) => {
     console.log(`\n  Marketplace server running at http://localhost:${info.port}`);
     console.log(`  Environment: ${env.NODE_ENV}`);
-    console.log(`  CORS origin: ${env.CORS_ORIGIN}\n`);
+    console.log(`  CORS origin: ${env.CORS_ORIGIN}`);
+    console.log(`  PM2 Instance: ${process.env.NODE_APP_INSTANCE ?? 'none'}\n`);
   });
+
+  // Graceful shutdown handling
+  const shutdown = async (signal: string) => {
+    console.log(`\n[${signal}] Received. Shutting down gracefully...`);
+    
+    // Stop accepting new connections
+    server.close(() => {
+      console.log('HTTP server closed.');
+    });
+
+    try {
+      // Close database connections safely
+      await queryClient.end({ timeout: 5 });
+      console.log('Database connections closed.');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during database shutdown:', err);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 export default app;

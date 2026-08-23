@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+dist
+client/dist
+.git
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+uploads/*
+!uploads/.gitkeep
+coverage
+.DS_Store

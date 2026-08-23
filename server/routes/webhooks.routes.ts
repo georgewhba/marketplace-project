@@ -8,6 +8,7 @@ import { sendSuccess } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
 import { calculateOrderStatus, shouldAdvanceOrderStatus } from '../utils/calculateOrderStatus.js';
 import type { AppEnv } from '../types/env.js';
+import { env } from '../env.js';
 
 const webhooksRoutes = new Hono<AppEnv>();
 
@@ -42,6 +43,10 @@ webhooksRoutes.post('/bosta', validate('body', bostaWebhookSchema), async (c) =>
 
   // Verify auth header or signature here if bosta provides one
   // e.g. const signature = c.req.header('x-bosta-signature');
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || authHeader !== `Bearer ${env.BOSTA_WEBHOOK_SECRET}`) {
+    throw AppError.unauthorized('Invalid webhook signature');
+  }
 
   const [shipment] = await db.select()
     .from(shipments)

@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, integer, decimal, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, integer, decimal, timestamp, index } from 'drizzle-orm/pg-core';
 
 export const commissionRules = pgTable('commission_rules', {
   id: serial('id').primaryKey(),
@@ -9,7 +9,9 @@ export const commissionRules = pgTable('commission_rules', {
   effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull().defaultNow(),
   effectiveTo: timestamp('effective_to', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index('commission_target_idx').on(t.targetId),
+]);
 
 export type CommissionRule = typeof commissionRules.$inferSelect;
 export type NewCommissionRule = typeof commissionRules.$inferInsert;

@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
+import { setCookie, getCookie, deleteCookie } from 'hono/cookie';
+import { env } from '../env.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { authRateLimit } from '../middleware/rateLimit.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
+import { AppError } from '../utils/errors.js';
 import * as authService from '../services/auth.service.js';
 import {
   registerSchema, vendorRegisterSchema, loginSchema,
@@ -18,34 +21,52 @@ const authRoutes = new Hono<AppEnv>();
 authRoutes.post('/register', authRateLimit, validate('body', registerSchema), async (c) => {
   const input = getValidated<RegisterInput>(c, 'body');
   const result = await authService.register(input);
-  return sendCreated(c, result);
+  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendCreated(c, { user: result.user });
 });
 
 // POST /api/auth/register/vendor
 authRoutes.post('/register/vendor', authRateLimit, validate('body', vendorRegisterSchema), async (c) => {
   const input = getValidated<VendorRegisterInput>(c, 'body');
   const result = await authService.registerVendor(input);
-  return sendCreated(c, result);
+  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendCreated(c, { user: result.user });
 });
 
 // POST /api/auth/login
 authRoutes.post('/login', authRateLimit, validate('body', loginSchema), async (c) => {
   const input = getValidated<LoginInput>(c, 'body');
   const result = await authService.login(input);
-  return sendSuccess(c, result);
+  if (result.requiresMfa) {
+    setCookie(c, 'accessToken', result.tempToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/', maxAge: 5 * 60 });
+    return sendSuccess(c, { requiresMfa: true });
+  }
+  setCookie(c, 'accessToken', result.accessToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendSuccess(c, { user: result.user });
 });
 
 // POST /api/auth/refresh
-authRoutes.post('/refresh', validate('body', refreshSchema), async (c) => {
-  const input = getValidated<RefreshInput>(c, 'body');
-  const result = await authService.refreshAccessToken(input.refreshToken);
-  return sendSuccess(c, result);
+authRoutes.post('/refresh', authRateLimit, async (c) => {
+  const refreshToken = getCookie(c, 'refreshToken');
+  if (!refreshToken) throw AppError.unauthorized('رمز التحديث مطلوب');
+  
+  const result = await authService.refreshAccessToken(refreshToken);
+  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendSuccess(c, { message: 'تم تحديث الجلسة بنجاح' });
 });
 
 // POST /api/auth/logout
-authRoutes.post('/logout', validate('body', refreshSchema), async (c) => {
-  const input = getValidated<RefreshInput>(c, 'body');
-  await authService.logout(input.refreshToken);
+authRoutes.post('/logout', async (c) => {
+  const refreshToken = getCookie(c, 'refreshToken');
+  if (refreshToken) {
+    await authService.logout(refreshToken);
+  }
+  deleteCookie(c, 'accessToken', { path: '/' });
+  deleteCookie(c, 'refreshToken', { path: '/' });
   return sendSuccess(c, { message: 'تم تسجيل الخروج بنجاح' });
 });
 
@@ -80,7 +101,7 @@ authRoutes.post('/mfa/setup', authenticate, async (c) => {
 });
 
 // POST /api/auth/mfa/verify
-authRoutes.post('/mfa/verify', authenticate, validate('body', mfaTokenSchema), async (c) => {
+authRoutes.post('/mfa/verify', authRateLimit, authenticate, validate('body', mfaTokenSchema), async (c) => {
   const user = c.get('user');
   const input = getValidated<MfaTokenInput>(c, 'body');
   const result = await authService.verifyAndEnableMFA(user.id, input.token);
@@ -88,11 +109,13 @@ authRoutes.post('/mfa/verify', authenticate, validate('body', mfaTokenSchema), a
 });
 
 // POST /api/auth/mfa/challenge
-authRoutes.post('/mfa/challenge', authenticate, validate('body', mfaTokenSchema), async (c) => {
+authRoutes.post('/mfa/challenge', authRateLimit, authenticate, validate('body', mfaTokenSchema), async (c) => {
   const user = c.get('user');
   const input = getValidated<MfaTokenInput>(c, 'body');
   const result = await authService.verifyMFAChallenge(user.id, input.token);
-  return sendSuccess(c, result);
+  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendSuccess(c, { user: result.user });
 });
 
 // POST /api/auth/mfa/disable

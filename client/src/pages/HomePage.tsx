@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { storeApi, cartApi } from '../api';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
+import { AnimatedPage } from '../components/AnimatedPage';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { ArrowLeft, Cpu, BookOpen, Shirt, Home as HomeIcon } from 'lucide-react';
@@ -34,7 +36,7 @@ export default function HomePage() {
   };
 
   return (
-    <>
+    <AnimatedPage>
       {/* Hero */}
       <section className="hero">
         <div className="hero__content grid grid-2 items-center">
@@ -88,13 +90,19 @@ export default function HomePage() {
               عرض الكل <ArrowLeft size={14} />
             </Link>
           </div>
-          <div className="grid grid-4">
+          <motion.div 
+            className="grid grid-4"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+          >
             {loading
               ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
               : data?.featuredProducts?.map((p: any) => (
                   <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
                 ))}
-          </div>
+          </motion.div>
         </section>
 
         {/* New Arrivals */}
@@ -105,15 +113,21 @@ export default function HomePage() {
               عرض الكل <ArrowLeft size={14} />
             </Link>
           </div>
-          <div className="grid grid-4">
+          <motion.div 
+            className="grid grid-4"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+          >
             {loading
               ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
               : data?.newArrivals?.map((p: any) => (
                   <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
                 ))}
-          </div>
+          </motion.div>
         </section>
       </div>
-    </>
+    </AnimatedPage>
   );
 }

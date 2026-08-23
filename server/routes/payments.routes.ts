@@ -125,16 +125,29 @@ router.post('/webhook', async (c) => {
   const targetPayment = existingPayments.find(p => p.provider === 'paymob' && p.status === 'pending');
   
   if (targetPayment) {
+    let finalSuccess = success;
+    
+    if (success) {
+      const [orderRecord] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!orderRecord) return c.json({ success: true });
+      
+      const orderTotalCents = Math.round(parseFloat(orderRecord.total) * 100);
+      if (obj.amount_cents !== orderTotalCents) {
+        console.error(`🚨 Payment amount mismatch for order ${orderId}: expected ${orderTotalCents}, got ${obj.amount_cents}`);
+        finalSuccess = false;
+      }
+    }
+
     await db.update(payments)
       .set({
-        status: success ? 'succeeded' : 'failed',
+        status: finalSuccess ? 'succeeded' : 'failed',
         providerTransactionId: transactionId,
         rawResponse: obj,
         updatedAt: new Date()
       })
       .where(eq(payments.id, targetPayment.id));
       
-    if (success) {
+    if (finalSuccess) {
       await db.update(orders)
         .set({ status: 'confirmed', updatedAt: new Date() })
         .where(eq(orders.id, orderId));

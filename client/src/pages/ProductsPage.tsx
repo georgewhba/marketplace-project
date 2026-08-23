@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { storeApi, cartApi } from '../api';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
+import { AnimatedPage } from '../components/AnimatedPage';
+import { motion } from 'framer-motion';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -64,7 +66,7 @@ export default function ProductsPage() {
   const totalPages = pagination?.totalPages || 1;
 
   return (
-    <div className="container page-content">
+    <AnimatedPage className="container page-content">
       <div className="page-header">
         <h1 className="page-header__title">
           {search ? `نتائج البحث: "${search}"` : category ? `قسم: ${category}` : 'جميع المنتجات'}
@@ -93,7 +95,12 @@ export default function ProductsPage() {
       </div>
 
       {/* Products grid */}
-      <div className="grid grid-4">
+      <motion.div 
+        className="grid grid-4"
+        initial="hidden"
+        animate="visible"
+        variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+      >
         {loading
           ? Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)
           : products.length === 0
@@ -110,7 +117,7 @@ export default function ProductsPage() {
                 <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
               ))
         }
-      </div>
+      </motion.div>
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -143,6 +150,6 @@ export default function ProductsPage() {
           </button>
         </div>
       )}
-    </div>
+    </AnimatedPage>
   );
 }

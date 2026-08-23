@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, decimal, varchar, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, decimal, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
 import { vendors } from './vendors.js';
 import { settlements } from './settlements.js';
 import { users } from './users.js';
@@ -13,7 +13,10 @@ export const payoutRequests = pgTable('payout_requests', {
   adminId: integer('admin_id').references(() => users.id),
   processedAt: timestamp('processed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index('payouts_vendor_idx').on(t.vendorId),
+  index('payouts_status_idx').on(t.status),
+]);
 
 export type PayoutRequest = typeof payoutRequests.$inferSelect;
 export type NewPayoutRequest = typeof payoutRequests.$inferInsert;

@@ -57,6 +57,13 @@
       "when": 1787513763682,
       "tag": "0007_analytics_mat_view",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787519588474,
+      "tag": "0008_absent_fenris",
+      "breakpoints": true
     }
   ]
 }
