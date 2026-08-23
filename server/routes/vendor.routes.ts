@@ -3,13 +3,14 @@ import { z } from 'zod';
 import { db } from '../db/index.js';
 import {
   vendors, products, productImages, orderItems, orders,
-  transactions, notifications, users, shipments, shipmentEvents
+  transactions, notifications, users, shipments, shipmentEvents, settlements, payoutRequests
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import { authenticate, loadVendor } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
+import { resolveCommissionRate } from '../services/commission.service.js';
 import { slugify } from '../utils/slugify.js';
 import { processImage, deleteImage, validateImageMagicBytes } from '../utils/image.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
@@ -329,8 +330,19 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
     await db.transaction(async (tx) => {
       // Re-read + lock the item inside the transaction
       const [lockedItem] = await tx
-        .select()
+        .select({
+          id: orderItems.id,
+          vendorStatus: orderItems.vendorStatus,
+          total: orderItems.total,
+          commissionRate: orderItems.commissionRate,
+          productId: orderItems.productId,
+          productName: orderItems.productName,
+          quantity: orderItems.quantity,
+          orderId: orderItems.orderId,
+          categoryId: products.categoryId
+        })
         .from(orderItems)
+        .leftJoin(products, eq(orderItems.productId, products.id))
         .where(and(eq(orderItems.id, itemId), eq(orderItems.vendorId, vendor.id)))
         .for('update')
         .limit(1);
@@ -344,7 +356,9 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
       }
 
       const saleAmount = parseFloat(lockedItem.total);
-      const commissionRate = parseFloat(lockedItem.commissionRate ?? '10');
+      
+      const categoryId = lockedItem.categoryId ?? 0;
+      const commissionRate = await resolveCommissionRate(vendor.id, categoryId);
       const commissionAmount = saleAmount * (commissionRate / 100);
       const vendorAmount = saleAmount - commissionAmount;
 
@@ -382,11 +396,16 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
         }).where(eq(products.id, lockedItem.productId));
       }
 
-      // 4. Mark the order item as delivered
+      // 4. Update the order item itself (set status, deliveredAt, and updated commission)
       const nowDate = new Date();
-      await tx.update(orderItems)
-        .set({ vendorStatus: 'delivered', deliveredAt: nowDate, updatedAt: nowDate })
-        .where(eq(orderItems.id, itemId));
+      await tx.update(orderItems).set({
+        vendorStatus: 'delivered',
+        deliveredAt: nowDate,
+        updatedAt: nowDate,
+        commissionRate: commissionRate.toFixed(2),
+        commissionAmount: commissionAmount.toFixed(2),
+        vendorAmount: vendorAmount.toFixed(2),
+      }).where(eq(orderItems.id, lockedItem.id));
 
       // 5. Check if ALL sibling items are now delivered or cancelled → close the parent order
       const allSiblings = await tx
@@ -539,27 +558,82 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
 });
 
 
-// GET /api/vendor/earnings
-vendorRoutes.get('/earnings', validate('query', paginationSchema), async (c) => {
+// GET /api/vendor/settlements
+vendorRoutes.get('/settlements', validate('query', paginationSchema), async (c) => {
   const vendor = c.get('vendor');
   const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
 
-  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(transactions)
-    .where(eq(transactions.vendorId, vendor.id));
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(settlements)
+    .where(eq(settlements.vendorId, vendor.id));
   const total = countResult?.count ?? 0;
 
-  const txList = await db.select().from(transactions)
-    .where(eq(transactions.vendorId, vendor.id))
-    .orderBy(desc(transactions.createdAt))
+  const list = await db.select()
+    .from(settlements)
+    .where(eq(settlements.vendorId, vendor.id))
+    .orderBy(desc(settlements.createdAt))
     .limit(limit).offset(getOffset(page, limit));
 
   const [vendorRecord] = await db.select({ totalSales: vendors.totalSales })
     .from(vendors).where(eq(vendors.id, vendor.id)).limit(1);
 
   return sendSuccess(c, {
-    transactions: txList,
+    settlements: list,
     balance: vendorRecord?.totalSales ?? '0',
   }, 200, getPaginationMeta(page, limit, total));
+});
+
+// GET /api/vendor/payouts
+vendorRoutes.get('/payouts', async (c) => {
+  const vendor = c.get('vendor');
+  
+  const list = await db.select().from(payoutRequests)
+    .where(eq(payoutRequests.vendorId, vendor.id))
+    .orderBy(desc(payoutRequests.createdAt));
+    
+  return sendSuccess(c, list);
+});
+
+const payoutRequestSchema = z.object({
+  settlementId: z.number().int().positive(),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  bankAccountSnapshot: z.any().optional(), // In a real app this would be typed
+});
+
+// POST /api/vendor/payouts/request
+vendorRoutes.post('/payouts/request', validate('body', payoutRequestSchema), async (c) => {
+  const vendor = c.get('vendor');
+  const input = getValidated<z.infer<typeof payoutRequestSchema>>(c, 'body');
+
+  const [settlement] = await db.select().from(settlements)
+    .where(and(eq(settlements.id, input.settlementId), eq(settlements.vendorId, vendor.id)))
+    .limit(1);
+    
+  if (!settlement) throw AppError.notFound('التسوية غير موجودة');
+  if (settlement.status !== 'finalized') throw AppError.badRequest('لا يمكن طلب سحب إلا للتسويات المعتمدة');
+  
+  // Check if payout request already exists for this settlement
+  const [existing] = await db.select().from(payoutRequests)
+    .where(eq(payoutRequests.settlementId, input.settlementId))
+    .limit(1);
+    
+  if (existing) throw AppError.badRequest('تم تقديم طلب سحب لهذه التسوية مسبقاً');
+  
+  const requestAmount = parseFloat(input.amount);
+  const availableAmount = parseFloat(settlement.netPayable);
+  
+  if (requestAmount > availableAmount) {
+    throw AppError.badRequest('المبلغ المطلوب أكبر من رصيد التسوية');
+  }
+
+  const [request] = await db.insert(payoutRequests).values({
+    vendorId: vendor.id,
+    settlementId: input.settlementId,
+    amount: input.amount,
+    bankAccountSnapshot: input.bankAccountSnapshot ?? null,
+  }).returning();
+
+  return sendCreated(c, request);
 });
 
 // GET /api/vendor/settings

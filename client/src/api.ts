@@ -161,6 +161,9 @@ export const vendorApi = {
   createShipment: (itemId: number, data: { provider: 'bosta' | 'manual' }) =>
     api.post<any>(`/vendor/orders/${itemId}/ship`, data),
   getEarnings: (page = 1) => api.get<any>(`/vendor/earnings?page=${page}`),
+  getSettlements: (page = 1) => api.get<any>(`/vendor/settlements?page=${page}`),
+  getPayouts: () => api.get<any>(`/vendor/payouts`),
+  requestPayout: (data: { settlementId: number; amount: string }) => api.post<any>(`/vendor/payouts/request`, data),
   getSettings: () => api.get<any>('/vendor/settings'),
   updateSettings: (data: any) => api.put<any>('/vendor/settings', data),
   getNotifications: () => api.get<any>('/vendor/notifications'),
@@ -206,4 +209,12 @@ export const adminApi = {
   getCoupons: () => api.get<any>('/admin/coupons'),
   createCoupon: (data: any) => api.post<any>('/admin/coupons', data),
   deleteCoupon: (id: number) => api.delete<any>(`/admin/coupons/${id}`),
+  getCommissionRules: () => api.get<any>('/admin/commission-rules'),
+  createCommissionRule: (data: any) => api.post<any>('/admin/commission-rules', data),
+  deleteCommissionRule: (id: number) => api.delete<any>(`/admin/commission-rules/${id}`),
+  getSettlements: () => api.get<any>('/admin/settlements'),
+  finalizeSettlement: (id: number) => api.put<any>(`/admin/settlements/${id}/finalize`),
+  getPayouts: () => api.get<any>('/admin/payouts'),
+  approvePayout: (id: number) => api.put<any>(`/admin/payouts/${id}/approve`),
+  rejectPayout: (id: number, reason: string) => api.put<any>(`/admin/payouts/${id}/reject`, { reason }),
 };

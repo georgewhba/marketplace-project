@@ -6,6 +6,7 @@ export const transactions = pgTable('transactions', {
   id: serial('id').primaryKey(),
   vendorId: integer('vendor_id').notNull().references(() => vendors.id),
   orderItemId: integer('order_item_id').references(() => orderItems.id),
+  settlementId: integer('settlement_id'),
   type: varchar('type', { length: 20 }).notNull(),
   amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
   balanceBefore: decimal('balance_before', { precision: 12, scale: 2 }).notNull(),

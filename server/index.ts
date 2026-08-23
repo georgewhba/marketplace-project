@@ -11,6 +11,8 @@ import { db } from './db/index.js';
 import { sql } from 'drizzle-orm';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import cron from 'node-cron';
+import { generateSettlements } from './services/settlement.service.js';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -147,6 +149,17 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 if (env.NODE_ENV === 'production') {
   app.use('*', serveStatic({ root: './client/dist' }));
 }
+
+// Schedule settlements generation (runs daily at midnight)
+cron.schedule('0 0 * * *', async () => {
+  try {
+    console.log('[Cron] Running generateSettlements...');
+    const result = await generateSettlements();
+    console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
+  } catch (error) {
+    console.error('[Cron] Error generating settlements:', error);
+  }
+});
 
 // Start server
 serve({

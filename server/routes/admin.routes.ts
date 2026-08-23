@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import {
   users, vendors, products, productImages, orders, orderItems,
   categories, transactions, notifications, auditLog, siteSettings, coupons,
+  commissionRules, settlements, payoutRequests,
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
@@ -470,5 +471,160 @@ adminRoutes.delete('/coupons/:id', async (c) => {
   await logAction(admin.id, 'coupon.delete', 'coupon', couponId);
   return sendSuccess(c, { message: 'تم حذف الكوبون' });
 });
+// ==========================================
+// 8. Commission Rules (FIZ G3)
+// ==========================================
+const ruleSchema = z.object({
+  scope: z.enum(['global', 'category', 'vendor']),
+  targetId: z.number().nullable().optional(),
+  rate: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  priority: z.number().int().default(0),
+  effectiveFrom: z.string().optional(),
+  effectiveTo: z.string().nullable().optional(),
+});
 
+adminRoutes.get('/commission-rules', async (c) => {
+  const rules = await db.select().from(commissionRules).orderBy(desc(commissionRules.createdAt));
+  return sendSuccess(c, rules);
+});
+
+adminRoutes.post('/commission-rules', validate('body', ruleSchema), async (c) => {
+  const input = getValidated<z.infer<typeof ruleSchema>>(c, 'body');
+  
+  if (input.scope !== 'global' && !input.targetId) {
+    throw AppError.badRequest('يجب تحديد targetId للقواعد غير العامة');
+  }
+
+  const [rule] = await db.insert(commissionRules).values({
+    scope: input.scope,
+    targetId: input.targetId || null,
+    rate: input.rate,
+    priority: input.priority,
+    effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : new Date(),
+    effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+  }).returning();
+
+  return sendCreated(c, rule);
+});
+
+adminRoutes.delete('/commission-rules/:id', async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+  await db.delete(commissionRules).where(eq(commissionRules.id, id));
+  return sendSuccess(c, { message: 'تم حذف القاعدة' });
+});
+
+// ==========================================
+// 9. Settlements & Payouts (FIZ G3)
+// ==========================================
+adminRoutes.get('/settlements', async (c) => {
+  const list = await db.select({
+    id: settlements.id,
+    vendorId: settlements.vendorId,
+    vendorName: vendors.storeName,
+    periodStart: settlements.periodStart,
+    periodEnd: settlements.periodEnd,
+    grossSales: settlements.grossSales,
+    totalCommission: settlements.totalCommission,
+    netPayable: settlements.netPayable,
+    status: settlements.status,
+    createdAt: settlements.createdAt
+  })
+  .from(settlements)
+  .innerJoin(vendors, eq(settlements.vendorId, vendors.id))
+  .orderBy(desc(settlements.createdAt));
+  
+  return sendSuccess(c, list);
+});
+
+adminRoutes.put('/settlements/:id/finalize', async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+  const [settlement] = await db.update(settlements)
+    .set({ status: 'finalized' })
+    .where(and(eq(settlements.id, id), eq(settlements.status, 'draft')))
+    .returning();
+    
+  if (!settlement) throw AppError.notFound('التسوية غير موجودة أو ليست مسودة');
+  return sendSuccess(c, settlement);
+});
+
+adminRoutes.get('/payouts', async (c) => {
+  const list = await db.select({
+    id: payoutRequests.id,
+    vendorId: payoutRequests.vendorId,
+    vendorName: vendors.storeName,
+    settlementId: payoutRequests.settlementId,
+    amount: payoutRequests.amount,
+    status: payoutRequests.status,
+    bankAccountSnapshot: payoutRequests.bankAccountSnapshot,
+    createdAt: payoutRequests.createdAt,
+  })
+  .from(payoutRequests)
+  .innerJoin(vendors, eq(payoutRequests.vendorId, vendors.id))
+  .orderBy(desc(payoutRequests.createdAt));
+  
+  return sendSuccess(c, list);
+});
+
+const payoutActionSchema = z.object({
+  reason: z.string().optional(),
+});
+
+adminRoutes.put('/payouts/:id/approve', async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+  const admin = c.get('user');
+  
+  const [request] = await db.update(payoutRequests)
+    .set({ 
+      status: 'paid', 
+      adminId: admin.id,
+      processedAt: new Date()
+    })
+    .where(and(eq(payoutRequests.id, id), eq(payoutRequests.status, 'pending')))
+    .returning();
+    
+  if (!request) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
+  
+  if (request.settlementId) {
+    await db.update(settlements)
+      .set({ status: 'paid', paidAt: new Date() })
+      .where(eq(settlements.id, request.settlementId));
+  }
+  
+  // Create payout transaction
+  const [vendorRecord] = await db.select({ totalSales: vendors.totalSales }).from(vendors).where(eq(vendors.id, request.vendorId));
+  const balanceBefore = parseFloat(vendorRecord!.totalSales);
+  const balanceAfter = balanceBefore - parseFloat(request.amount);
+  
+  await db.insert(transactions).values({
+    vendorId: request.vendorId,
+    type: 'payout',
+    amount: request.amount,
+    balanceBefore: balanceBefore.toFixed(2),
+    balanceAfter: balanceAfter.toFixed(2),
+    description: `سحب أرباح #${request.id}`,
+  });
+  
+  await db.update(vendors).set({ totalSales: balanceAfter.toFixed(2) }).where(eq(vendors.id, request.vendorId));
+  
+  return sendSuccess(c, request);
+});
+
+adminRoutes.put('/payouts/:id/reject', validate('body', payoutActionSchema), async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+  const admin = c.get('user');
+  const input = getValidated<z.infer<typeof payoutActionSchema>>(c, 'body');
+  
+  const [request] = await db.update(payoutRequests)
+    .set({ 
+      status: 'rejected', 
+      adminId: admin.id,
+      processedAt: new Date(),
+    })
+    .where(and(eq(payoutRequests.id, id), eq(payoutRequests.status, 'pending')))
+    .returning();
+    
+  if (!request) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
+  
+  return sendSuccess(c, request);
+});
 export default adminRoutes;
