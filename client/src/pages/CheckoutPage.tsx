@@ -67,7 +67,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify({
           orderId,
@@ -77,7 +77,9 @@ export default function CheckoutPage() {
 
       const paymentData = await paymentRes.json();
       
-      if (!paymentRes.ok) throw new Error(paymentData.error || 'فشل تهيئة الدفع');
+      if (!paymentRes.ok) {
+        throw new Error(paymentData?.error?.message || paymentData?.error || 'فشل تهيئة الدفع');
+      }
 
       if (paymentMethod === 'card' && paymentData.data?.iframeUrl) {
         window.location.href = paymentData.data.iframeUrl;
