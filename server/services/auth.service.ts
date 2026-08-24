@@ -310,7 +310,7 @@ export async function getProfile(userId: number) {
     .innerJoin(roles, eq(userRoles.roleId, roles.id))
     .where(eq(userRoles.userId, user.id));
 
-  isSuperAdmin = userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+  isSuperAdmin = user.role === 'admin' || userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
 
   if (isSuperAdmin) {
     userPermissions = ['*'];
