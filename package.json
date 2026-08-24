@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "tsx server/index.ts",
-    "build": "tsc && vite build --outDir dist/client",
+    "build": "tsc && vite build client --outDir ../dist/client --emptyOutDir",
     "start": "node dist/server/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
