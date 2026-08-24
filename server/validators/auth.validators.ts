@@ -46,6 +46,18 @@ export const mfaTokenSchema = z.object({
   token: z.string().min(6, 'رمز التحقق مطلوب').max(10),
 }).strict();
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('بريد إلكتروني غير صالح').toLowerCase().trim(),
+}).strict();
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'الرمز مطلوب'),
+  password: z.string()
+    .min(8, 'كلمة المرور يجب أن تكون 8 أحرف على الأقل')
+    .max(72)
+    .regex(passwordRegex, 'كلمة المرور يجب أن تحتوي على حرف كبير وحرف صغير ورقم'),
+}).strict();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VendorRegisterInput = z.infer<typeof vendorRegisterSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -53,3 +65,5 @@ export type RefreshInput = z.infer<typeof refreshSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type MfaTokenInput = z.infer<typeof mfaTokenSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

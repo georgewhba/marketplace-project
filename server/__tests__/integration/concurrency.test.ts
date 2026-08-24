@@ -1,5 +1,10 @@
 /**
- * F1 Concurrency Integration Tests
+ * F1 Concurrency Integration Tests (Isolated Pattern)
+ *
+ * NOTE: This file only tests the isolated SQL pattern via helper functions.
+ * It proves the pattern works, but does NOT prove the real POST /api/orders endpoint is safe.
+ * For the official proof that the actual HTTP endpoint handles concurrency correctly,
+ * see `concurrency-http.test.ts`.
  *
  * Tests that concurrent requests on shared resources (stock, coupons) are handled
  * atomically — exactly one succeeds, the other is rejected cleanly, and no data

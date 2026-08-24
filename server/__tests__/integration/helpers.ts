@@ -176,7 +176,7 @@ export async function seedCoupon(overrides: Partial<{
 
 // ── Hono App request helper ─────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 let _app: any = null;
 
 /**

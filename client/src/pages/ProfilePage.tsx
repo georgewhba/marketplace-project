@@ -186,12 +186,12 @@ export default function ProfilePage() {
             ) : (
               <div style={{ background: 'var(--neutral-50)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>1. قم بمسح رمز الاستجابة السريعة (QR Code):</p>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: '#fff', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: 'var(--bg-surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
                   <img src={mfaSetup.qrCodeUrl} alt="MFA QR Code" style={{ maxWidth: '100%', height: 'auto' }} />
                 </div>
                 
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>2. أو أدخل الرمز السري يدوياً:</p>
-                <code style={{ display: 'block', padding: 'var(--space-3)', background: '#fff', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)' }}>
+                <code style={{ display: 'block', padding: 'var(--space-3)', background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)' }}>
                   {mfaSetup.secret}
                 </code>
 

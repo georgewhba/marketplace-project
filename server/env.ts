@@ -23,7 +23,11 @@ const envSchema = z.object({
   PAYMOB_IFRAME_ID: z.string().optional(),
   PAYMOB_HMAC: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  BOSTA_API_KEY: z.string().optional(),
   BOSTA_WEBHOOK_SECRET: z.string().optional().default('bosta_secret_123'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

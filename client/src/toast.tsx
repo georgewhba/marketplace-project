@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from './lib/motion-tokens';
 
 type ToastType = 'success' | 'error' | 'info';
 interface Toast {
@@ -21,6 +23,7 @@ const ToastContext = createContext<ToastContextType | null>(null);
 let nextId = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const shouldReduceMotion = useReducedMotion();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((type: ToastType, message: string) => {
@@ -39,11 +42,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast: addToastPublic, success, error, info, dismiss }}>
       {children}
       <div className="toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast toast-${t.type}`} onClick={() => dismiss(t.id)}>
-            {t.message}
-          </div>
-        ))}
+        <AnimatePresence>
+          {toasts.map(t => (
+            <motion.div 
+              key={t.id} 
+              layout
+              className={`toast toast-${t.type}`} 
+              onClick={() => dismiss(t.id)}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20, scale: shouldReduceMotion ? 1 : 0.95 }}
+              animate={t.type === 'error' && !shouldReduceMotion 
+                ? { opacity: 1, y: 0, scale: 1, x: [0, -8, 8, -8, 8, 0] } 
+                : { opacity: 1, y: 0, scale: 1, x: 0 }
+              }
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: motionTokens.duration.fast } }}
+              transition={t.type === 'error' && !shouldReduceMotion 
+                ? { duration: motionTokens.duration.base, x: { duration: 0.4 } }
+                : { duration: motionTokens.duration.base, ...motionTokens.easing.spring }
+              }
+            >
+              {t.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

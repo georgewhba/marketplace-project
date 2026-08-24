@@ -3,28 +3,35 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
 import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2 } from 'lucide-react';
+import { AnimatedNumber } from '../../components/AnimatedNumber';
+import { useAuth } from '../../auth';
 
 const sidebarLinks = [
-  { to: '/admin', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
-  { to: '/admin/analytics', icon: BarChart2, label: 'التحليلات' },
-  { to: '/admin/vendors', icon: Store, label: 'البائعين' },
-  { to: '/admin/commission-rules', icon: Tag, label: 'قواعد العمولة' },
-  { to: '/admin/products', icon: Package, label: 'المنتجات' },
-  { to: '/admin/orders', icon: ShoppingCart, label: 'الطلبات' },
-  { to: '/admin/settlements', icon: DollarSign, label: 'التسويات' },
-  { to: '/admin/payouts', icon: DollarSign, label: 'طلبات السحب' },
-  { to: '/admin/users', icon: Users, label: 'المستخدمين' },
-  { to: '/admin/roles', icon: Shield, label: 'الأدوار والصلاحيات' },
-  { to: '/admin/categories', icon: Tag, label: 'الأقسام' },
-  { to: '/admin/refunds', icon: Undo, label: 'المرتجعات' },
-  { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات' },
-  { to: '/admin/settings', icon: Settings, label: 'الإعدادات' },
+  { to: '/admin', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true, permission: 'dashboard.view' },
+  { to: '/admin/analytics', icon: BarChart2, label: 'التحليلات', permission: 'analytics.view' },
+  { to: '/admin/vendors', icon: Store, label: 'البائعين', permission: 'vendors.approve' },
+  { to: '/admin/commission-rules', icon: Tag, label: 'قواعد العمولة', permission: 'commission.manage' },
+  { to: '/admin/products', icon: Package, label: 'المنتجات', permission: 'products.moderate' },
+  { to: '/admin/orders', icon: ShoppingCart, label: 'الطلبات', permission: 'orders.view' },
+  { to: '/admin/settlements', icon: DollarSign, label: 'التسويات', permission: 'payouts.approve' },
+  { to: '/admin/payouts', icon: DollarSign, label: 'طلبات السحب', permission: 'payouts.approve' },
+  { to: '/admin/users', icon: Users, label: 'المستخدمين', permission: 'users.manage' },
+  { to: '/admin/roles', icon: Shield, label: 'الأدوار والصلاحيات', permission: 'users.manage' },
+  { to: '/admin/categories', icon: Tag, label: 'الأقسام', permission: 'categories.manage' },
+  { to: '/admin/refunds', icon: Undo, label: 'المرتجعات', permission: 'orders.refund' },
+  { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات', permission: 'coupons.manage' },
+  { to: '/admin/settings', icon: Settings, label: 'الإعدادات', permission: 'settings.edit' },
 ];
 
 export function AdminLayout() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const filteredLinks = sidebarLinks.filter(link => 
+    !link.permission || user?.isSuperAdmin || (user?.permissions || []).includes(link.permission)
+  );
 
   return (
     <div className="dashboard-layout">
@@ -58,7 +65,7 @@ export function AdminLayout() {
       <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar__section">
           <div className="sidebar__section-title">لوحة الإدارة</div>
-          {sidebarLinks.map(link => {
+          {filteredLinks.map(link => {
             const isActive = link.exact ? location.pathname === link.to : location.pathname.startsWith(link.to);
             return (
               <Link 
@@ -104,27 +111,27 @@ export default function AdminDashboard() {
       <div className="grid grid-3 mb-8">
         <div className="stat-card">
           <div className="stat-card__label">المستخدمين</div>
-          <div className="stat-card__value">{stats.totalUsers}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.totalUsers || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">البائعين المعتمدين</div>
-          <div className="stat-card__value">{stats.totalVendors}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.totalVendors || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">المنتجات</div>
-          <div className="stat-card__value">{stats.totalProducts}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.totalProducts || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">إجمالي الطلبات</div>
-          <div className="stat-card__value">{stats.totalOrders}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.totalOrders || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">إجمالي الإيرادات</div>
-          <div className="stat-card__value">{parseFloat(stats.totalRevenue || '0').toLocaleString('ar-EG')} ج.م</div>
+          <div className="stat-card__value"><AnimatedNumber value={parseFloat(stats.totalRevenue || '0')} suffix=" ج.م" decimals={2} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label" style={{ color: 'var(--warning-500)' }}>بائعين بانتظار الموافقة</div>
-          <div className="stat-card__value">{stats.pendingVendors}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.pendingVendors || 0} /></div>
         </div>
       </div>
 

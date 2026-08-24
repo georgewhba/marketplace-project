@@ -6,6 +6,15 @@
     <meta name="description" content="سوق مصر — منصة التجارة الإلكترونية الأولى في مصر. تسوّق من أفضل البائعين المعتمدين. إلكترونيات، كتب، ملابس والمزيد." />
     <title>سوق مصر — تسوّق من أفضل البائعين</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <script>
+      (function() {
+        try {
+          var savedTheme = localStorage.getItem('theme');
+          var theme = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

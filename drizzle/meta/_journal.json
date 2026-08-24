@@ -64,6 +64,13 @@
       "when": 1787519588474,
       "tag": "0008_absent_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787566439612,
+      "tag": "0009_add_password_reset",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { addressApi, orderApi, cartApi, paymentApi } from '../api';
+import { motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
 import { useToast } from '../toast';
 import { MapPin, Plus, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function CheckoutPage() {
+  const shouldReduceMotion = useReducedMotion();
   const toast = useToast();
   const navigate = useNavigate();
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -92,10 +95,22 @@ export default function CheckoutPage() {
         <h1 className="page-header__title mb-0">إتمام الشراء</h1>
       </div>
 
-      <div className="flex gap-8" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <motion.div 
+        className="flex gap-8" 
+        style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}
+        initial="hidden"
+        animate="visible"
+        variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
+      >
         <div style={{ flex: '1 1 500px' }}>
           {/* Addresses */}
-          <div className="card card-body mb-6">
+          <motion.div 
+            className="card card-body mb-6"
+            variants={{
+              hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+            }}
+          >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>
               <MapPin size={18} style={{ display: 'inline', marginLeft: 'var(--space-2)' }} />
               عنوان التوصيل
@@ -167,10 +182,16 @@ export default function CheckoutPage() {
                 <button type="submit" className="btn btn-primary btn-md">حفظ العنوان</button>
               </form>
             )}
-          </div>
+          </motion.div>
 
           {/* Coupon */}
-          <div className="card card-body mb-6">
+          <motion.div 
+            className="card card-body mb-6"
+            variants={{
+              hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+            }}
+          >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-3)' }}>كود خصم</h3>
             <div className="flex gap-3">
               <input
@@ -181,16 +202,28 @@ export default function CheckoutPage() {
                 dir="ltr"
               />
             </div>
-          </div>
+          </motion.div>
 
           {/* Notes */}
-          <div className="card card-body mb-6">
+          <motion.div 
+            className="card card-body mb-6"
+            variants={{
+              hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+            }}
+          >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-3)' }}>ملاحظات (اختياري)</h3>
             <textarea className="form-textarea" value={notes} onChange={e => setNotes(e.target.value)} placeholder="مثال: الرجاء عدم قرع الجرس" />
-          </div>
+          </motion.div>
 
           {/* Payment Method */}
-          <div className="card card-body">
+          <motion.div 
+            className="card card-body"
+            variants={{
+              hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+            }}
+          >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>طريقة الدفع</h3>
             <div className="flex flex-col gap-3">
               <label
@@ -234,11 +267,17 @@ export default function CheckoutPage() {
                 </div>
               </label>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Summary */}
-        <div style={{ flex: '0 0 320px' }}>
+        <motion.div 
+          style={{ flex: '0 0 320px' }}
+          variants={{
+            hidden: { opacity: 0, x: shouldReduceMotion ? 0 : -20 },
+            visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+          }}
+        >
           <div className="card card-body" style={{ position: 'sticky', top: 'calc(var(--header-height) + var(--space-6))' }}>
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>ملخص الطلب</h3>
 
@@ -273,8 +312,8 @@ export default function CheckoutPage() {
               {paymentMethod === 'cod' ? 'الدفع عند الاستلام' : 'دفع إلكتروني آمن'}
             </p>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

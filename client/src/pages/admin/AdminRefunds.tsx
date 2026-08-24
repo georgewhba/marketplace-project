@@ -105,7 +105,7 @@ export default function AdminRefunds() {
       </div>
 
       {selectedRequest && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-overlay)', zIndex: 100 }}>
           <div className="card card-body" style={{ width: '100%', maxWidth: 400 }}>
             <h3 className="text-lg font-bold mb-4 flex gap-2 items-center">
               <RefreshCw size={18} /> معالجة طلب استرجاع #{selectedRequest.orderId}

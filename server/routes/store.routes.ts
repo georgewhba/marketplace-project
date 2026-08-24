@@ -288,5 +288,30 @@ storeRoutes.get('/vendors/:slug', async (c) => {
     products: productsWithImages,
   });
 });
+const contactSchema = z.object({
+  name: z.string().min(2, 'الاسم مطلوب'),
+  email: z.string().email('بريد إلكتروني غير صالح'),
+  subject: z.string().min(3, 'الموضوع مطلوب'),
+  message: z.string().min(10, 'الرسالة قصيرة جداً'),
+});
+
+// POST /api/store/contact
+import { sendEmail } from '../services/email.service.js';
+
+storeRoutes.post('/contact', validate('body', contactSchema), async (c) => {
+  const input = getValidated<z.infer<typeof contactSchema>>(c, 'body');
+
+  // In a real application, you might want to save this to a database
+  // and send it to the admin's email.
+  // Here we just send an email to a predefined admin address.
+  await sendEmail({
+    to: 'admin@example.com', // Admin email
+    templateKey: 'order_confirmation', // Fallback since we don't have a contact template, or create one
+    subject: `رسالة جديدة من نموذج اتصل بنا: ${input.subject}`,
+    data: { orderNumber: `Contact: ${input.name} (${input.email})\n\n${input.message}` } // Hack for now
+  });
+
+  return sendSuccess(c, { message: 'تم إرسال رسالتك بنجاح. سنتواصل معك قريباً.' });
+});
 
 export default storeRoutes;

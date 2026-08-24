@@ -95,7 +95,7 @@ export async function getTopProducts(days: number = 30) {
     })
     .from(orderItems)
     .innerJoin(products, eq(orderItems.productId, products.id))
-    .where(gte(orderItems.createdAt, periodStart))
+    .where(and(gte(orderItems.createdAt, periodStart), eq(orderItems.vendorStatus, 'delivered')))
     .groupBy(products.id)
     .orderBy(desc(sql`SUM(${orderItems.total})`))
     .limit(10);
@@ -113,7 +113,7 @@ export async function getTopVendors(days: number = 30) {
     })
     .from(orderItems)
     .innerJoin(vendors, eq(orderItems.vendorId, vendors.id))
-    .where(gte(orderItems.createdAt, periodStart))
+    .where(and(gte(orderItems.createdAt, periodStart), eq(orderItems.vendorStatus, 'delivered')))
     .groupBy(vendors.id)
     .orderBy(desc(sql`SUM(${orderItems.total})`))
     .limit(10);
@@ -128,8 +128,8 @@ export async function getFunnel() {
   const cartAddsResult = await db.select({ count: count() }).from(cartItems);
   const totalInCart = cartAddsResult[0]?.count || 0;
 
-  // Total order items ever created
-  const ordersResult = await db.select({ count: count() }).from(orderItems);
+  // Total order items ever created (unique orders)
+  const ordersResult = await db.select({ count: sql<number>`COUNT(DISTINCT ${orderItems.orderId})::numeric` }).from(orderItems);
   const totalOrders = ordersResult[0]?.count || 0;
 
   return {
@@ -153,7 +153,7 @@ export async function getCategoriesAnalytics() {
     })
     .from(categories)
     .leftJoin(products, eq(categories.id, products.categoryId))
-    .leftJoin(orderItems, eq(products.id, orderItems.productId))
+    .leftJoin(orderItems, and(eq(products.id, orderItems.productId), eq(orderItems.vendorStatus, 'delivered')))
     .groupBy(categories.id)
     .orderBy(desc(sql`COALESCE(SUM(${orderItems.total}), 0)`));
 }
@@ -173,7 +173,7 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
       totalOrders: sql<number>`COUNT(DISTINCT ${orderItems.orderId})::numeric`,
     })
     .from(orderItems)
-    .where(and(eq(orderItems.vendorId, vendorId), gte(orderItems.createdAt, currentPeriodStart)));
+    .where(and(eq(orderItems.vendorId, vendorId), eq(orderItems.vendorStatus, 'delivered'), gte(orderItems.createdAt, currentPeriodStart)));
 
   const previousMetrics = await db
     .select({
@@ -183,6 +183,7 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
     .from(orderItems)
     .where(and(
       eq(orderItems.vendorId, vendorId), 
+      eq(orderItems.vendorStatus, 'delivered'),
       gte(orderItems.createdAt, previousPeriodStart),
       sql`${orderItems.createdAt} < ${currentPeriodStart}`
     ));
@@ -199,7 +200,7 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
       orders: sql<number>`COUNT(DISTINCT ${orderItems.orderId})::numeric`,
     })
     .from(orderItems)
-    .where(and(eq(orderItems.vendorId, vendorId), gte(orderItems.createdAt, currentPeriodStart)))
+    .where(and(eq(orderItems.vendorId, vendorId), eq(orderItems.vendorStatus, 'delivered'), gte(orderItems.createdAt, currentPeriodStart)))
     .groupBy(sql`date_trunc('day', ${orderItems.createdAt})`)
     .orderBy(sql`date_trunc('day', ${orderItems.createdAt})`);
 
@@ -230,6 +231,7 @@ export async function getVendorProducts(vendorId: number, days: number = 30) {
     .from(products)
     .leftJoin(orderItems, and(
       eq(products.id, orderItems.productId),
+      eq(orderItems.vendorStatus, 'delivered'),
       gte(orderItems.createdAt, periodStart)
     ))
     .where(eq(products.vendorId, vendorId))

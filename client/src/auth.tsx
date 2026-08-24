@@ -11,6 +11,8 @@ interface User {
   avatarUrl?: string;
   vendor?: any;
   mfaEnabled?: boolean;
+  permissions?: string[];
+  isSuperAdmin?: boolean;
 }
 
 interface AuthContextType {

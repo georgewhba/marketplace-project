@@ -1,7 +1,8 @@
 import { Star, ShoppingCart, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-
+import { motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
+import { useState } from 'react';
 interface ProductCardProps {
   product: {
     id: number;
@@ -27,15 +28,65 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
   const rating = product.rating ? parseFloat(product.rating) : 0;
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
+  const shouldReduceMotion = useReducedMotion();
+  const [tiltStyle, setTiltStyle] = useState({ rotateX: 0, rotateY: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (shouldReduceMotion) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    // Subtle tilt: max 2 degrees
+    const rotateX = ((y - centerY) / centerY) * -2;
+    const rotateY = ((x - centerX) / centerX) * 2;
+    
+    setTiltStyle({ rotateX, rotateY });
+  };
+
+  const handleMouseLeave = () => {
+    setTiltStyle({ rotateX: 0, rotateY: 0 });
+  };
+
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { 
+        duration: motionTokens.duration.fast, 
+        ease: motionTokens.easing.decelerate 
+      } 
+    }
   };
 
   return (
-    <motion.div className="product-card" variants={itemVariants}>
+    <motion.div 
+      className="product-card" 
+      variants={itemVariants}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      animate={{ 
+        rotateX: tiltStyle.rotateX, 
+        rotateY: tiltStyle.rotateY 
+      }}
+      transition={{ 
+        type: 'spring', 
+        stiffness: 400, 
+        damping: 30, 
+        mass: 0.5 
+      }}
+      style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
+    >
       <Link to={`/products/${product.slug}`}>
-        <div className="product-card__image-wrap">
+        <motion.div 
+          className="product-card__image-wrap"
+          whileHover={{ scale: shouldReduceMotion ? 1 : 1.02 }}
+          transition={{ duration: motionTokens.duration.fast, ease: motionTokens.easing.standard }}
+        >
           <img src={imageUrl} alt={product.name} className="product-card__image" loading="lazy" />
           {discount && <span className="product-card__discount">-{discount}%</span>}
           {isOutOfStock && (
@@ -51,7 +102,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
               نفذ من المخزون
             </div>
           )}
-        </div>
+        </motion.div>
       </Link>
 
       {onToggleWishlist && (

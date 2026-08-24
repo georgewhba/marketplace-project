@@ -9,9 +9,9 @@ import { AppError } from '../utils/errors.js';
 import * as authService from '../services/auth.service.js';
 import {
   registerSchema, vendorRegisterSchema, loginSchema,
-  refreshSchema, updateProfileSchema, changePasswordSchema, mfaTokenSchema,
+  refreshSchema, updateProfileSchema, changePasswordSchema, mfaTokenSchema, forgotPasswordSchema, resetPasswordSchema,
   type RegisterInput, type VendorRegisterInput, type LoginInput,
-  type RefreshInput, type UpdateProfileInput, type ChangePasswordInput, type MfaTokenInput,
+  type RefreshInput, type UpdateProfileInput, type ChangePasswordInput, type MfaTokenInput, type ForgotPasswordInput, type ResetPasswordInput
 } from '../validators/auth.validators.js';
 import type { AppEnv } from '../types/env.js';
 
@@ -68,6 +68,20 @@ authRoutes.post('/logout', async (c) => {
   deleteCookie(c, 'accessToken', { path: '/' });
   deleteCookie(c, 'refreshToken', { path: '/' });
   return sendSuccess(c, { message: 'تم تسجيل الخروج بنجاح' });
+});
+
+// POST /api/auth/forgot-password
+authRoutes.post('/forgot-password', authRateLimit, validate('body', forgotPasswordSchema), async (c) => {
+  const input = getValidated<ForgotPasswordInput>(c, 'body');
+  await authService.forgotPassword(input.email);
+  return sendSuccess(c, { message: 'إذا كان البريد الإلكتروني مسجلاً، فستتلقى رابطاً لإعادة تعيين كلمة المرور.' });
+});
+
+// POST /api/auth/reset-password
+authRoutes.post('/reset-password', authRateLimit, validate('body', resetPasswordSchema), async (c) => {
+  const input = getValidated<ResetPasswordInput>(c, 'body');
+  await authService.resetPassword(input.token, input.password);
+  return sendSuccess(c, { message: 'تم إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.' });
 });
 
 // GET /api/auth/me

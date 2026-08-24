@@ -165,7 +165,7 @@ export default function OrdersPage() {
       </div>
 
       {refundOrderId && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-overlay)', zIndex: 100 }}>
           <div className="card card-body" style={{ width: '100%', maxWidth: 400 }}>
             <h3 className="text-lg font-bold mb-4 flex gap-2 items-center">
               <Undo size={18} /> طلب استرجاع
@@ -207,7 +207,7 @@ export default function OrdersPage() {
 
       {/* Tracking Modal */}
       {trackingOrderId && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-overlay)', zIndex: 100 }}>
           <div className="card card-body" style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
             <button
               className="icon-btn"

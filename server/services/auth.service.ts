@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { users, refreshTokens, vendors, mfaSecrets } from '../db/schema/index.js';
+import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
@@ -297,7 +297,42 @@ export async function getProfile(userId: number) {
 
   const [mfa] = await db.select({ enabled: mfaSecrets.enabled }).from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
 
-  return { ...user, vendor: vendorInfo, mfaEnabled: mfa?.enabled ?? false };
+  // RBAC permissions
+  let userPermissions: string[] = [];
+  let isSuperAdmin = false;
+
+  const userRoleList = await db
+    .select({
+      roleName: roles.name,
+      isSystem: roles.isSystem,
+    })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(userRoles.userId, user.id));
+
+  isSuperAdmin = userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+
+  if (isSuperAdmin) {
+    userPermissions = ['*'];
+  } else {
+    const perms = await db
+      .select({ key: permissions.key })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(userRoles.userId, user.id));
+    
+    userPermissions = perms.map(p => p.key);
+  }
+
+  return { 
+    ...user, 
+    vendor: vendorInfo, 
+    mfaEnabled: mfa?.enabled ?? false,
+    permissions: userPermissions,
+    isSuperAdmin
+  };
 }
 
 export async function updateProfile(userId: number, input: UpdateProfileInput) {
@@ -437,4 +472,52 @@ export async function disableMFA(userId: number, token: string) {
   }
 
   await db.delete(mfaSecrets).where(eq(mfaSecrets.userId, userId));
+}
+
+import { sendEmail } from './email.service.js';
+
+export async function forgotPassword(email: string) {
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  if (!user) return; // Silent success to prevent email enumeration
+
+  // Generate a random token
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db.update(users).set({
+    passwordResetToken: tokenHash,
+    passwordResetExpires: expiresAt,
+  }).where(eq(users.id, user.id));
+
+  // In a real app, this would be a link to the frontend reset password page
+  const resetLink = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
+
+  await sendEmail({
+    to: user.email,
+    templateKey: 'password_reset',
+    subject: 'استعادة كلمة المرور',
+    data: { name: user.firstName, resetLink },
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  const tokenHash = hashToken(token);
+  
+  const [user] = await db.select().from(users).where(eq(users.passwordResetToken, tokenHash)).limit(1);
+  
+  if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+    throw AppError.badRequest('الرمز غير صالح أو منتهي الصلاحية');
+  }
+
+  const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  
+  await db.update(users).set({
+    passwordHash: newHash,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+  }).where(eq(users.id, user.id));
+
+  // Invalidate refresh tokens
+  await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
 }

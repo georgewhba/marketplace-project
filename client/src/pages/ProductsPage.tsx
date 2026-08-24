@@ -3,7 +3,8 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { storeApi, cartApi } from '../api';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { AnimatedPage } from '../components/AnimatedPage';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -17,6 +18,7 @@ const sortOptions = [
 ];
 
 export default function ProductsPage() {
+  const shouldReduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const toast = useToast();
@@ -99,7 +101,7 @@ export default function ProductsPage() {
         className="grid grid-4"
         initial="hidden"
         animate="visible"
-        variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+        variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
       >
         {loading
           ? Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)

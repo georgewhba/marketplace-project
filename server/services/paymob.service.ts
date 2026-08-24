@@ -4,6 +4,18 @@ import { env } from '../env.js';
 const PAYMOB_API_URL = 'https://accept.paymob.com/api';
 
 export const paymobService = {
+  async getAuthToken(): Promise<string> {
+    if (!env.PAYMOB_API_KEY) throw new Error('Paymob API Key missing');
+    const authRes = await fetch(`${PAYMOB_API_URL}/auth/tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: env.PAYMOB_API_KEY })
+    });
+    if (!authRes.ok) throw new Error('Paymob Auth failed');
+    const authData = await authRes.json() as any;
+    return authData.token;
+  },
+
   /**
    * Generates a payment key for an order
    */
@@ -19,14 +31,7 @@ export const paymobService = {
 
     try {
       // 1. Authentication
-      const authRes = await fetch(`${PAYMOB_API_URL}/auth/tokens`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: env.PAYMOB_API_KEY })
-      });
-      if (!authRes.ok) throw new Error('Paymob Auth failed');
-      const authData = await authRes.json() as any;
-      const authToken = authData.token;
+      const authToken = await this.getAuthToken();
 
       // 2. Order Registration
       const amountCents = Math.round(amount * 100).toString();
@@ -79,8 +84,8 @@ export const paymobService = {
    */
   validateHMAC(payload: any, hmacReceived: string) {
     if (!env.PAYMOB_HMAC) {
-      console.warn('⚠️ Paymob HMAC key not found. Bypassing HMAC validation (MOCK mode).');
-      return true; // Mock mode
+      console.error('🚨 PAYMOB_HMAC not configured — rejecting all webhooks until fixed');
+      return false; // Safe failure
     }
 
     const keys = [
@@ -139,12 +144,32 @@ export const paymobService = {
    */
   async issueRefund(transactionId: string, amount: number) {
     if (!env.PAYMOB_API_KEY) {
-      console.warn('⚠️ Paymob API Key not found. MOCK Refund.');
-      return { success: true };
+      throw new Error('Paymob refund unavailable: API credentials not configured');
     }
 
-    // Actual Refund API call would go here
-    // POST /acceptance/void_refund/refund with auth_token, transaction_id, amount_cents
-    return { success: true };
+    const authToken = await this.getAuthToken();
+    const amountCents = Math.round(amount * 100);
+
+    const response = await fetch(`${PAYMOB_API_URL}/acceptance/void_refund/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        auth_token: authToken,
+        transaction_id: transactionId,
+        amount_cents: amountCents,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Paymob refund failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json() as any;
+    if (data.success !== true && data.success !== 'true') {
+      throw new Error(`Paymob refund rejected: ${JSON.stringify(data)}`);
+    }
+
+    return { success: true, providerRefundId: data.id };
   }
 };

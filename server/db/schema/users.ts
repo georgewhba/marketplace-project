@@ -11,6 +11,8 @@ export const users = pgTable('users', {
   role: varchar('role', { length: 20 }).notNull().default('customer'),
   avatarUrl: text('avatar_url'),
   isActive: boolean('is_active').notNull().default(true),
+  passwordResetToken: varchar('password_reset_token', { length: 255 }),
+  passwordResetExpires: timestamp('password_reset_expires', { withTimezone: true }),
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

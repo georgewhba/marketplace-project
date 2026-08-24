@@ -87,6 +87,8 @@ export const authApi = {
   registerVendor: (data: any) => api.post<any>('/auth/register/vendor', data),
   refresh: (refreshToken: string) => api.post<any>('/auth/refresh', { refreshToken }),
   logout: (refreshToken: string) => api.post<any>('/auth/logout', { refreshToken }),
+  forgotPassword: (email: string) => api.post<any>('/auth/forgot-password', { email }),
+  resetPassword: (data: any) => api.post<any>('/auth/reset-password', data),
   getProfile: () => api.get<any>('/auth/me'),
   updateProfile: (data: any) => api.put<any>('/auth/me', data),
   changePassword: (data: any) => api.put<any>('/auth/me/password', data),
@@ -103,12 +105,13 @@ export const storeApi = {
   getHome: () => api.get<any>('/store/home'),
   getCategories: () => api.get<any>('/store/categories'),
   getCategory: (slug: string) => api.get<any>(`/store/categories/${slug}`),
-  getProducts: (params: Record<string, string>) => {
+  getProducts: (params?: any) => {
     const qs = new URLSearchParams(params).toString();
     return api.get<any>(`/store/products?${qs}`);
   },
   getProduct: (slug: string) => api.get<any>(`/store/products/${slug}`),
   getVendorStore: (slug: string) => api.get<any>(`/store/vendors/${slug}`),
+  sendContactMessage: (data: any) => api.post<any>('/store/contact', data),
 };
 
 // Cart

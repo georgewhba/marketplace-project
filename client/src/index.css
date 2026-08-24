@@ -12,7 +12,7 @@
 
   --text-primary: #211c17;
   --text-secondary: #5c5347;
-  --text-muted: #9c8f7d;
+  --text-muted: #6e6457;
   --text-inverse: #ffffff;
 
   --brand-50:  #fdf4f1;
@@ -37,6 +37,18 @@
   --border-color: #e5ded2;
   --border-color-hover: #d1c6b3;
   --border-color-focus: var(--brand-500);
+
+  --neutral-50: var(--bg-surface-2);
+  --neutral-100: var(--bg-surface-3);
+  --neutral-200: var(--border-color);
+  --neutral-300: var(--border-color-hover);
+  --neutral-400: var(--text-muted);
+  --neutral-500: var(--text-secondary);
+  --neutral-600: var(--text-secondary);
+  --neutral-700: var(--text-primary);
+  --neutral-800: var(--text-primary);
+  --neutral-900: var(--text-primary);
+
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -109,16 +121,33 @@
 
   --brand-50: #2a1a11;
   --brand-100: #3d2518;
+  --brand-200: #59311c;
+  --brand-400: #f5c4b0;
   --brand-500: #e08659;
   --brand-600: #c95f34;
   --brand-700: #a84a26;
+  --brand-900: #fbe3da;
+
+  --accent-400: #e6b840;
+  --accent-500: #d4a017;
+  --accent-600: #b8860b;
+  --accent-light: #3a2e0e;
+
+  --success-500: #10a05a; --success-50: #122f20; --success-700: #4ade80;
+  --warning-500: #c9822f; --warning-50: #382715; --warning-700: #fbbf24;
+  --error-500: #d64545;   --error-50: #3b1919;   --error-700: #f87171;
+  --info-500: #3b7ea1;    --info-50: #132b38;    --info-700: #38bdf8;
 
   --border-color: #372d22;
   --border-color-hover: #4a3d2e;
+  --border-color-focus: var(--brand-500);
 
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-sm: 0 2px 8px -2px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px -4px rgba(0,0,0,0.4);
+  --shadow-lg: 0 16px 32px -8px rgba(0,0,0,0.5), 0 8px 16px -4px rgba(0,0,0,0.3);
   --shadow-card-hover: 0 20px 40px -10px rgba(224,134,89,0.25);
+  --shadow-focus: 0 0 0 3px rgba(224,134,89,0.25);
 
   --glass-bg: rgba(34, 28, 22, 0.75);
   --glass-border: rgba(255, 255, 255, 0.1);
@@ -155,8 +184,18 @@ body {
   min-height: 100vh;
 }
 
-a { color: var(--brand-500); text-decoration: none; }
-a:hover { color: var(--brand-600); }
+a { color: var(--brand-600); text-decoration: none; }
+a:hover { color: var(--brand-700); text-decoration: underline; }
+
+/* Accessibility: Links inside text blocks must have underline and sufficient contrast */
+p a, .text-muted a, span a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  color: var(--brand-700);
+}
+p a:hover, .text-muted a:hover, span a:hover {
+  color: var(--brand-900);
+}
 
 img { max-width: 100%; height: auto; display: block; }
 

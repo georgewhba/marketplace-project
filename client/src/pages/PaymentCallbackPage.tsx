@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
 
 export default function PaymentCallbackPage() {
+  const shouldReduceMotion = useReducedMotion();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
@@ -34,14 +37,25 @@ export default function PaymentCallbackPage() {
       )}
 
       {status === 'success' && (
-        <div style={{ textAlign: 'center' }}>
-          <CheckCircle size={64} className="text-success mb-4 mx-auto" />
+        <motion.div 
+          style={{ textAlign: 'center' }}
+          initial={{ scale: shouldReduceMotion ? 1 : 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: motionTokens.duration.slow, ...motionTokens.easing.spring }}
+        >
+          <motion.div
+            initial={{ rotate: shouldReduceMotion ? 0 : -90, scale: shouldReduceMotion ? 1 : 0 }}
+            animate={{ rotate: 0, scale: 1 }}
+            transition={{ duration: motionTokens.duration.slow, ...motionTokens.easing.spring, delay: 0.1 }}
+          >
+            <CheckCircle size={64} className="text-success mb-4 mx-auto" />
+          </motion.div>
           <h2 className="text-2xl" style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>تم الدفع بنجاح!</h2>
           <p className="text-muted mb-6">شكراً لك. تم تأكيد طلبك وجاري تجهيزه.</p>
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/orders')}>
             عرض طلباتي
           </button>
-        </div>
+        </motion.div>
       )}
 
       {status === 'failed' && (

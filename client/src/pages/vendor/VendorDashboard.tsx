@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
 import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2 } from 'lucide-react';
+import { AnimatedNumber } from '../../components/AnimatedNumber';
 
 const sidebarLinks = [
   { to: '/vendor', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
@@ -96,19 +97,19 @@ export default function VendorDashboard() {
       <div className="grid grid-4 mb-8">
         <div className="stat-card">
           <div className="stat-card__label">إجمالي الطلبات</div>
-          <div className="stat-card__value">{stats.totalOrders || 0}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.totalOrders || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">الإيرادات</div>
-          <div className="stat-card__value">{parseFloat(stats.totalRevenue || '0').toLocaleString('ar-EG')} ج.م</div>
+          <div className="stat-card__value"><AnimatedNumber value={parseFloat(stats.totalRevenue || '0')} suffix=" ج.م" decimals={2} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">طلبات معلقة</div>
-          <div className="stat-card__value">{stats.pendingOrders || 0}</div>
+          <div className="stat-card__value"><AnimatedNumber value={stats.pendingOrders || 0} /></div>
         </div>
         <div className="stat-card">
           <div className="stat-card__label">العمولة</div>
-          <div className="stat-card__value">{parseFloat(stats.totalCommission || '0').toLocaleString('ar-EG')} ج.م</div>
+          <div className="stat-card__value"><AnimatedNumber value={parseFloat(stats.totalCommission || '0')} suffix=" ج.م" decimals={2} /></div>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
+import { env } from '../env.js';
 import {
   vendors, products, productImages, orderItems, orders,
   transactions, notifications, users, shipments, shipmentEvents, settlements, payoutRequests
@@ -122,6 +123,7 @@ vendorRoutes.get('/dashboard', async (c) => {
     },
     lowStockProducts: lowStock,
     recentOrders: recentOrderItems,
+    isBostaEnabled: !!env.BOSTA_API_KEY,
   });
 });
 
@@ -317,7 +319,10 @@ vendorRoutes.get('/orders', validate('query', paginationSchema), async (c) => {
     .orderBy(desc(orderItems.createdAt))
     .limit(limit).offset(getOffset(page, limit));
 
-  return sendSuccess(c, items, 200, getPaginationMeta(page, limit, total));
+  return sendSuccess(c, items, 200, {
+    ...getPaginationMeta(page, limit, total),
+    isBostaEnabled: !!env.BOSTA_API_KEY
+  });
 });
 
 // PUT /api/vendor/orders/:itemId/status

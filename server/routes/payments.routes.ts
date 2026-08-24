@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db/index.js';
 import { orders } from '../db/schema/orders.js';
 import { payments } from '../db/schema/payments.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { paymobService } from '../services/paymob.service.js';
@@ -43,6 +43,10 @@ router.post('/initiate', authenticate, validate('body', initiateSchema), async (
       .set({ paymentMethod: 'cod', status: 'confirmed', updatedAt: new Date() })
       .where(eq(orders.id, orderId));
       
+    // Remove any existing pending payments for this order
+    await db.delete(payments)
+      .where(and(eq(payments.orderId, orderId), eq(payments.status, 'pending')));
+
     // Record payment row as pending (will be collected upon delivery)
     await db.insert(payments).values({
       orderId,
@@ -75,6 +79,10 @@ router.post('/initiate', authenticate, validate('body', initiateSchema), async (
   await db.update(orders)
     .set({ paymentMethod: method })
     .where(eq(orders.id, orderId));
+
+  // Remove any existing pending payments for this order
+  await db.delete(payments)
+    .where(and(eq(payments.orderId, orderId), eq(payments.status, 'pending')));
 
   // Record pending payment intent
   await db.insert(payments).values({

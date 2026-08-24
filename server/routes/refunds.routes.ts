@@ -9,7 +9,7 @@ import { transactions } from '../db/schema/transactions.js';
 import { vendors } from '../db/schema/vendors.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
-import { authorize } from '../middleware/authorize.js';
+import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { paymobService } from '../services/paymob.service.js';
 import { AppError } from '../utils/errors.js';
@@ -79,7 +79,7 @@ router.get('/', authenticate, async (c) => {
 });
 
 // Admin: Get all Refund Requests
-router.get('/admin', authenticate, authorize('admin'), async (c) => {
+router.get('/admin', authenticate, requirePermission('orders.refund'), async (c) => {
   const list = await db.select().from(refundRequests).orderBy(desc(refundRequests.createdAt));
   return c.json({ success: true, data: list });
 });
@@ -88,7 +88,7 @@ router.get('/admin', authenticate, authorize('admin'), async (c) => {
 const approveSchema = z.object({
   adminNote: z.string().optional(),
 });
-router.put('/admin/:id/approve', authenticate, authorize('admin'), validate('body', approveSchema), async (c) => {
+router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'), validate('body', approveSchema), async (c) => {
   const id = parseInt(c.req.param('id') || '0');
   const { adminNote } = getValidated<z.infer<typeof approveSchema>>(c, 'body');
   const user = c.get('user');
@@ -115,7 +115,10 @@ router.put('/admin/:id/approve', authenticate, authorize('admin'), validate('bod
       await db.update(payments)
         .set({ status: 'refunded', updatedAt: new Date() })
         .where(eq(payments.id, payment.id));
-    } catch (e) {
+    } catch (e: any) {
+      await db.update(refundRequests)
+        .set({ status: 'failed', adminNote: `فشل بوابة الدفع: ${e.message}`, processedAt: new Date() })
+        .where(eq(refundRequests.id, req.id));
       throw AppError.internal('فشل الاسترجاع عبر بوابة الدفع');
     }
   }
@@ -172,7 +175,7 @@ router.put('/admin/:id/approve', authenticate, authorize('admin'), validate('bod
 const rejectSchema = z.object({
   adminNote: z.string().min(1, 'سبب الرفض مطلوب'),
 });
-router.put('/admin/:id/reject', authenticate, authorize('admin'), validate('body', rejectSchema), async (c) => {
+router.put('/admin/:id/reject', authenticate, requirePermission('orders.refund'), validate('body', rejectSchema), async (c) => {
   const id = parseInt(c.req.param('id') || '0');
   const { adminNote } = getValidated<z.infer<typeof rejectSchema>>(c, 'body');
   const user = c.get('user');

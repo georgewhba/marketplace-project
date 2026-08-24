@@ -3,8 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cartApi } from '../api';
 import { useToast } from '../toast';
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
 
 export default function CartPage() {
+  const shouldReduceMotion = useReducedMotion();
   const toast = useToast();
   const navigate = useNavigate();
   const [cart, setCart] = useState<any>(null);
@@ -70,10 +73,16 @@ export default function CartPage() {
   }
 
   return (
-    <div className="container page-content">
+    <div className="container page-content" style={{ overflowX: 'hidden' }}>
       <h1 className="page-header__title mb-8">سلة التسوق ({items.length} منتج)</h1>
 
-      <div className="flex gap-8" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <motion.div 
+        className="flex gap-8" 
+        style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}
+        initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: motionTokens.duration.slow, ...motionTokens.easing.spring }}
+      >
         {/* Items */}
         <div style={{ flex: '1 1 500px' }}>
           {items.map((item: any) => (
@@ -138,7 +147,7 @@ export default function CartPage() {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

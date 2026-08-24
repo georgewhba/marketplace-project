@@ -1,16 +1,19 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell } from 'lucide-react';
+import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell, Sun, Moon } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../auth';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
+import { useTheme } from '../hooks/useTheme';
+import { cartApi } from '../api';
 
 const MotionLink = motion.create(Link);
 
 export function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -22,7 +25,14 @@ export function Header() {
     refetchInterval: 30000,
   });
 
+  const { data: cartData } = useQuery({
+    queryKey: ['cart'],
+    queryFn: () => cartApi.getCart().then((res: any) => res.data || res),
+    enabled: !!user,
+  });
+
   const unreadCount = unreadData?.count || 0;
+  const cartItemCount = cartData?.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -66,6 +76,10 @@ export function Header() {
         </form>
 
         <div className="header__actions">
+          <button className="header__icon-btn" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
           {user && (
             <>
               <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn" title="الإشعارات" style={{ position: 'relative' }}>
@@ -83,8 +97,31 @@ export function Header() {
               <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn" title="المفضلة">
                 <Heart size={20} />
               </MotionLink>
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/cart" className="header__icon-btn" title="السلة">
-                <ShoppingCart size={20} />
+              <MotionLink 
+                whileHover={{ scale: 1.05 }} 
+                whileTap={{ scale: 0.95 }} 
+                to="/cart" 
+                className="header__icon-btn" 
+                title="السلة" 
+                style={{ position: 'relative' }}
+              >
+                <motion.div
+                  key={cartItemCount}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ShoppingCart size={20} />
+                </motion.div>
+                {cartItemCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -5, background: 'var(--brand-500)', color: 'white',
+                    fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
+                    boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
+                  }}>
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                  </span>
+                )}
               </MotionLink>
             </>
           )}

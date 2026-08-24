@@ -74,11 +74,11 @@ export default function AdminMessageLogs() {
                 <tr key={log.id}>
                   <td>
                     {log.channel === 'email' ? (
-                      <span className="badge" style={{ background: 'var(--primary-100)', color: 'var(--primary-700)' }}>
+                      <span className="badge" style={{ background: 'var(--brand-100)', color: 'var(--brand-700)' }}>
                         <Mail size={14} style={{ marginLeft: 4 }} /> بريد
                       </span>
                     ) : (
-                      <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                      <span className="badge" style={{ background: 'var(--info-50)', color: 'var(--info-700)' }}>
                         <MessageSquare size={14} style={{ marginLeft: 4 }} /> رسالة نصية
                       </span>
                     )}
@@ -86,7 +86,7 @@ export default function AdminMessageLogs() {
                   <td style={{ direction: 'ltr', textAlign: 'right' }}>{log.recipient}</td>
                   <td>{log.templateKey || '-'}</td>
                   <td>
-                    {log.status === 'sent' && <span className="badge" style={{ background: 'var(--success-100)', color: 'var(--success-700)' }}><CheckCircle2 size={14} /> تم الإرسال</span>}
+                    {log.status === 'sent' && <span className="badge" style={{ background: 'var(--success-50)', color: 'var(--success-700)' }}><CheckCircle2 size={14} /> تم الإرسال</span>}
                     {log.status === 'failed' && <span className="badge badge--danger" title={log.errorMessage}><AlertCircle size={14} /> فشل</span>}
                     {log.status === 'pending' && <span className="badge"><Clock size={14} /> قيد الانتظار</span>}
                   </td>

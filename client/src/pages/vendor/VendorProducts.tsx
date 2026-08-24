@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vendorApi, storeApi } from '../../api';
 import { useToast } from '../../toast';
 import { Plus, Edit2, Trash2, Eye, EyeOff, Image, Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../../lib/motion-tokens';
 
 interface Product {
   id: number;
@@ -24,6 +26,7 @@ const initialForm = {
 };
 
 export default function VendorProducts() {
+  const shouldReduceMotion = useReducedMotion();
   const { addToast } = useToast();
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -45,7 +48,7 @@ export default function VendorProducts() {
 
   const products: Product[] = data?.data ?? [];
   const meta = data?.meta;
-  const categories = categoriesData || [];
+  const categories = categoriesData?.data || [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -139,9 +142,25 @@ export default function VendorProducts() {
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="modal-backdrop" onClick={resetForm}>
-          <div className="card" onClick={e => e.stopPropagation()} style={{ maxWidth: 560, width: '90vw', maxHeight: '85vh', overflow: 'auto', margin: 'auto' }}>
+      <AnimatePresence>
+        {showForm && (
+          <motion.div 
+            className="modal-backdrop" 
+            onClick={resetForm}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: motionTokens.duration.fast }}
+          >
+            <motion.div 
+              className="card" 
+              onClick={e => e.stopPropagation()} 
+              style={{ maxWidth: 560, width: '90vw', maxHeight: '85vh', overflow: 'auto', margin: 'auto' }}
+              initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              transition={{ duration: motionTokens.duration.base, ...motionTokens.easing.spring }}
+            >
             <div style={{ padding: 'var(--space-5)' }}>
               <h3 style={{ marginTop: 0 }}>{editId ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h3>
               <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(); }}>
@@ -204,9 +223,10 @@ export default function VendorProducts() {
                 </div>
               </form>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+    </AnimatePresence>
 
       {/* Products Table */}
       {isLoading ? (

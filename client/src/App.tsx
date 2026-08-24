@@ -4,12 +4,15 @@ import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
 import { Header, Footer } from './components/Layout';
+import { PageWrapper } from './components/PageWrapper';
 import { lazy, Suspense, type ReactNode } from 'react';
 
 // Lazy page imports
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -27,7 +30,7 @@ const ReturnPolicyPage = lazy(() => import('./pages/ReturnPolicyPage'));
 const ShippingPolicyPage = lazy(() => import('./pages/ShippingPolicyPage'));
 const FaqPage = lazy(() => import('./pages/FaqPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
-
+const MotionPreviewPage = lazy(() => import('./pages/MotionPreviewPage'));
 // Vendor pages
 const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
 const VendorOrders = lazy(() => import('./pages/vendor/VendorOrders'));
@@ -48,6 +51,7 @@ const AdminPayouts = lazy(() => import('./pages/admin/AdminPayouts').then(m => (
 const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
 const AdminMessageLogs = lazy(() => import('./pages/admin/AdminMessageLogs'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
 
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
@@ -73,11 +77,20 @@ function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: stri
   return <>{children}</>;
 }
 
+function GuestRoute({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <Loading />;
+  if (user) return <Navigate to="/" replace />;
+  return <PageWrapper>{children}</PageWrapper>;
+}
+
 function StoreLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <Header />
-      <Suspense fallback={<Loading />}>{children}</Suspense>
+      <PageWrapper>
+        <Suspense fallback={<Loading />}>{children}</Suspense>
+      </PageWrapper>
       <Footer />
     </>
   );
@@ -87,7 +100,9 @@ function DashboardWrapper({ children }: { children: ReactNode }) {
   return (
     <>
       <Header />
-      <Suspense fallback={<Loading />}>{children}</Suspense>
+      <PageWrapper>
+        <Suspense fallback={<Loading />}>{children}</Suspense>
+      </PageWrapper>
     </>
   );
 }
@@ -98,9 +113,11 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Auth pages — no header/footer */}
-        <Route path="/login" element={<Suspense fallback={<Loading />}><LoginPage /></Suspense>} />
-        <Route path="/register" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
-        <Route path="/register/vendor" element={<Suspense fallback={<Loading />}><RegisterPage /></Suspense>} />
+        <Route path="/login" element={<GuestRoute><Suspense fallback={<Loading />}><LoginPage /></Suspense></GuestRoute>} />
+        <Route path="/register" element={<GuestRoute><Suspense fallback={<Loading />}><RegisterPage /></Suspense></GuestRoute>} />
+        <Route path="/register/vendor" element={<GuestRoute><Suspense fallback={<Loading />}><RegisterPage /></Suspense></GuestRoute>} />
+        <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<Loading />}><ForgotPasswordPage /></Suspense></GuestRoute>} />
+        <Route path="/reset-password" element={<GuestRoute><Suspense fallback={<Loading />}><ResetPasswordPage /></Suspense></GuestRoute>} />
 
         {/* Store pages */}
         <Route path="/" element={<StoreLayout><HomePage /></StoreLayout>} />
@@ -119,7 +136,7 @@ function AnimatedRoutes() {
         <Route path="/shipping-policy" element={<StoreLayout><Suspense fallback={<Loading />}><ShippingPolicyPage /></Suspense></StoreLayout>} />
         <Route path="/faq" element={<StoreLayout><Suspense fallback={<Loading />}><FaqPage /></Suspense></StoreLayout>} />
         <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
-
+        <Route path="/motion-preview" element={<StoreLayout><Suspense fallback={<Loading />}><MotionPreviewPage /></Suspense></StoreLayout>} />
         {/* Vendor dashboard */}
         <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>
           <Route index element={<VendorDashboard />} />
@@ -146,7 +163,7 @@ function AnimatedRoutes() {
           <Route path="message-logs" element={<Suspense fallback={<Loading />}><AdminMessageLogs /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
           <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
-          <Route path="coupons" element={<div style={{ padding: 'var(--space-6)' }}><h2>الكوبونات — قريباً</h2></div>} />
+          <Route path="coupons" element={<Suspense fallback={<Loading />}><AdminCoupons /></Suspense>} />
           <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />
         </Route>
 

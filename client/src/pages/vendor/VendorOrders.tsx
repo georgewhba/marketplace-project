@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
-import { Package, Truck, CheckCircle, Clock, ChevronRight, ChevronLeft, Search } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, ChevronRight, ChevronLeft, Search, X } from 'lucide-react';
 
 interface OrderItem {
   id: number;
@@ -33,6 +33,9 @@ export default function VendorOrders() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [shipmentModal, setShipmentModal] = useState<OrderItem | null>(null);
+  const [shippingProvider, setShippingProvider] = useState<'bosta' | 'manual'>('manual');
+  const [trackingNumber, setTrackingNumber] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendor-orders', page],
@@ -43,13 +46,25 @@ export default function VendorOrders() {
   const meta = data?.meta;
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ itemId, status }: { itemId: number; status: string }) =>
-      vendorApi.updateOrderStatus(itemId, { status }),
+    mutationFn: ({ itemId, status, trackingNumber }: { itemId: number; status: string; trackingNumber?: string }) =>
+      vendorApi.updateOrderStatus(itemId, { status, trackingNumber }),
     onSuccess: () => {
       addToast('تم تحديث حالة الطلب', 'success');
       qc.invalidateQueries({ queryKey: ['vendor-orders'] });
     },
     onError: () => addToast('حدث خطأ', 'error'),
+  });
+
+  const createShipmentMutation = useMutation({
+    mutationFn: ({ itemId, provider }: { itemId: number; provider: 'bosta' | 'manual' }) =>
+      vendorApi.createShipment(itemId, { provider, trackingNumber: provider === 'manual' ? trackingNumber : undefined } as any),
+    onSuccess: () => {
+      addToast('تم إنشاء الشحنة بنجاح', 'success');
+      qc.invalidateQueries({ queryKey: ['vendor-orders'] });
+      setShipmentModal(null);
+      setTrackingNumber('');
+    },
+    onError: (err: any) => addToast(err.message || 'فشل إنشاء الشحنة', 'error'),
   });
 
   function getNextStatus(current: string): string | null {
@@ -126,7 +141,14 @@ export default function VendorOrders() {
                         className="btn btn--primary"
                         style={{ fontSize: 'var(--text-sm)', padding: 'var(--space-1) var(--space-3)' }}
                         disabled={updateStatusMutation.isPending}
-                        onClick={() => updateStatusMutation.mutate({ itemId: item.id, status: next })}
+                        onClick={() => {
+                          if (item.status === 'processing' && next === 'shipped') {
+                            setShipmentModal(item);
+                            setShippingProvider(meta?.isBostaEnabled ? 'bosta' : 'manual');
+                          } else {
+                            updateStatusMutation.mutate({ itemId: item.id, status: next });
+                          }
+                        }}
                       >
                         {statusLabels[next]?.label ?? next}
                       </button>
@@ -151,6 +173,73 @@ export default function VendorOrders() {
           <button className="btn btn--outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
             التالي <ChevronLeft size={18} />
           </button>
+        </div>
+      )}
+
+      {shipmentModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-overlay)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ width: 400, padding: 'var(--space-5)', position: 'relative' }}>
+            <button
+              style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', cursor: 'pointer' }}
+              onClick={() => setShipmentModal(null)}
+            >
+              <X size={20} color="var(--neutral-500)" />
+            </button>
+            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>شحن الطلب #{shipmentModal.orderNumber}</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
+              {meta?.isBostaEnabled && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    checked={shippingProvider === 'bosta'}
+                    onChange={() => setShippingProvider('bosta')}
+                  />
+                  <span>شحن آلي عبر بوسطة (Bosta)</span>
+                </label>
+              )}
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  checked={shippingProvider === 'manual'}
+                  onChange={() => setShippingProvider('manual')}
+                />
+                <span>شحن يدوي (شركة أخرى)</span>
+              </label>
+
+              {shippingProvider === 'manual' && (
+                <div style={{ marginTop: 'var(--space-2)' }}>
+                  <label className="label">رقم التتبع</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="أدخل رقم التتبع"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <button
+                className="btn btn--primary"
+                style={{ flex: 1 }}
+                disabled={createShipmentMutation.isPending || (shippingProvider === 'manual' && !trackingNumber)}
+                onClick={() => createShipmentMutation.mutate({ itemId: shipmentModal.id, provider: shippingProvider })}
+              >
+                {createShipmentMutation.isPending ? 'جاري الإنشاء...' : 'تأكيد الشحن'}
+              </button>
+              <button
+                className="btn btn--outline"
+                style={{ flex: 1 }}
+                onClick={() => setShipmentModal(null)}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@ import {
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
-import { authorize } from '../middleware/authorize.js';
+import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
@@ -24,7 +24,7 @@ import {
 import type { AppEnv } from '../types/env.js';
 
 const adminRoutes = new Hono<AppEnv>();
-adminRoutes.use('*', authenticate, authorize('admin'));
+adminRoutes.use('*', authenticate);
 
 async function logAction(adminId: number, action: string, targetType: string, targetId: number, details?: unknown) {
   await db.insert(auditLog).values({
@@ -37,40 +37,40 @@ async function logAction(adminId: number, action: string, targetType: string, ta
 }
 
 // GET /api/admin/analytics/overview
-adminRoutes.get('/analytics/overview', async (c) => {
+adminRoutes.get('/analytics/overview', requirePermission('analytics.view'), async (c) => {
   const days = parseInt(c.req.query('days') || '30', 10);
   const data = await getAdminOverview(days);
   return sendSuccess(c, data);
 });
 
 // GET /api/admin/analytics/top-products
-adminRoutes.get('/analytics/top-products', async (c) => {
+adminRoutes.get('/analytics/top-products', requirePermission('analytics.view'), async (c) => {
   const days = parseInt(c.req.query('days') || '30', 10);
   const data = await getTopProducts(days);
   return sendSuccess(c, data);
 });
 
 // GET /api/admin/analytics/top-vendors
-adminRoutes.get('/analytics/top-vendors', async (c) => {
+adminRoutes.get('/analytics/top-vendors', requirePermission('analytics.view'), async (c) => {
   const days = parseInt(c.req.query('days') || '30', 10);
   const data = await getTopVendors(days);
   return sendSuccess(c, data);
 });
 
 // GET /api/admin/analytics/funnel
-adminRoutes.get('/analytics/funnel', async (c) => {
+adminRoutes.get('/analytics/funnel', requirePermission('analytics.view'), async (c) => {
   const data = await getFunnel();
   return sendSuccess(c, data);
 });
 
 // GET /api/admin/analytics/categories
-adminRoutes.get('/analytics/categories', async (c) => {
+adminRoutes.get('/analytics/categories', requirePermission('analytics.view'), async (c) => {
   const data = await getCategoriesAnalytics();
   return sendSuccess(c, data);
 });
 
 // GET /api/admin/dashboard
-adminRoutes.get('/dashboard', async (c) => {
+adminRoutes.get('/dashboard', requirePermission('dashboard.view'), async (c) => {
   const [userCount] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
   const [vendorCount] = await db.select({ count: sql<number>`count(*)::int` }).from(vendors).where(eq(vendors.status, 'approved'));
   const [productCount] = await db.select({ count: sql<number>`count(*)::int` }).from(products).where(eq(products.isActive, true));
@@ -103,7 +103,7 @@ adminRoutes.get('/dashboard', async (c) => {
 });
 
 // GET /api/admin/vendors
-adminRoutes.get('/vendors', validate('query', paginationSchema.extend({
+adminRoutes.get('/vendors', requirePermission('vendors.approve'), validate('query', paginationSchema.extend({
   status: z.string().optional(),
 })), async (c) => {
   const { page, limit, status } = getValidated<z.infer<typeof paginationSchema> & { status?: string }>(c, 'query');
@@ -134,7 +134,7 @@ adminRoutes.get('/vendors', validate('query', paginationSchema.extend({
 });
 
 // GET /api/admin/vendors/:id
-adminRoutes.get('/vendors/:id', async (c) => {
+adminRoutes.get('/vendors/:id', requirePermission('vendors.approve'), async (c) => {
   const vendorId = parseInt(c.req.param('id')!, 10);
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
   if (!vendor) throw AppError.notFound('البائع');
@@ -153,7 +153,7 @@ const approveSchema = z.object({ commissionRate: z.string().regex(/^\d+(\.\d{1,2
 const rejectSchema = z.object({ reason: z.string().min(1, 'سبب الرفض مطلوب').max(1000) }).strict();
 
 // PUT /api/admin/vendors/:id/approve
-adminRoutes.put('/vendors/:id/approve', validate('body', approveSchema), async (c) => {
+adminRoutes.put('/vendors/:id/approve', requirePermission('vendors.approve'), validate('body', approveSchema), async (c) => {
   const admin = c.get('user');
   const vendorId = parseInt(c.req.param('id')!, 10);
   const input = getValidated<z.infer<typeof approveSchema>>(c, 'body');
@@ -181,7 +181,7 @@ adminRoutes.put('/vendors/:id/approve', validate('body', approveSchema), async (
 });
 
 // PUT /api/admin/vendors/:id/reject
-adminRoutes.put('/vendors/:id/reject', validate('body', rejectSchema), async (c) => {
+adminRoutes.put('/vendors/:id/reject', requirePermission('vendors.approve'), validate('body', rejectSchema), async (c) => {
   const admin = c.get('user');
   const vendorId = parseInt(c.req.param('id')!, 10);
   const input = getValidated<z.infer<typeof rejectSchema>>(c, 'body');
@@ -205,7 +205,7 @@ adminRoutes.put('/vendors/:id/reject', validate('body', rejectSchema), async (c)
 });
 
 // PUT /api/admin/vendors/:id/suspend
-adminRoutes.put('/vendors/:id/suspend', async (c) => {
+adminRoutes.put('/vendors/:id/suspend', requirePermission('vendors.suspend'), async (c) => {
   const admin = c.get('user');
   const vendorId = parseInt(c.req.param('id')!, 10);
 
@@ -216,7 +216,7 @@ adminRoutes.put('/vendors/:id/suspend', async (c) => {
 });
 
 // GET /api/admin/products
-adminRoutes.get('/products', validate('query', paginationSchema.extend({
+adminRoutes.get('/products', requirePermission('products.moderate'), validate('query', paginationSchema.extend({
   search: z.string().optional(),
 })), async (c) => {
   const { page, limit, search } = getValidated<z.infer<typeof paginationSchema> & { search?: string }>(c, 'query');
@@ -248,7 +248,7 @@ adminRoutes.get('/products', validate('query', paginationSchema.extend({
 });
 
 // PUT /api/admin/products/:id/feature
-adminRoutes.put('/products/:id/feature', async (c) => {
+adminRoutes.put('/products/:id/feature', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
   const productId = parseInt(c.req.param('id')!, 10);
   const [product] = await db.select({ isFeatured: products.isFeatured }).from(products).where(eq(products.id, productId)).limit(1);
@@ -261,7 +261,7 @@ adminRoutes.put('/products/:id/feature', async (c) => {
 });
 
 // PUT /api/admin/products/:id/toggle
-adminRoutes.put('/products/:id/toggle', async (c) => {
+adminRoutes.put('/products/:id/toggle', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
   const productId = parseInt(c.req.param('id')!, 10);
   const [product] = await db.select({ isActive: products.isActive }).from(products).where(eq(products.id, productId)).limit(1);
@@ -274,7 +274,7 @@ adminRoutes.put('/products/:id/toggle', async (c) => {
 });
 
 // DELETE /api/admin/products/:id
-adminRoutes.delete('/products/:id', async (c) => {
+adminRoutes.delete('/products/:id', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
   const productId = parseInt(c.req.param('id')!, 10);
   await db.delete(products).where(eq(products.id, productId));
@@ -283,7 +283,7 @@ adminRoutes.delete('/products/:id', async (c) => {
 });
 
 // GET /api/admin/categories
-adminRoutes.get('/categories', async (c) => {
+adminRoutes.get('/categories', requirePermission('categories.manage'), async (c) => {
   const allCats = await db.select().from(categories).orderBy(asc(categories.sortOrder));
   const tree = allCats.filter(cat => !cat.parentId).map(parent => ({
     ...parent,
@@ -302,7 +302,7 @@ const categorySchema = z.object({
 }).strict();
 
 // POST /api/admin/categories
-adminRoutes.post('/categories', validate('body', categorySchema), async (c) => {
+adminRoutes.post('/categories', requirePermission('categories.manage'), validate('body', categorySchema), async (c) => {
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof categorySchema>>(c, 'body');
   const slug = slugify(input.name);
@@ -316,7 +316,7 @@ adminRoutes.post('/categories', validate('body', categorySchema), async (c) => {
 });
 
 // PUT /api/admin/categories/:id
-adminRoutes.put('/categories/:id', validate('body', categorySchema.partial()), async (c) => {
+adminRoutes.put('/categories/:id', requirePermission('categories.manage'), validate('body', categorySchema.partial()), async (c) => {
   const admin = c.get('user');
   const catId = parseInt(c.req.param('id')!, 10);
   const input = getValidated<Partial<z.infer<typeof categorySchema>>>(c, 'body');
@@ -332,7 +332,7 @@ adminRoutes.put('/categories/:id', validate('body', categorySchema.partial()), a
 });
 
 // DELETE /api/admin/categories/:id
-adminRoutes.delete('/categories/:id', async (c) => {
+adminRoutes.delete('/categories/:id', requirePermission('categories.manage'), async (c) => {
   const admin = c.get('user');
   const catId = parseInt(c.req.param('id')!, 10);
 
@@ -356,7 +356,7 @@ adminRoutes.delete('/categories/:id', async (c) => {
 });
 
 // GET /api/admin/orders
-adminRoutes.get('/orders', validate('query', paginationSchema.extend({
+adminRoutes.get('/orders', requirePermission('orders.view'), validate('query', paginationSchema.extend({
   status: z.string().optional(),
 })), async (c) => {
   const { page, limit, status } = getValidated<z.infer<typeof paginationSchema> & { status?: string }>(c, 'query');
@@ -386,7 +386,7 @@ adminRoutes.get('/orders', validate('query', paginationSchema.extend({
 });
 
 // GET /api/admin/users
-adminRoutes.get('/users', validate('query', paginationSchema), async (c) => {
+adminRoutes.get('/users', requirePermission('users.manage'), validate('query', paginationSchema), async (c) => {
   const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
 
   const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(users);
@@ -402,7 +402,7 @@ adminRoutes.get('/users', validate('query', paginationSchema), async (c) => {
 });
 
 // PUT /api/admin/users/:id/toggle
-adminRoutes.put('/users/:id/toggle', async (c) => {
+adminRoutes.put('/users/:id/toggle', requirePermission('users.manage'), async (c) => {
   const admin = c.get('user');
   const userId = parseInt(c.req.param('id')!, 10);
   if (userId === admin.id) throw AppError.badRequest('لا يمكنك تعطيل حسابك');
@@ -416,7 +416,7 @@ adminRoutes.put('/users/:id/toggle', async (c) => {
 });
 
 // GET /api/admin/transactions
-adminRoutes.get('/transactions', validate('query', paginationSchema), async (c) => {
+adminRoutes.get('/transactions', requirePermission('orders.view'), validate('query', paginationSchema), async (c) => {
   const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
 
   const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(transactions);
@@ -438,7 +438,7 @@ adminRoutes.get('/transactions', validate('query', paginationSchema), async (c) 
 });
 
 // GET /api/admin/settings
-adminRoutes.get('/settings', async (c) => {
+adminRoutes.get('/settings', requirePermission('settings.edit'), async (c) => {
   const settings = await db.select().from(siteSettings);
   const settingsMap: Record<string, string> = {};
   for (const s of settings) {
@@ -458,7 +458,7 @@ const updateSiteSettingsSchema = z.object({
   min_order_amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
 }).strict();
 
-adminRoutes.put('/settings', validate('body', updateSiteSettingsSchema), async (c) => {
+adminRoutes.put('/settings', requirePermission('settings.edit'), validate('body', updateSiteSettingsSchema), async (c) => {
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof updateSiteSettingsSchema>>(c, 'body');
 
@@ -487,12 +487,12 @@ const couponSchema = z.object({
   expiresAt: z.string().datetime().optional().nullable(),
 }).strict();
 
-adminRoutes.get('/coupons', async (c) => {
+adminRoutes.get('/coupons', requirePermission('coupons.manage'), async (c) => {
   const list = await db.select().from(coupons).orderBy(desc(coupons.createdAt));
   return sendSuccess(c, list);
 });
 
-adminRoutes.post('/coupons', validate('body', couponSchema), async (c) => {
+adminRoutes.post('/coupons', requirePermission('coupons.manage'), validate('body', couponSchema), async (c) => {
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof couponSchema>>(c, 'body');
   const [coupon] = await db.insert(coupons).values({
@@ -504,7 +504,7 @@ adminRoutes.post('/coupons', validate('body', couponSchema), async (c) => {
   return sendCreated(c, coupon);
 });
 
-adminRoutes.delete('/coupons/:id', async (c) => {
+adminRoutes.delete('/coupons/:id', requirePermission('coupons.manage'), async (c) => {
   const admin = c.get('user');
   const couponId = parseInt(c.req.param('id')!, 10);
   await db.delete(coupons).where(eq(coupons.id, couponId));
@@ -523,12 +523,12 @@ const ruleSchema = z.object({
   effectiveTo: z.string().nullable().optional(),
 });
 
-adminRoutes.get('/commission-rules', async (c) => {
+adminRoutes.get('/commission-rules', requirePermission('commission.manage'), async (c) => {
   const rules = await db.select().from(commissionRules).orderBy(desc(commissionRules.createdAt));
   return sendSuccess(c, rules);
 });
 
-adminRoutes.post('/commission-rules', validate('body', ruleSchema), async (c) => {
+adminRoutes.post('/commission-rules', requirePermission('commission.manage'), validate('body', ruleSchema), async (c) => {
   const input = getValidated<z.infer<typeof ruleSchema>>(c, 'body');
   
   if (input.scope !== 'global' && !input.targetId) {
@@ -547,7 +547,7 @@ adminRoutes.post('/commission-rules', validate('body', ruleSchema), async (c) =>
   return sendCreated(c, rule);
 });
 
-adminRoutes.delete('/commission-rules/:id', async (c) => {
+adminRoutes.delete('/commission-rules/:id', requirePermission('commission.manage'), async (c) => {
   const id = parseInt(c.req.param('id')!, 10);
   await db.delete(commissionRules).where(eq(commissionRules.id, id));
   return sendSuccess(c, { message: 'تم حذف القاعدة' });
@@ -556,7 +556,7 @@ adminRoutes.delete('/commission-rules/:id', async (c) => {
 // ==========================================
 // 9. Settlements & Payouts (FIZ G3)
 // ==========================================
-adminRoutes.get('/settlements', async (c) => {
+adminRoutes.get('/settlements', requirePermission('payouts.approve'), async (c) => {
   const list = await db.select({
     id: settlements.id,
     vendorId: settlements.vendorId,
@@ -576,7 +576,7 @@ adminRoutes.get('/settlements', async (c) => {
   return sendSuccess(c, list);
 });
 
-adminRoutes.put('/settlements/:id/finalize', async (c) => {
+adminRoutes.put('/settlements/:id/finalize', requirePermission('payouts.approve'), async (c) => {
   const id = parseInt(c.req.param('id')!, 10);
   const [settlement] = await db.update(settlements)
     .set({ status: 'finalized' })
@@ -587,7 +587,7 @@ adminRoutes.put('/settlements/:id/finalize', async (c) => {
   return sendSuccess(c, settlement);
 });
 
-adminRoutes.get('/payouts', async (c) => {
+adminRoutes.get('/payouts', requirePermission('payouts.approve'), async (c) => {
   const list = await db.select({
     id: payoutRequests.id,
     vendorId: payoutRequests.vendorId,
@@ -609,7 +609,7 @@ const payoutActionSchema = z.object({
   reason: z.string().optional(),
 });
 
-adminRoutes.put('/payouts/:id/approve', async (c) => {
+adminRoutes.put('/payouts/:id/approve', requirePermission('payouts.approve'), async (c) => {
   const id = parseInt(c.req.param('id')!, 10);
   const admin = c.get('user');
   
@@ -659,7 +659,7 @@ adminRoutes.put('/payouts/:id/approve', async (c) => {
   return sendSuccess(c, request);
 });
 
-adminRoutes.put('/payouts/:id/reject', validate('body', payoutActionSchema), async (c) => {
+adminRoutes.put('/payouts/:id/reject', requirePermission('payouts.approve'), validate('body', payoutActionSchema), async (c) => {
   const id = parseInt(c.req.param('id')!, 10);
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof payoutActionSchema>>(c, 'body');
@@ -678,7 +678,7 @@ adminRoutes.put('/payouts/:id/reject', validate('body', payoutActionSchema), asy
   return sendSuccess(c, request);
 });
 // GET /api/admin/message-logs
-adminRoutes.get('/message-logs', async (c) => {
+adminRoutes.get('/message-logs', requirePermission('audit.view'), async (c) => {
   const query = c.req.query();
   const page = Math.max(1, parseInt(query.page || '1'));
   const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20')));

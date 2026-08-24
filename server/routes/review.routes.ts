@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import { reviews, orderItems, products, vendors, users } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
-import { authorize } from '../middleware/authorize.js';
+import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
@@ -162,7 +162,7 @@ reviewRoutes.put('/:id/vendor-reply', authenticate, validate('body', vendorReply
 });
 
 // DELETE /api/reviews/:id (admin only) — soft-delete: sets is_visible=false, preserves audit trail
-reviewRoutes.delete('/:id', authenticate, authorize('admin'), async (c) => {
+reviewRoutes.delete('/:id', authenticate, requirePermission('products.moderate'), async (c) => {
   const reviewId = parseInt(c.req.param('id')!, 10);
   const [review] = await db.select().from(reviews).where(eq(reviews.id, reviewId)).limit(1);
   if (!review) throw AppError.notFound('التقييم');

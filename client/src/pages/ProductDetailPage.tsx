@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { storeApi, cartApi, wishlistApi } from '../api';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { StarRating } from '../components/ProductCard';
 import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store } from 'lucide-react';
 
 export default function ProductDetailPage() {
+  const shouldReduceMotion = useReducedMotion();
   const { slug } = useParams();
   const { user } = useAuth();
   const toast = useToast();
@@ -96,12 +99,19 @@ export default function ProductDetailPage() {
         {/* Images */}
         <div style={{ flex: '0 0 480px', maxWidth: '100%' }}>
           <div className="card" style={{ marginBottom: 'var(--space-3)' }}>
-            <div style={{ aspectRatio: '1', overflow: 'hidden' }}>
-              <img
-                src={images[selectedImage]?.imageUrl || 'https://picsum.photos/seed/fallback/800/800'}
-                alt={product.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+            <div style={{ aspectRatio: '1', overflow: 'hidden', position: 'relative' }}>
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={selectedImage}
+                  src={images[selectedImage]?.imageUrl || 'https://picsum.photos/seed/fallback/800/800'}
+                  alt={product.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: motionTokens.duration.base }}
+                />
+              </AnimatePresence>
             </div>
           </div>
           {images.length > 1 && (
@@ -211,19 +221,31 @@ export default function ProductDetailPage() {
 
           {/* Description */}
           {product.description && (
-            <div style={{ marginTop: 'var(--space-6)' }}>
+            <motion.div 
+              style={{ marginTop: 'var(--space-6)' }}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
+            >
               <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>وصف المنتج</h3>
               <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
                 {product.description}
               </p>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
 
       {/* Reviews */}
       {product.reviews && product.reviews.length > 0 && (
-        <section style={{ marginTop: 'var(--space-12)' }}>
+        <motion.section 
+          style={{ marginTop: 'var(--space-12)' }}
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
+        >
           <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--space-6)' }}>
             التقييمات ({product.reviewCount})
           </h2>
@@ -260,7 +282,7 @@ export default function ProductDetailPage() {
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
       )}
     </div>
   );

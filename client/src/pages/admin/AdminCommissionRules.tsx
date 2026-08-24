@@ -166,8 +166,8 @@ export function AdminCommissionRules() {
       )}
 
       <div style={{ 
-        background: 'var(--info-50, #eff6ff)', 
-        color: 'var(--info-800, #1e40af)', 
+        background: 'var(--info-50)', 
+        color: 'var(--info-700)', 
         padding: 'var(--space-4)', 
         borderRadius: 'var(--radius-lg)', 
         display: 'flex', 

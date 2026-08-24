@@ -20,6 +20,7 @@ interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+  [key: string]: any;
 }
 
 export function sendSuccess<T>(c: Context, data: T, statusCode = 200, meta?: PaginationMeta) {

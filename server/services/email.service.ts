@@ -97,6 +97,9 @@ function generateTemplate(key: EmailTemplateKey, data: Record<string, any>): str
     case 'order_confirmation':
       body = `<h3>تم تأكيد طلبك #${data.orderNumber}</h3><p>نشكرك على تسوقك معنا.</p>`;
       break;
+    case 'password_reset':
+      body = `<h3>مرحباً ${data.name}،</h3><p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. يرجى النقر على الرابط أدناه لإعادة تعيينها:</p><p><a href="${data.resetLink}" style="display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 4px;">إعادة تعيين كلمة المرور</a></p><p>إذا لم تقم بهذا الطلب، يمكنك تجاهل هذه الرسالة.</p>`;
+      break;
     default:
       body = `<p>إشعار من المتجر.</p>`;
   }

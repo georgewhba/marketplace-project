@@ -1,6 +1,27 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { storeApi } from '../api';
+import { useToast } from '../toast';
 
 export default function ContactPage() {
+  const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
+  const [loading, setLoading] = useState(false);
+  const toast = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await storeApi.sendContactMessage(formData);
+      toast.success('تم إرسال رسالتك بنجاح. سنتواصل معك قريباً.');
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ أثناء الإرسال');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container" style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto' }}>
       <h1 className="page-header__title mb-6">تواصل معنا</h1>
@@ -46,24 +67,30 @@ export default function ContactPage() {
         
         <div className="card p-6">
           <h2 className="mb-4 font-bold text-lg">أرسل رسالة</h2>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert('تم إرسال رسالتك بنجاح. سنتواصل معك قريباً.'); }}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block mb-2 text-sm">الاسم الكريم</label>
-              <input type="text" className="input w-full" placeholder="أدخل اسمك" required />
+              <input type="text" className="input w-full" placeholder="أدخل اسمك" required
+                value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={loading} />
             </div>
             <div>
               <label className="block mb-2 text-sm">البريد الإلكتروني</label>
-              <input type="email" className="input w-full" placeholder="أدخل بريدك الإلكتروني" required />
+              <input type="email" className="input w-full" placeholder="أدخل بريدك الإلكتروني" required
+                value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={loading} />
             </div>
             <div>
               <label className="block mb-2 text-sm">موضوع الرسالة</label>
-              <input type="text" className="input w-full" placeholder="موضوع الاستفسار" required />
+              <input type="text" className="input w-full" placeholder="موضوع الاستفسار" required
+                value={formData.subject} onChange={e => setFormData({ ...formData, subject: e.target.value })} disabled={loading} />
             </div>
             <div>
               <label className="block mb-2 text-sm">الرسالة</label>
-              <textarea className="input w-full" rows={4} placeholder="اكتب رسالتك هنا..." required></textarea>
+              <textarea className="input w-full" rows={4} placeholder="اكتب رسالتك هنا..." required
+                value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} disabled={loading}></textarea>
             </div>
-            <button type="submit" className="btn btn-primary w-full">إرسال الرسالة</button>
+            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+              {loading ? 'جاري الإرسال...' : 'إرسال الرسالة'}
+            </button>
           </form>
         </div>
       </div>
