@@ -58,6 +58,11 @@ async function seed() {
     { key: 'commission.manage', description: 'Manage commission rules' },
     { key: 'payouts.approve', description: 'Approve vendor payouts' },
     { key: 'analytics.view', description: 'View advanced analytics' },
+    { key: 'dashboard.view', description: 'View admin dashboard' },
+    { key: 'manage_roles', description: 'Manage system roles' },
+    { key: 'categories.manage', description: 'Manage categories' },
+    { key: 'coupons.manage', description: 'Manage coupons' },
+    { key: 'audit.view', description: 'View message and audit logs' },
   ];
 
   const insertedPerms = await db.insert(permissions).values(permissionsList).returning();

@@ -22,7 +22,7 @@ export const requirePermission = (permissionKey: string) => {
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(eq(userRoles.userId, user.id));
 
-    const isSuperAdmin = userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+    const isSuperAdmin = user.role === 'admin' || userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
     if (isSuperAdmin) {
       await next();
       return;
