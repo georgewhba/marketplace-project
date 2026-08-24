@@ -171,3 +171,5 @@ export default function App() {
     </QueryClientProvider>
   );
 }
+c o n s t   e r r o r T e s t :   s t r i n g   =   1 2 3 ;  
+ 
