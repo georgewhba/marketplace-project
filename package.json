@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "build": "tsc && vite build client --outDir dist --emptyOutDir",
-    "start": "node dist/server/index.js",
+    "start": "node dist/server/db/migrate.js && node dist/server/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",

@@ -33,6 +33,7 @@ RUN npm ci --omit=dev
 # Copy built artifacts from the builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/client/dist ./client/dist
+COPY --from=builder /app/drizzle ./drizzle
 
 # Create required directories for volume mounts
 RUN mkdir -p uploads && chown -R node:node /app
