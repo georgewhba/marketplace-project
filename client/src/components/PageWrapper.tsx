@@ -1,10 +1,8 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 
 export function PageWrapper({ children, className }: { children: React.ReactNode, className?: string }) {
-  const shouldReduceMotion = useReducedMotion();
-  
   return (
     <motion.div
       className={className}

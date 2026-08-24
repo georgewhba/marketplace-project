@@ -14,7 +14,7 @@ export default function AdminRoles() {
   
   const { data: roles, isLoading } = useQuery({
     queryKey: ['admin-roles'],
-    queryFn: () => api.get<any[]>('/roles'),
+    queryFn: () => api.get<any>('/roles'),
   });
 
   const saveMutation = useMutation({
@@ -85,7 +85,7 @@ export default function AdminRoles() {
             </tr>
           </thead>
           <tbody>
-            {roles?.map((r: any) => (
+            {roles?.data?.map((r: any) => (
               <tr key={r.id}>
                 <td>{r.id}</td>
                 <td>{r.name}</td>

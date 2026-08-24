@@ -26,7 +26,7 @@ export default function AdminCoupons() {
     try {
       setLoading(true);
       const data = await adminApi.getCoupons();
-      setCoupons(data);
+      setCoupons(data?.data || []);
     } catch (err) {
       toast.error('فشل في تحميل الكوبونات');
     } finally {
