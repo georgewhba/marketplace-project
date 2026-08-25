@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { products, categories, vendors, productImages, reviews, siteSettings } from '../db/schema/index.js';
+import { products, categories, vendors, productImages, reviews, siteSettings, subscriptionPlans, subscriptionPromotions } from '../db/schema/index.js';
 import { eq, and, gte, lte, like, desc, asc, sql, ilike } from 'drizzle-orm';
 import { sendSuccess } from '../utils/response.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
@@ -321,6 +321,42 @@ storeRoutes.post('/contact', validate('body', contactSchema), async (c) => {
   });
 
   return sendSuccess(c, { message: 'تم إرسال رسالتك بنجاح. سنتواصل معك قريباً.' });
+});
+
+// GET /api/store/subscription-plans
+storeRoutes.get('/subscription-plans', async (c) => {
+  const plans = await db.select().from(subscriptionPlans)
+    .where(eq(subscriptionPlans.isActive, true))
+    .orderBy(asc(subscriptionPlans.sortOrder));
+
+  // Get active promotions
+  const now = new Date();
+  const promotions = await db.select().from(subscriptionPromotions)
+    .where(and(
+      eq(subscriptionPromotions.isActive, true),
+      lte(subscriptionPromotions.startsAt, now),
+      gte(subscriptionPromotions.endsAt, now)
+    ));
+
+  // Map discounts to plans
+  const plansWithDiscounts = plans.map(plan => {
+    const promo = promotions.find(p => p.planId === plan.id);
+    let finalPrice = plan.priceMonthly;
+    if (promo) {
+      finalPrice = (parseFloat(plan.priceMonthly) - parseFloat(promo.discountAmount)).toString();
+      if (parseFloat(finalPrice) < 0) finalPrice = '0.00';
+    }
+    return {
+      ...plan,
+      originalPrice: plan.priceMonthly,
+      priceMonthly: finalPrice,
+      hasActivePromotion: !!promo,
+      promotionAmount: promo?.discountAmount,
+      promotionEndsAt: promo?.endsAt,
+    };
+  });
+
+  return sendSuccess(c, plansWithDiscounts);
 });
 
 export default storeRoutes;

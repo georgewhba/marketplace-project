@@ -19,7 +19,7 @@ export const paymobService = {
   /**
    * Generates a payment key for an order
    */
-  async generatePaymentKey(orderId: number, amount: number, billingData: any) {
+  async generatePaymentKey(orderId: number | string, amount: number, billingData: any) {
     if (!env.PAYMOB_API_KEY || !env.PAYMOB_INTEGRATION_ID_CARD || !env.PAYMOB_IFRAME_ID) {
       // Mock mode for local dev if credentials are not provided
       console.warn('⚠️ Paymob credentials not found. Using MOCK mode.');
@@ -35,6 +35,7 @@ export const paymobService = {
 
       // 2. Order Registration
       const amountCents = Math.round(amount * 100).toString();
+      const merchantOrderId = typeof orderId === 'string' ? `${orderId}-${Date.now()}` : `ORD-${orderId}-${Date.now()}`;
       const orderRes = await fetch(`${PAYMOB_API_URL}/ecommerce/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,7 +44,7 @@ export const paymobService = {
           delivery_needed: 'false',
           amount_cents: amountCents,
           currency: 'EGP',
-          merchant_order_id: `ORD-${orderId}-${Date.now()}`,
+          merchant_order_id: merchantOrderId,
           items: []
         })
       });

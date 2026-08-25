@@ -177,6 +177,7 @@ if (env.NODE_ENV === 'production') {
 }
 
 import { initAnalyticsJobs } from './jobs/analytics.js';
+import { processExpiredSubscriptions } from './jobs/subscription.job.js';
 
 // Determine if this process should run cron jobs (only the primary instance in a PM2 cluster)
 const isCronRunner = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
@@ -190,6 +191,16 @@ if (isCronRunner) {
       console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
     } catch (error) {
       console.error('[Cron] Error generating settlements:', error);
+    }
+  });
+
+  // Schedule subscription expiration check (runs daily at 1 AM)
+  cron.schedule('0 1 * * *', async () => {
+    try {
+      console.log('[Cron] Running processExpiredSubscriptions...');
+      await processExpiredSubscriptions();
+    } catch (error) {
+      console.error('[Cron] Error processing expired subscriptions:', error);
     }
   });
 

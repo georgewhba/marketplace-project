@@ -4,7 +4,8 @@ import { db } from '../db/index.js';
 import {
   users, vendors, products, productImages, orders, orderItems,
   categories, transactions, notifications, auditLog, siteSettings, coupons,
-  commissionRules, settlements, payoutRequests, messageLogs
+  commissionRules, settlements, payoutRequests, messageLogs,
+  subscriptionPlans, subscriptionPromotions
 } from '../db/schema/index.js';
 import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
@@ -709,6 +710,125 @@ adminRoutes.get('/message-logs', requirePermission('audit.view'), async (c) => {
     logs,
     meta: getPaginationMeta(Number(totalCount[0]?.count ?? 0), page, limit)
   });
+});
+
+// ==============================================
+// Subscription Plans Management
+// ==============================================
+
+const planSchema = z.object({
+  name: z.string().min(2),
+  slug: z.string().min(2),
+  priceMonthly: z.number().min(0),
+  commissionRate: z.number().min(0).max(100),
+  productLimit: z.number().nullable(),
+  imageLimitPerProduct: z.number().min(1),
+  autoShippingEnabled: z.boolean(),
+  advancedAnalytics: z.boolean(),
+  bulkActionsEnabled: z.boolean(),
+  payoutCycleDays: z.number().min(1),
+  trustBadge: z.string().nullable(),
+  sortOrder: z.number().default(0),
+  isActive: z.boolean().default(true),
+});
+
+adminRoutes.get('/subscription-plans', requirePermission('settings.view'), async (c) => {
+  const plans = await db.select().from(subscriptionPlans).orderBy(asc(subscriptionPlans.sortOrder));
+  return sendSuccess(c, plans);
+});
+
+adminRoutes.post('/subscription-plans', requirePermission('settings.edit'), validate('body', planSchema), async (c) => {
+  const input = getValidated<z.infer<typeof planSchema>>(c, 'body');
+  
+  // ensure slug is unique
+  const existing = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.slug, input.slug));
+  if (existing.length > 0) throw AppError.conflict('Slug already exists');
+
+  const [plan] = await db.insert(subscriptionPlans).values({
+    ...input,
+    priceMonthly: input.priceMonthly.toString(),
+    commissionRate: input.commissionRate.toString(),
+  }).returning();
+
+  return sendCreated(c, plan);
+});
+
+adminRoutes.put('/subscription-plans/:id', requirePermission('settings.edit'), validate('body', planSchema), async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+  const input = getValidated<z.infer<typeof planSchema>>(c, 'body');
+
+  const [plan] = await db.update(subscriptionPlans).set({
+    ...input,
+    priceMonthly: input.priceMonthly.toString(),
+    commissionRate: input.commissionRate.toString(),
+  }).where(eq(subscriptionPlans.id, id)).returning();
+
+  if (!plan) throw AppError.notFound('Plan not found');
+  return sendSuccess(c, plan);
+});
+
+// ==============================================
+// Subscription Promotions Management
+// ==============================================
+
+const createPromotionSchema = z.object({
+  planId: z.number().int().positive(),
+  discountAmount: z.number().positive().max(100, 'الحد الأقصى للخصم 100 جنيه'),
+  durationType: z.enum(['day', 'week', 'month']),
+}).strict();
+
+adminRoutes.get('/subscription-promotions', requirePermission('settings.view'), async (c) => {
+  const promotions = await db.select({
+    id: subscriptionPromotions.id,
+    planId: subscriptionPromotions.planId,
+    planName: subscriptionPlans.name,
+    discountAmount: subscriptionPromotions.discountAmount,
+    durationType: subscriptionPromotions.durationType,
+    startsAt: subscriptionPromotions.startsAt,
+    endsAt: subscriptionPromotions.endsAt,
+    isActive: subscriptionPromotions.isActive,
+    createdBy: subscriptionPromotions.createdBy,
+    createdAt: subscriptionPromotions.createdAt,
+  })
+  .from(subscriptionPromotions)
+  .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptionPromotions.planId))
+  .orderBy(desc(subscriptionPromotions.createdAt));
+
+  return sendSuccess(c, promotions);
+});
+
+adminRoutes.post('/subscription-promotions', requirePermission('settings.edit'), validate('body', createPromotionSchema), async (c) => {
+  const admin = c.get('user');
+  const input = getValidated<z.infer<typeof createPromotionSchema>>(c, 'body');
+
+  const startsAt = new Date();
+  const endsAt = new Date(startsAt);
+  if (input.durationType === 'day') endsAt.setDate(endsAt.getDate() + 1);
+  else if (input.durationType === 'week') endsAt.setDate(endsAt.getDate() + 7);
+  else if (input.durationType === 'month') endsAt.setDate(endsAt.getDate() + 30);
+
+  const [promotion] = await db.insert(subscriptionPromotions).values({
+    planId: input.planId,
+    discountAmount: input.discountAmount.toString(),
+    durationType: input.durationType,
+    startsAt,
+    endsAt,
+    createdBy: admin.id,
+  }).returning();
+
+  return sendCreated(c, promotion);
+});
+
+adminRoutes.put('/subscription-promotions/:id/cancel', requirePermission('settings.edit'), async (c) => {
+  const id = parseInt(c.req.param('id')!, 10);
+
+  const [promotion] = await db.update(subscriptionPromotions)
+    .set({ isActive: false })
+    .where(eq(subscriptionPromotions.id, id))
+    .returning();
+
+  if (!promotion) throw AppError.notFound('Promotion not found');
+  return sendSuccess(c, promotion);
 });
 
 export default adminRoutes;

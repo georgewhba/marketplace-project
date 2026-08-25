@@ -4,13 +4,15 @@ import { db } from '../db/index.js';
 import { env } from '../env.js';
 import {
   vendors, products, productImages, orderItems, orders,
-  transactions, notifications, users, shipments, shipmentEvents, settlements, payoutRequests
+  transactions, notifications, users, shipments, shipmentEvents, settlements, payoutRequests,
+  subscriptionPlans, vendorSubscriptions, subscriptionPromotions, commissionRules
 } from '../db/schema/index.js';
-import { eq, and, sql, desc, asc } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, lte, gte } from 'drizzle-orm';
 import { authenticate, loadVendor } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
+import { paymobService } from '../services/paymob.service.js';
 import { resolveCommissionRate } from '../services/commission.service.js';
 import { slugify } from '../utils/slugify.js';
 import { processImage, deleteImage, validateImageMagicBytes } from '../utils/image.js';
@@ -72,6 +74,35 @@ const updateSettingsSchema = z.object({
   banner: z.string().url().max(500).optional().nullable().or(z.literal('')),
 }).strict();
 
+// Helper to get active vendor limits
+async function getVendorLimits(vendorId: number) {
+  const [subscription] = await db
+    .select({
+      productLimit: subscriptionPlans.productLimit,
+      imageLimitPerProduct: subscriptionPlans.imageLimitPerProduct,
+      autoShippingEnabled: subscriptionPlans.autoShippingEnabled,
+      advancedAnalytics: subscriptionPlans.advancedAnalytics,
+      bulkActionsEnabled: subscriptionPlans.bulkActionsEnabled,
+      payoutCycleDays: subscriptionPlans.payoutCycleDays,
+      planName: subscriptionPlans.name
+    })
+    .from(vendorSubscriptions)
+    .innerJoin(subscriptionPlans, eq(vendorSubscriptions.planId, subscriptionPlans.id))
+    .where(
+      and(
+        eq(vendorSubscriptions.vendorId, vendorId),
+        eq(vendorSubscriptions.status, 'active')
+      )
+    )
+    .limit(1);
+
+  if (!subscription) {
+    throw AppError.badRequest('لا يوجد باقة فعالة. يرجى الاشتراك في باقة لتتمكن من استخدام المنصة.');
+  }
+
+  return subscription;
+}
+
 // GET /api/vendor/dashboard
 vendorRoutes.get('/dashboard', async (c) => {
   const vendor = c.get('vendor');
@@ -111,10 +142,12 @@ vendorRoutes.get('/dashboard', async (c) => {
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .where(eq(orderItems.vendorId, vendor.id))
     .orderBy(desc(orderItems.createdAt))
-    .limit(10);
+    .limit(5);
+
+  const limits = await getVendorLimits(vendor.id);
 
   return sendSuccess(c, {
-    stats: {
+    sales: {
       totalOrders: stats?.totalOrders ?? 0,
       totalRevenue: stats?.totalRevenue ?? '0',
       totalCommission: stats?.totalCommission ?? '0',
@@ -123,7 +156,9 @@ vendorRoutes.get('/dashboard', async (c) => {
     },
     lowStockProducts: lowStock,
     recentOrders: recentOrderItems,
-    isBostaEnabled: !!env.BOSTA_API_KEY,
+    isBostaEnabled: !!env.BOSTA_API_KEY && limits.autoShippingEnabled,
+    advancedAnalyticsEnabled: limits.advancedAnalytics,
+    currentPlan: limits.planName
   });
 });
 
@@ -158,6 +193,16 @@ vendorRoutes.get('/products', validate('query', paginationSchema), async (c) => 
 vendorRoutes.post('/products', validate('body', productSchema), async (c) => {
   const vendor = c.get('vendor');
   const input = getValidated<z.infer<typeof productSchema>>(c, 'body');
+
+  const limits = await getVendorLimits(vendor.id);
+  
+  if (limits.productLimit !== null) {
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(products)
+      .where(eq(products.vendorId, vendor.id));
+    if ((countResult?.count ?? 0) >= limits.productLimit) {
+      throw AppError.badRequest(`لقد وصلت للحد الأقصى للمنتجات (${limits.productLimit}) في باقة ${limits.planName}. يرجى الترقية لإضافة المزيد.`);
+    }
+  }
 
   const slug = slugify(input.name) + '-' + Math.random().toString(36).substring(2, 7);
 
@@ -240,8 +285,11 @@ vendorRoutes.post('/products/:id/images', async (c) => {
   // Check current image count
   const [imgCount] = await db.select({ count: sql<number>`count(*)::int` }).from(productImages)
     .where(eq(productImages.productId, productId));
-  if ((imgCount?.count ?? 0) >= 5) {
-    throw AppError.badRequest('الحد الأقصى 5 صور للمنتج');
+    
+  const limits = await getVendorLimits(vendor.id);
+  
+  if ((imgCount?.count ?? 0) >= limits.imageLimitPerProduct) {
+    throw AppError.badRequest(`الحد الأقصى ${limits.imageLimitPerProduct} صور للمنتج في باقة ${limits.planName}. يرجى الترقية لإضافة المزيد.`);
   }
 
   const body = await c.req.parseBody();
@@ -521,6 +569,13 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
 
   const [order] = await db.select().from(orders).where(eq(orders.id, item.orderId)).limit(1);
   if (!order) throw AppError.notFound('الطلب غير موجود');
+  
+  if (input.provider === 'bosta') {
+    const limits = await getVendorLimits(vendor.id);
+    if (!limits.autoShippingEnabled) {
+      throw AppError.badRequest(`الشحن الآلي عبر Bosta غير متاح في باقة ${limits.planName}. يرجى الترقية.`);
+    }
+  }
 
   const pickupAddress = { city: 'VendorCity' }; // Could be loaded from vendor settings
   const dropoffAddress = {
@@ -655,6 +710,21 @@ vendorRoutes.post('/payouts/request', validate('body', payoutRequestSchema), asy
     throw AppError.badRequest('المبلغ المطلوب أكبر من رصيد التسوية');
   }
 
+  const limits = await getVendorLimits(vendor.id);
+  
+  // Check when the last payout request was made
+  const [lastRequest] = await db.select().from(payoutRequests)
+    .where(eq(payoutRequests.vendorId, vendor.id))
+    .orderBy(desc(payoutRequests.createdAt))
+    .limit(1);
+
+  if (lastRequest) {
+    const daysSinceLastRequest = (new Date().getTime() - lastRequest.createdAt.getTime()) / (1000 * 3600 * 24);
+    if (daysSinceLastRequest < limits.payoutCycleDays) {
+      throw AppError.badRequest(`يمكنك طلب سحب الأرباح كل ${limits.payoutCycleDays} أيام في باقة ${limits.planName}. يرجى الانتظار أو الترقية لباقة أعلى.`);
+    }
+  }
+
   const [request] = await db.insert(payoutRequests).values({
     vendorId: vendor.id,
     settlementId: input.settlementId,
@@ -716,6 +786,150 @@ vendorRoutes.put('/notifications/:id/read', async (c) => {
   await db.update(notifications).set({ isRead: true })
     .where(and(eq(notifications.id, notifId), eq(notifications.userId, user.id)));
   return sendSuccess(c, { message: 'تم القراءة' });
+});
+
+// ==============================================
+// Vendor Subscription API
+// ==============================================
+
+vendorRoutes.get('/subscription', async (c) => {
+  const vendor = c.get('vendor');
+  
+  const sub = await db.select({
+    id: vendorSubscriptions.id,
+    status: vendorSubscriptions.status,
+    currentPeriodStart: vendorSubscriptions.currentPeriodStart,
+    currentPeriodEnd: vendorSubscriptions.currentPeriodEnd,
+    autoRenew: vendorSubscriptions.autoRenew,
+    planId: subscriptionPlans.id,
+    planName: subscriptionPlans.name,
+    priceMonthly: subscriptionPlans.priceMonthly,
+    commissionRate: subscriptionPlans.commissionRate,
+    productLimit: subscriptionPlans.productLimit,
+    imageLimitPerProduct: subscriptionPlans.imageLimitPerProduct,
+    autoShippingEnabled: subscriptionPlans.autoShippingEnabled,
+    advancedAnalytics: subscriptionPlans.advancedAnalytics,
+    bulkActionsEnabled: subscriptionPlans.bulkActionsEnabled,
+    payoutCycleDays: subscriptionPlans.payoutCycleDays,
+    trustBadge: subscriptionPlans.trustBadge,
+  })
+  .from(vendorSubscriptions)
+  .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, vendorSubscriptions.planId))
+  .where(eq(vendorSubscriptions.vendorId, vendor.id))
+  .limit(1);
+
+  if (!sub.length) {
+    // If no subscription found, they should be on free plan implicitly, 
+    // but the system assigns free plan on registration.
+    return sendSuccess(c, null);
+  }
+
+  return sendSuccess(c, sub[0]);
+});
+
+vendorRoutes.post('/subscription/subscribe', validate('body', z.object({ planId: z.number().int().positive() })), async (c) => {
+  const vendor = c.get('vendor');
+  const user = c.get('user');
+  const { planId } = getValidated<{planId: number}>(c, 'body');
+
+  const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
+  if (!plan || !plan.isActive) throw AppError.notFound('Plan not found or inactive');
+
+  // Check for active promotion to calculate correct price
+  const now = new Date();
+  const [promo] = await db.select().from(subscriptionPromotions)
+    .where(and(
+      eq(subscriptionPromotions.planId, planId),
+      eq(subscriptionPromotions.isActive, true),
+      lte(subscriptionPromotions.startsAt, now),
+      gte(subscriptionPromotions.endsAt, now)
+    ));
+
+  let finalPrice = parseFloat(plan.priceMonthly);
+  if (promo) {
+    finalPrice = Math.max(0, finalPrice - parseFloat(promo.discountAmount));
+  }
+
+  const [existingSub] = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendor.id));
+
+  // If free plan, activate immediately
+  if (finalPrice === 0) {
+    if (existingSub) {
+      await db.update(vendorSubscriptions)
+        .set({
+          planId: plan.id,
+          status: 'active',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: null,
+          autoRenew: true
+        })
+        .where(eq(vendorSubscriptions.id, existingSub.id));
+    } else {
+      await db.insert(vendorSubscriptions).values({
+        vendorId: vendor.id,
+        planId: plan.id,
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: null,
+        autoRenew: true
+      });
+    }
+    
+    // Update commission rules immediately for free plan
+    await db.delete(commissionRules).where(and(eq(commissionRules.scope, 'vendor'), eq(commissionRules.targetId, vendor.id)));
+    await db.insert(commissionRules).values({
+      scope: 'vendor',
+      targetId: vendor.id,
+      rate: plan.commissionRate,
+      priority: 100, // Highest priority
+      effectiveFrom: new Date()
+    });
+
+    return sendSuccess(c, { message: 'تم تفعيل الباقة المجانية بنجاح', plan });
+  }
+
+  // If paid plan, generate Paymob iframe
+  const billingData = {
+    first_name: user.firstName,
+    last_name: user.lastName,
+    email: user.email,
+    phone_number: '01000000000',
+    street: 'NA', building: 'NA', floor: 'NA', apartment: 'NA', city: 'NA', country: 'EG',
+  };
+
+  const referenceId = `SUB-${vendor.id}-${plan.id}`;
+  const { iframeUrl } = await paymobService.generatePaymentKey(referenceId, finalPrice, billingData);
+
+  // We set the subscription to 'pending_payment'. It will be activated in the webhook.
+  if (existingSub) {
+    await db.update(vendorSubscriptions)
+      .set({
+        planId: plan.id,
+        status: 'pending_payment'
+      })
+      .where(eq(vendorSubscriptions.id, existingSub.id));
+  } else {
+    await db.insert(vendorSubscriptions).values({
+      vendorId: vendor.id,
+      planId: plan.id,
+      status: 'pending_payment'
+    });
+  }
+
+  return sendSuccess(c, { iframeUrl, plan });
+});
+
+vendorRoutes.post('/subscription/cancel', async (c) => {
+  const vendor = c.get('vendor');
+  
+  const [sub] = await db.update(vendorSubscriptions)
+    .set({ autoRenew: false })
+    .where(and(eq(vendorSubscriptions.vendorId, vendor.id), eq(vendorSubscriptions.status, 'active')))
+    .returning();
+
+  if (!sub) throw AppError.notFound('No active subscription found');
+
+  return sendSuccess(c, { message: 'تم إيقاف التجديد التلقائي. ستظل باقتك فعالة حتى نهاية الفترة الحالية.' });
 });
 
 export default vendorRoutes;

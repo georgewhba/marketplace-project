@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2, CreditCard, Tag } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 
 const sidebarLinks = [
@@ -11,6 +11,7 @@ const sidebarLinks = [
   { to: '/vendor/products', icon: Package, label: 'المنتجات' },
   { to: '/vendor/orders', icon: ShoppingCart, label: 'الطلبات' },
   { to: '/vendor/earnings', icon: DollarSign, label: 'الأرباح' },
+  { to: '/vendor/subscriptions', icon: CreditCard, label: 'الباقات والاشتراكات' },
   { to: '/vendor/settings', icon: Settings, label: 'إعدادات المتجر' },
 ];
 
@@ -93,6 +94,29 @@ export default function VendorDashboard() {
   return (
     <>
       <h1 className="page-header__title mb-6">لوحة تحكم المتجر</h1>
+      
+      {data?.currentPlan && (
+        <div className="card p-4 mb-6" style={{ background: 'var(--brand-50)', border: '1px solid var(--brand-200)' }}>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white rounded-full text-brand shadow-sm">
+                <CreditCard size={24} />
+              </div>
+              <div>
+                <div className="font-semibold" style={{ fontSize: 'var(--font-size-lg)' }}>
+                  الباقة الحالية: {data.currentPlan === 'Starter' || data.currentPlan === 'starter' ? 'المجانية' : data.currentPlan}
+                </div>
+                <div className="text-sm text-muted">
+                  احصل على مميزات إضافية وعمولة أقل مع الباقات المتقدمة
+                </div>
+              </div>
+            </div>
+            <Link to="/vendor/subscriptions" className="btn btn-primary">
+              عرض الباقات والترقية
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-4 mb-8">
         <div className="stat-card">

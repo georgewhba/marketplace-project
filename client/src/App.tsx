@@ -35,6 +35,7 @@ const MotionPreviewPage = lazy(() => import('./pages/MotionPreviewPage'));
 const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
 const VendorOrders = lazy(() => import('./pages/vendor/VendorOrders'));
 const VendorEarnings = lazy(() => import('./pages/vendor/VendorEarnings'));
+const VendorSubscriptions = lazy(() => import('./pages/vendor/VendorSubscriptions'));
 const VendorSettings = lazy(() => import('./pages/vendor/VendorSettings'));
 const VendorAnalytics = lazy(() => import('./pages/vendor/VendorAnalytics'));
 
@@ -52,6 +53,7 @@ const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
 const AdminMessageLogs = lazy(() => import('./pages/admin/AdminMessageLogs'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
+const AdminPromotions = lazy(() => import('./pages/admin/AdminPromotions'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 
 // Layouts (eager — small shell components)
@@ -145,6 +147,7 @@ function AnimatedRoutes() {
           <Route path="orders" element={<Suspense fallback={<Loading />}><VendorOrders /></Suspense>} />
           <Route path="earnings" element={<Suspense fallback={<Loading />}><VendorEarnings /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<Loading />}><VendorAnalytics /></Suspense>} />
+          <Route path="subscriptions" element={<Suspense fallback={<Loading />}><VendorSubscriptions /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<Loading />}><VendorSettings /></Suspense>} />
         </Route>
 
@@ -165,6 +168,7 @@ function AnimatedRoutes() {
           <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
           <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
           <Route path="coupons" element={<Suspense fallback={<Loading />}><AdminCoupons /></Suspense>} />
+          <Route path="promotions" element={<Suspense fallback={<Loading />}><AdminPromotions /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<Loading />}><AdminSettings /></Suspense>} />
         </Route>
 

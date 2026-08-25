@@ -20,6 +20,7 @@ const sidebarLinks = [
   { to: '/admin/categories', icon: Tag, label: 'الأقسام', permission: 'categories.manage' },
   { to: '/admin/refunds', icon: Undo, label: 'المرتجعات', permission: 'orders.refund' },
   { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات', permission: 'coupons.manage' },
+  { to: '/admin/promotions', icon: Tag, label: 'عروض الباقات', permission: 'coupons.manage' },
   { to: '/admin/settings', icon: Settings, label: 'الإعدادات', permission: 'settings.edit' },
 ];
 

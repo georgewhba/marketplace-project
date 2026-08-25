@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { orders } from '../db/schema/orders.js';
-import { payments } from '../db/schema/payments.js';
+import { orders, payments, vendorSubscriptions, subscriptionPlans, commissionRules } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
@@ -115,16 +114,81 @@ router.post('/webhook', async (c) => {
   const obj = payload.obj;
   if (!obj) return c.json({ success: true }); // Acknowledge
 
-  // Parse merchant_order_id (e.g. ORD-15-162817281)
-  const orderIdStr = obj.order?.merchant_order_id?.split('-')[1];
-  if (!orderIdStr) return c.json({ success: true });
-  
-  const orderId = parseInt(orderIdStr, 10);
+  // Parse merchant_order_id
+  const merchantOrderId = obj.order?.merchant_order_id;
+  if (!merchantOrderId) return c.json({ success: true });
+
   const success = obj.success;
   const transactionId = String(obj.id);
   const pending = obj.pending;
 
   if (pending) return c.json({ success: true });
+
+  // Handle Subscription Payment
+  if (merchantOrderId.startsWith('SUB-')) {
+    const [, vendorIdStr, planIdStr] = merchantOrderId.split('-');
+    const vendorId = parseInt(vendorIdStr, 10);
+    const planId = parseInt(planIdStr, 10);
+
+    if (success) {
+      const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      if (plan) {
+        // Activate subscription
+        const now = new Date();
+        const periodEnd = new Date();
+        periodEnd.setDate(now.getDate() + 30); // 30 days for monthly plan
+
+        const existingSubs = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendorId));
+        const pendingSub = existingSubs.find(s => s.status === 'pending_payment' && s.planId === planId);
+        const activeSub = existingSubs.find(s => s.status === 'active');
+
+        // Deactivate old active sub if exists
+        if (activeSub && (!pendingSub || activeSub.id !== pendingSub.id)) {
+          await db.update(vendorSubscriptions)
+            .set({ status: 'expired' })
+            .where(eq(vendorSubscriptions.id, activeSub.id));
+        }
+
+        if (pendingSub) {
+          await db.update(vendorSubscriptions)
+            .set({
+              status: 'active',
+              currentPeriodStart: now,
+              currentPeriodEnd: periodEnd,
+              autoRenew: true
+            })
+            .where(eq(vendorSubscriptions.id, pendingSub.id));
+        } else {
+          await db.insert(vendorSubscriptions).values({
+            vendorId,
+            planId,
+            status: 'active',
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEnd,
+            autoRenew: true
+          });
+        }
+
+        // Update commission rules
+        await db.delete(commissionRules).where(and(eq(commissionRules.scope, 'vendor'), eq(commissionRules.targetId, vendorId)));
+        await db.insert(commissionRules).values({
+          scope: 'vendor',
+          targetId: vendorId,
+          rate: plan.commissionRate,
+          priority: 100, // Highest priority
+          effectiveFrom: now
+        });
+      }
+    } else {
+      // Handle failed payment (optional logic, mark as failed if needed, but we keep it pending_payment or let user retry)
+    }
+
+    return c.json({ success: true });
+  }
+
+  // Handle Regular Order Payment
+  const orderIdStr = merchantOrderId.split('-')[1];
+  const orderId = parseInt(orderIdStr, 10);
 
   // Update payment row idempotently
   const existingPayments = await db.select().from(payments)
