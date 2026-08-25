@@ -52,6 +52,7 @@ const AdminRoles = lazy(() => import('./pages/admin/AdminRoles'));
 const AdminMessageLogs = lazy(() => import('./pages/admin/AdminMessageLogs'));
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
@@ -164,7 +165,7 @@ function AnimatedRoutes() {
           <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
           <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
           <Route path="coupons" element={<Suspense fallback={<Loading />}><AdminCoupons /></Suspense>} />
-          <Route path="settings" element={<div style={{ padding: 'var(--space-6)' }}><h2>الإعدادات — قريباً</h2></div>} />
+          <Route path="settings" element={<Suspense fallback={<Loading />}><AdminSettings /></Suspense>} />
         </Route>
 
         {/* Fallbacks */}

@@ -22,7 +22,11 @@ export default function HomePage() {
 
   useEffect(() => {
     storeApi.getHome()
-      .then(res => setData((res as any).data || res))
+      .then(res => {
+        const d = (res as any).data || res;
+        setData(d);
+        if (d.siteName) document.title = d.siteName;
+      })
       .catch(() => toast.error('فشل تحميل الصفحة'))
       .finally(() => setLoading(false));
   }, []);

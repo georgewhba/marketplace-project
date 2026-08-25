@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions } from '../db/schema/index.js';
+import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
@@ -131,6 +131,9 @@ export async function registerVendor(input: VendorRegisterInput) {
     if (!user) throw AppError.internal();
     newUser = user;
 
+    const [commissionSetting] = await tx.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
+    const commissionRate = commissionSetting?.value || '10.00';
+
     // Inserting vendor inside the same tx — any constraint violation here
     // (e.g. unique storeSlug race) rolls back the user insert automatically
     await tx.insert(vendors).values({
@@ -139,6 +142,7 @@ export async function registerVendor(input: VendorRegisterInput) {
       storeSlug,
       storeDescription: input.storeDescription,
       status: 'pending',
+      commissionRate,
     });
 
     await tx.insert(refreshTokens).values({

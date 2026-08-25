@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { products, categories, vendors, productImages, reviews } from '../db/schema/index.js';
+import { products, categories, vendors, productImages, reviews, siteSettings } from '../db/schema/index.js';
 import { eq, and, gte, lte, like, desc, asc, sql, ilike } from 'drizzle-orm';
 import { sendSuccess } from '../utils/response.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
@@ -66,7 +66,10 @@ storeRoutes.get('/home', async (c) => {
     images: newArrivalImages.filter(img => img.productId === p.id),
   }));
 
+  const [siteNameSetting] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'site_name')).limit(1);
+
   return sendSuccess(c, {
+    siteName: siteNameSetting?.value || 'المنصة',
     featuredProducts: featuredWithImages,
     categories: topCategories,
     newArrivals: newArrivalsWithImages,
