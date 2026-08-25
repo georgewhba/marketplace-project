@@ -7,11 +7,10 @@ import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
 import { AnimatedPage } from '../components/AnimatedPage';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
-import { ArrowLeft, Cpu, BookOpen, Shirt, Home as HomeIcon } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import * as Icons from 'lucide-react';
 
 import heroImg from '../assets/hero.jpg';
-
-const iconMap: Record<string, any> = { Cpu, BookOpen, Shirt, Home: HomeIcon };
 
 export default function HomePage() {
   const shouldReduceMotion = useReducedMotion();
@@ -77,24 +76,10 @@ export default function HomePage() {
                   <div key={i} className="skeleton" style={{ height: 120, borderRadius: 14 }} />
                 ))
               : data?.categories?.map((cat: any) => {
-                  const Icon = iconMap[cat.icon];
+                  const IconComp = (Icons as any)[cat.icon || ''] || Icons.Tag;
                   return (
                     <Link to={`/products?category=${cat.slug}`} key={cat.id} className="category-card">
-                      {Icon ? (
-                        <Icon className="category-card__icon" size={40} />
-                      ) : (
-                        <span 
-                          className="category-card__icon category-emoji-icon" 
-                          style={{ 
-                            fontSize: '40px', 
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          {cat.icon || '📦'}
-                        </span>
-                      )}
+                      <IconComp className="category-card__icon" size={40} />
                       <span className="category-card__name">{cat.name}</span>
                     </Link>
                   );

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { Plus, Edit2, Trash2, FolderTree, Save, Hash, Cpu, BookOpen, Shirt, Home as HomeIcon } from 'lucide-react';
+import { Edit2, Save, Trash2, Plus, FolderTree } from 'lucide-react';
+import * as Icons from 'lucide-react';
+import { IconPicker } from '../../components/IconPicker';
 
 interface Category {
   id: number;
@@ -78,29 +80,24 @@ export default function AdminCategories() {
             backgroundColor: level > 0 ? 'var(--surface-1)' : 'var(--surface-0)'
           }}
         >
-          <div className="flex items-center gap-3">
-            {cat.icon && (['Cpu', 'BookOpen', 'Shirt', 'Home'].includes(cat.icon)) ? (
-              // Legacy Lucide string mapped to icon
-              (() => {
-                const IconComp = { Cpu, BookOpen, Shirt, Home: HomeIcon }[cat.icon as 'Cpu'|'BookOpen'|'Shirt'|'Home'];
-                return IconComp ? <IconComp size={20} className="text-muted" /> : null;
-              })()
-            ) : cat.icon ? (
-              // Custom Emoji
-              <span 
-                className="category-emoji-icon"
-                style={{ 
-                  fontSize: '18px', 
-                  marginRight: 'var(--space-2)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {cat.icon}
-              </span>
-            ) : (
-              // Fallback
-              <Hash size={18} className="text-muted" />
-            )}
+          <div className="flex-1 flex items-center">
+            {/* Display Icon */}
+            {(() => {
+              const IconComp = (Icons as any)[cat.icon || ''] || Icons.Tag;
+              return (
+                <span 
+                  style={{ 
+                    marginRight: 'var(--space-2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)'
+                  }}
+                >
+                  <IconComp size={18} />
+                </span>
+              );
+            })()}
             <div style={{ marginRight: 'var(--space-2)' }}>
               <span className="text-primary" style={{ fontWeight: level === 0 ? 600 : 500, fontSize: level === 0 ? '1rem' : '0.9rem' }}>{cat.name}</span>
               {cat.description && <span className="text-muted" style={{ marginRight: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>— {cat.description}</span>}
@@ -145,9 +142,11 @@ export default function AdminCategories() {
             </div>
             <div className="grid grid-2 gap-3">
               <div className="form-group">
-                <label className="form-label">أيقونة (إيموجي)</label>
-                <input className="form-input" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} placeholder="مثال: 💻" />
-                <p className="text-muted mt-1" style={{ fontSize: '11px' }}>ضع إيموجي ليظهر كأيقونة</p>
+                <label className="form-label">أيقونة القسم</label>
+                <IconPicker 
+                  value={form.icon || ''} 
+                  onChange={(val) => setForm(f => ({ ...f, icon: val }))} 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">الترتيب</label>
