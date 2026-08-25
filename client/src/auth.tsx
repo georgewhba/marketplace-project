@@ -20,7 +20,9 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<any>;
   mfaLogin: (tempToken: string, token: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  register: (data: any) => Promise<any>;
+  verifyOtp: (email: string, otp: string) => Promise<void>;
+  googleAuth: (idToken: string) => Promise<void>;
   registerVendor: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -94,6 +96,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (formData: any) => {
     const res = await authApi.register(formData) as any;
     const data = res.data || res;
+    
+    if (data.requiresOtp) {
+      return data;
+    }
+
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+    return data;
+  };
+
+  const verifyOtp = async (email: string, otp: string) => {
+    const res = await authApi.verifyOtp({ email, otp }) as any;
+    const data = res.data || res;
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    setUser(data.user);
+  };
+
+  const googleAuth = async (idToken: string) => {
+    const res = await authApi.googleAuth({ idToken }) as any;
+    const data = res.data || res;
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setUser(data.user);
@@ -118,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, mfaLogin, register, registerVendor, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, isLoading, login, mfaLogin, register, verifyOtp, googleAuth, registerVendor, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

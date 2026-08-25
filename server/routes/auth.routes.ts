@@ -21,9 +21,26 @@ const authRoutes = new Hono<AppEnv>();
 authRoutes.post('/register', authRateLimit, validate('body', registerSchema), async (c) => {
   const input = getValidated<RegisterInput>(c, 'body');
   const result = await authService.register(input);
+  
+  return sendSuccess(c, result);
+});
+
+// POST /api/auth/verify-otp
+authRoutes.post('/verify-otp', authRateLimit, async (c) => {
+  const { email, otp } = await c.req.json();
+  const result = await authService.verifyRegistrationOTP(email, otp);
   setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
   setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  return sendCreated(c, { user: result.user });
+  return sendSuccess(c, { user: result.user });
+});
+
+// POST /api/auth/google
+authRoutes.post('/google', authRateLimit, async (c) => {
+  const { idToken } = await c.req.json();
+  const result = await authService.googleAuth(idToken);
+  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  return sendSuccess(c, { user: result.user });
 });
 
 // POST /api/auth/register/vendor

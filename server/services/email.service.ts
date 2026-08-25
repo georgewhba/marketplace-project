@@ -13,7 +13,8 @@ export type EmailTemplateKey =
   | 'vendor_approval' 
   | 'vendor_rejection' 
   | 'new_order_vendor' 
-  | 'receipt';
+  | 'receipt'
+  | 'otp_registration';
 
 export interface EmailOptions {
   to: string;
@@ -99,6 +100,17 @@ function generateTemplate(key: EmailTemplateKey, data: Record<string, any>): str
       break;
     case 'password_reset':
       body = `<h3>مرحباً ${data.name}،</h3><p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. يرجى النقر على الرابط أدناه لإعادة تعيينها:</p><p><a href="${data.resetLink}" style="display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 4px;">إعادة تعيين كلمة المرور</a></p><p>إذا لم تقم بهذا الطلب، يمكنك تجاهل هذه الرسالة.</p>`;
+      break;
+    case 'otp_registration':
+      body = `<div style="text-align: center;">
+        <h3>مرحباً ${data.name}،</h3>
+        <p>استخدم رمز التحقق التالي لإكمال تسجيل حسابك:</p>
+        <div style="background-color: #fff; border: 2px dashed ${brandColor}; color: ${brandColor}; font-size: 24px; font-weight: bold; letter-spacing: 5px; padding: 20px; margin: 20px auto; max-width: 200px; border-radius: 8px;">
+          ${data.otp}
+        </div>
+        <p>هذا الرمز صالح لمدة دقيقتين فقط.</p>
+        <p>إذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة بأمان.</p>
+      </div>`;
       break;
     default:
       body = `<p>إشعار من المتجر.</p>`;

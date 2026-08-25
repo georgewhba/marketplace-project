@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useSiteName } from '../hooks/useSiteSettings';
 import { useToast } from '../toast';
+import { GoogleLogin } from '@react-oauth/google';
 
 import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login, mfaLogin } = useAuth();
+  const { login, mfaLogin, googleAuth } = useAuth();
   const siteName = useSiteName();
   const toast = useToast();
   const navigate = useNavigate();
@@ -17,6 +18,18 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState('');
   const [showMfa, setShowMfa] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    try {
+      if (credentialResponse.credential) {
+        await googleAuth(credentialResponse.credential);
+        toast.success('تم تسجيل الدخول بواسطة Google بنجاح');
+        navigate('/');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'فشل تسجيل الدخول بواسطة Google');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +84,21 @@ export default function LoginPage() {
             </div>
           ) : (
             <>
+              <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => toast.error('فشل تسجيل الدخول بواسطة Google')}
+                  text="signin_with"
+                  theme="outline"
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
+                <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
+                <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>أو</span>
+                <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
+              </div>
+
               <div className="form-group mb-4">
                 <label className="form-label">البريد الإلكتروني</label>
                 <input

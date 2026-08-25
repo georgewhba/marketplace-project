@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { db } from '../db/index.js';
 import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
@@ -17,6 +18,25 @@ import type {
 } from '../validators/auth.validators.js';
 
 const SALT_ROUNDS = process.env['NODE_ENV'] === 'test' ? 4 : 12;
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
+
+async function sendOtpEmail(email: string, otp: string, firstName: string) {
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'رمز التحقق الخاص بك',
+      templateKey: 'otp_registration',
+      data: { name: firstName || 'مستخدم', otp },
+    });
+  } catch (err) {
+    console.error('Failed to send OTP email:', err);
+  }
+}
+
+function generateOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 function generateAccessToken(user: { id: number; email: string; role: string }): string {
   return jwt.sign(
@@ -44,30 +64,70 @@ function parseExpiry(expiry: string): number {
 }
 
 export async function register(input: RegisterInput) {
-  // Check if email already exists
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
+  const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
+  
+  const otpCode = generateOTP();
+  const otpExpiresAt = new Date(Date.now() + 120 * 1000); // 120 seconds
+
   if (existing.length > 0) {
-    throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
+    if (existing[0]!.isActive) {
+      throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
+    } else {
+      // Resend OTP for unverified account
+      const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+      await db.update(users).set({ 
+        otpCode, 
+        otpExpiresAt, 
+        passwordHash,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone,
+      }).where(eq(users.id, existing[0]!.id));
+      
+      sendOtpEmail(input.email, otpCode, input.firstName);
+      return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
+    }
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-  const [user] = await db.insert(users).values({
+  await db.insert(users).values({
     email: input.email,
     passwordHash,
     firstName: input.firstName,
     lastName: input.lastName,
     phone: input.phone,
     role: 'customer',
-  }).returning({
-    id: users.id,
-    email: users.email,
-    firstName: users.firstName,
-    lastName: users.lastName,
-    role: users.role,
+    isActive: false, // inactive until OTP is verified
+    otpCode,
+    otpExpiresAt,
   });
 
-  if (!user) throw AppError.internal();
+  sendOtpEmail(input.email, otpCode, input.firstName);
+  return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
+}
+
+export async function verifyRegistrationOTP(email: string, otp: string) {
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  
+  if (!user) throw AppError.notFound('المستخدم غير موجود');
+  if (user.isActive) throw AppError.badRequest('الحساب مفعل مسبقاً');
+  
+  if (user.otpCode !== otp) {
+    throw AppError.badRequest('رمز التحقق غير صحيح');
+  }
+
+  if (user.otpExpiresAt && user.otpExpiresAt < new Date()) {
+    throw AppError.badRequest('رمز التحقق انتهت صلاحيته');
+  }
+
+  // Activate user
+  await db.update(users).set({
+    isActive: true,
+    emailVerifiedAt: new Date(),
+    otpCode: null,
+    otpExpiresAt: null,
+  }).where(eq(users.id, user.id));
 
   const accessToken = generateAccessToken(user);
   const refreshTokenValue = generateRefreshTokenValue();
@@ -524,4 +584,71 @@ export async function resetPassword(token: string, newPassword: string) {
 
   // Invalidate refresh tokens
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
+}
+
+export async function googleAuth(idToken: string) {
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id',
+    });
+    payload = ticket.getPayload();
+  } catch (err) {
+    throw AppError.unauthorized('رمز جوجل غير صالح');
+  }
+
+  if (!payload || !payload.email) {
+    throw AppError.unauthorized('فشل في جلب البيانات من جوجل');
+  }
+
+  const { email, given_name, family_name, picture, sub: googleId } = payload;
+
+  let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+  if (!user) {
+    // Create new user linked to google
+    const [newUser] = await db.insert(users).values({
+      email,
+      firstName: given_name || 'مستخدم',
+      lastName: family_name || '',
+      passwordHash: '', // OAuth users don't have a password
+      role: 'customer',
+      avatarUrl: picture,
+      googleId,
+      isActive: true,
+      emailVerifiedAt: new Date(),
+    }).returning();
+    user = newUser as any;
+  } else {
+    // Update existing user to link google if not linked
+    if (!user.googleId) {
+      const [updatedUser] = await db.update(users).set({ googleId, emailVerifiedAt: new Date(), isActive: true }).where(eq(users.id, user.id)).returning();
+      user = updatedUser as any;
+    }
+  }
+
+  if (!user!.isActive) {
+    throw AppError.forbidden('الحساب معطّل، تواصل مع الدعم');
+  }
+
+  const accessToken = generateAccessToken(user!);
+  const refreshTokenValue = generateRefreshTokenValue();
+  const refreshTokenHash = hashToken(refreshTokenValue);
+  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+
+  await db.insert(refreshTokens).values({
+    userId: user!.id,
+    tokenHash: refreshTokenHash,
+    expiresAt,
+  });
+
+  return {
+    user: {
+      id: user!.id, email: user!.email, firstName: user!.firstName,
+      lastName: user!.lastName, role: user!.role, avatarUrl: user!.avatarUrl,
+    },
+    accessToken,
+    refreshToken: refreshTokenValue,
+  };
 }
