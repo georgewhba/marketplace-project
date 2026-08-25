@@ -177,7 +177,7 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
   });
 
   return {
-    user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role },
+    user: await getProfile(user.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };
@@ -251,7 +251,7 @@ export async function registerVendor(input: VendorRegisterInput) {
   const accessToken = generateAccessToken(newUser!);
 
   return {
-    user: { id: newUser!.id, email: newUser!.email, firstName: newUser!.firstName, lastName: newUser!.lastName, role: newUser!.role },
+    user: await getProfile(newUser!.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };
@@ -304,11 +304,7 @@ export async function login(input: LoginInput) {
   });
 
   return {
-    user: {
-      id: user.id, email: user.email, firstName: user.firstName,
-      lastName: user.lastName, role: user.role, phone: user.phone,
-      avatarUrl: user.avatarUrl,
-    },
+    user: await getProfile(user.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };
@@ -552,11 +548,7 @@ export async function verifyMFAChallenge(userId: number, token: string) {
   });
 
   return {
-    user: {
-      id: user.id, email: user.email, firstName: user.firstName,
-      lastName: user.lastName, role: user.role, phone: user.phone,
-      avatarUrl: user.avatarUrl,
-    },
+    user: await getProfile(user.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };
@@ -680,10 +672,7 @@ export async function googleAuth(idToken: string) {
   });
 
   return {
-    user: {
-      id: user!.id, email: user!.email, firstName: user!.firstName,
-      lastName: user!.lastName, role: user!.role, avatarUrl: user!.avatarUrl,
-    },
+    user: await getProfile(user!.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };
