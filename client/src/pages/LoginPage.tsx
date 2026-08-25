@@ -85,12 +85,23 @@ export default function LoginPage() {
           ) : (
             <>
               <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => toast.error('فشل تسجيل الدخول بواسطة Google')}
-                  text="signin_with"
-                  theme="outline"
-                />
+                {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => toast.error('فشل تسجيل الدخول بواسطة Google')}
+                    text="signin_with"
+                    theme="outline"
+                  />
+                ) : (
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ width: '100%' }}
+                    onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
+                  >
+                    تسجيل الدخول بواسطة Google (غير مفعل)
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>

@@ -108,12 +108,23 @@ export default function RegisterPage() {
             <>
               {!isVendor && (
                 <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => toast.error('فشل التسجيل بواسطة Google')}
-                    text="signup_with"
-                    theme="outline"
-                  />
+                  {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => toast.error('فشل التسجيل بواسطة Google')}
+                      text="signup_with"
+                      theme="outline"
+                    />
+                  ) : (
+                    <button 
+                      type="button" 
+                      className="btn btn-outline" 
+                      style={{ width: '100%' }}
+                      onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
+                    >
+                      التسجيل بواسطة Google (غير مفعل)
+                    </button>
+                  )}
                 </div>
               )}
               

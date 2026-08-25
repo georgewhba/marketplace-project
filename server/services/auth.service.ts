@@ -64,6 +64,10 @@ function parseExpiry(expiry: string): number {
 }
 
 export async function register(input: RegisterInput) {
+  if (process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
+    throw AppError.internal('النظام غير مهيأ لإرسال رسائل البريد الإلكتروني. الرجاء إضافة RESEND_API_KEY في إعدادات Railway.');
+  }
+
   const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
   
   const otpCode = generateOTP();
@@ -148,6 +152,10 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
+  if (process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
+    throw AppError.internal('النظام غير مهيأ لإرسال رسائل البريد الإلكتروني. الرجاء إضافة RESEND_API_KEY في إعدادات Railway.');
+  }
+
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
   if (existing.length > 0) {
