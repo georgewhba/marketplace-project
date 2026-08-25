@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { Plus, Edit2, Trash2, FolderTree, Save, Hash } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderTree, Save, Hash, Cpu, BookOpen, Shirt, Home as HomeIcon } from 'lucide-react';
 
 interface Category {
   id: number;
@@ -79,7 +79,14 @@ export default function AdminCategories() {
           }}
         >
           <div className="flex items-center gap-3">
-            {cat.icon ? (
+            {cat.icon && (['Cpu', 'BookOpen', 'Shirt', 'Home'].includes(cat.icon)) ? (
+              // Legacy Lucide string mapped to icon
+              (() => {
+                const IconComp = { Cpu, BookOpen, Shirt, Home: HomeIcon }[cat.icon as 'Cpu'|'BookOpen'|'Shirt'|'Home'];
+                return IconComp ? <IconComp size={20} className="text-muted" /> : null;
+              })()
+            ) : cat.icon ? (
+              // Custom Emoji
               <span 
                 className="category-emoji-icon"
                 style={{ 
@@ -97,9 +104,10 @@ export default function AdminCategories() {
                 {cat.icon}
               </span>
             ) : (
+              // Fallback
               <Hash size={18} className="text-muted" />
             )}
-            <div>
+            <div style={{ marginRight: 'var(--space-2)' }}>
               <span className="text-primary" style={{ fontWeight: level === 0 ? 600 : 500, fontSize: level === 0 ? '1rem' : '0.9rem' }}>{cat.name}</span>
               {cat.description && <span className="text-muted" style={{ marginRight: 'var(--space-2)', fontSize: 'var(--font-size-sm)' }}>— {cat.description}</span>}
             </div>

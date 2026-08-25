@@ -77,10 +77,26 @@ export default function HomePage() {
                   <div key={i} className="skeleton" style={{ height: 120, borderRadius: 14 }} />
                 ))
               : data?.categories?.map((cat: any) => {
-                  const Icon = iconMap[cat.icon] || Cpu;
+                  const Icon = iconMap[cat.icon];
                   return (
                     <Link to={`/products?category=${cat.slug}`} key={cat.id} className="category-card">
-                      <Icon className="category-card__icon" size={40} />
+                      {Icon ? (
+                        <Icon className="category-card__icon" size={40} />
+                      ) : (
+                        <span 
+                          className="category-card__icon" 
+                          style={{ 
+                            fontSize: '40px', 
+                            lineHeight: 1, 
+                            filter: 'grayscale(100%) opacity(0.7)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {cat.icon || '📦'}
+                        </span>
+                      )}
                       <span className="category-card__name">{cat.name}</span>
                     </Link>
                   );
