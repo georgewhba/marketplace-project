@@ -65,7 +65,7 @@ app.use('*', async (c, next) => {
   await next();
   c.header('X-Content-Type-Options', 'nosniff');
   c.header('X-Frame-Options', 'DENY'); // Note: This might conflict with our own iframes if we had any, but Paymob is framed BY us, so DENY is fine for others framing US.
-  c.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-src 'self' https://accept.paymob.com https://accept.paymobsolutions.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests;");
+  c.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com; frame-src 'self' https://accept.paymob.com https://accept.paymobsolutions.com https://accounts.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests;");
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -154,6 +154,8 @@ if (env.NODE_ENV === 'production') {
   app.use('/assets/*', serveStatic({ root: './client/dist' }));
   app.use('/vite.svg', serveStatic({ root: './client/dist' }));
   app.use('/favicon.ico', serveStatic({ root: './client/dist' }));
+  app.use('/favicon.svg', serveStatic({ root: './client/dist' }));
+  app.use('/icons.svg', serveStatic({ root: './client/dist' }));
   
   // SPA fallback for React Router + explicit index.html handling
   app.get('*', async (c) => {
@@ -162,7 +164,7 @@ if (env.NODE_ENV === 'production') {
       
       // Inject Runtime Environment Variables
       const runtimeEnv = {
-        VITE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || '',
+        VITE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
       };
       const scriptTag = `<script>window.ENV = ${JSON.stringify(runtimeEnv)};</script></head>`;
       indexHtml = indexHtml.replace('</head>', scriptTag);
