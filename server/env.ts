@@ -10,6 +10,7 @@ const envSchema = z.object({
   SMTP_HOST: z.string().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  BREVO_API_KEY: z.string().optional(),
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
   PORT: z.coerce.number().int().positive().default(3000),

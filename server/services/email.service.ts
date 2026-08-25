@@ -1,15 +1,6 @@
-import nodemailer from 'nodemailer';
 import { env } from '../env.js';
 import { db } from '../db/index.js';
 import { messageLogs } from '../db/schema/notifications-config.js';
-
-const transporter = (env.SMTP_USER && env.SMTP_PASS) ? nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS,
-  },
-}) : null;
 
 export type EmailTemplateKey = 
   | 'welcome' 
@@ -38,14 +29,32 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   try {
     const htmlContent = options.html || generateTemplate(options.templateKey, options.data);
 
-    if (transporter) {
-      const info = await transporter.sendMail({
-        from: `Marketplace <${env.EMAIL_FROM || env.SMTP_USER}>`,
-        to: options.to,
-        subject: options.subject,
-        html: htmlContent,
+    if (env.BREVO_API_KEY) {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': env.BREVO_API_KEY,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: {
+            name: 'Marketplace',
+            email: env.EMAIL_FROM || 'noreply@marketplace.com'
+          },
+          to: [{ email: options.to }],
+          subject: options.subject,
+          htmlContent: htmlContent
+        })
       });
-      providerMessageId = info.messageId || '';
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Brevo API Error: ${response.status} ${errorData}`);
+      }
+      
+      const data = await response.json() as any;
+      providerMessageId = data.messageId || '';
     } else {
       // Mock mode
       console.log(`[Email Mock] To: ${options.to} | Subject: ${options.subject}`);
