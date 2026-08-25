@@ -84,11 +84,9 @@ export default function HomePage() {
                         <Icon className="category-card__icon" size={40} />
                       ) : (
                         <span 
-                          className="category-card__icon" 
+                          className="category-card__icon category-emoji-icon" 
                           style={{ 
                             fontSize: '40px', 
-                            lineHeight: 1, 
-                            filter: 'grayscale(100%) opacity(0.7)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'

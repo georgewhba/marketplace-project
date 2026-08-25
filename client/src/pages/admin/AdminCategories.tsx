@@ -90,14 +90,8 @@ export default function AdminCategories() {
               <span 
                 className="category-emoji-icon"
                 style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  width: 24, 
-                  height: 24, 
-                  fontSize: '1.25rem',
-                  lineHeight: 1,
-                  filter: 'grayscale(100%) opacity(0.7)',
+                  fontSize: '18px', 
+                  marginRight: 'var(--space-2)',
                   transition: 'all 0.2s ease'
                 }}
               >

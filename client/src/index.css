@@ -1786,3 +1786,11 @@ input, textarea, select, button {
 }
 
 @media (min-width: 769px) { .dashboard-mobile-header { display: none !important; } }
+
+/* Emoji Category Icon Styling */
+.category-emoji-icon {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", emojisymbols, "emojione mozilla", "twemoji mozilla", "Segoe UI Symbol";
+  color: transparent !important;
+  text-shadow: 0 0 0 var(--text-secondary) !important;
+  line-height: 1;
+}
