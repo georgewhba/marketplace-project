@@ -109,7 +109,7 @@ export default function ProfilePage() {
             <label className="form-label"><Mail size={14} style={{ marginLeft: 4 }} />البريد الإلكتروني</label>
             <input className="input" value={user?.email ?? ''} disabled style={{ opacity: 0.6 }} />
           </div>
-          <button className="btn btn--primary" type="submit" disabled={updateMutation.isPending} style={{ width: '100%' }}>
+          <button className="btn btn-primary" type="submit" disabled={updateMutation.isPending} style={{ width: '100%' }}>
             <Save size={16} /> {updateMutation.isPending ? 'جاري الحفظ...' : 'حفظ التغييرات'}
           </button>
         </form>
@@ -133,7 +133,7 @@ export default function ProfilePage() {
             <label className="form-label">تأكيد كلمة المرور</label>
             <input className="input" type="password" value={pwForm.confirmPassword} onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))} required />
           </div>
-          <button className="btn btn--outline" type="submit" disabled={passwordMutation.isPending} style={{ width: '100%' }}>
+          <button className="btn btn-outline" type="submit" disabled={passwordMutation.isPending} style={{ width: '100%' }}>
             <Lock size={16} /> {passwordMutation.isPending ? 'جاري التغيير...' : 'تغيير كلمة المرور'}
           </button>
         </form>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
               />
             </div>
             <button 
-              className="btn btn--danger" 
+              className="btn btn-error" 
               onClick={() => disableMfaMutation.mutate()} 
               disabled={disableMfaMutation.isPending || mfaToken.length < 6}
             >
@@ -177,7 +177,7 @@ export default function ProfilePage() {
             
             {!mfaSetup ? (
               <button 
-                className="btn btn--outline" 
+                className="btn btn-outline" 
                 onClick={() => setupMfaMutation.mutate()} 
                 disabled={setupMfaMutation.isPending}
               >
@@ -186,13 +186,13 @@ export default function ProfilePage() {
             ) : (
               <div style={{ background: 'var(--neutral-50)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>1. قم بمسح رمز الاستجابة السريعة (QR Code):</p>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: 'var(--bg-surface)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)' }}>
-                  <img src={mfaSetup.qrCode} alt="MFA QR Code" style={{ maxWidth: '100%', height: 'auto' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: 'var(--surface-0)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                  <img src={mfaSetup.data?.qrCode} alt="MFA QR Code" style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
                 </div>
                 
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>2. أو أدخل الرمز السري يدوياً:</p>
-                <code style={{ display: 'block', padding: 'var(--space-3)', background: 'var(--bg-surface)', color: 'var(--text-base, inherit)', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)', wordBreak: 'break-all' }}>
-                  {mfaSetup.secret}
+                <code style={{ display: 'block', padding: 'var(--space-3)', background: 'var(--surface-0)', color: 'var(--text-base, inherit)', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)', wordBreak: 'break-all', border: '1px solid var(--border)' }}>
+                  {mfaSetup.data?.secret}
                 </code>
 
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>3. أدخل الرمز المكون من 6 أرقام للتفعيل:</p>
@@ -208,7 +208,7 @@ export default function ProfilePage() {
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                   <button 
-                    className="btn btn--primary" 
+                    className="btn btn-primary" 
                     onClick={() => verifyMfaMutation.mutate()} 
                     disabled={verifyMfaMutation.isPending || mfaToken.length < 6}
                     style={{ flex: 1 }}
@@ -216,7 +216,7 @@ export default function ProfilePage() {
                     {verifyMfaMutation.isPending ? 'جاري التفعيل...' : 'تفعيل المصادقة'}
                   </button>
                   <button 
-                    className="btn btn--outline" 
+                    className="btn btn-outline" 
                     onClick={() => setMfaSetup(null)}
                     style={{ flex: 1 }}
                   >
