@@ -42,7 +42,11 @@ export default function AdminSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      await adminApi.updateSettings(settings);
+      const payload = Object.fromEntries(
+        Object.entries(settings).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      );
+      
+      await adminApi.updateSettings(payload);
       toast.success('تم حفظ الإعدادات بنجاح');
       
       // Update document title if site_name changed
@@ -75,7 +79,7 @@ export default function AdminSettings() {
             <input
               type="text"
               name="site_name"
-              className="form-control"
+              className="form-input"
               value={settings.site_name}
               onChange={handleChange}
               placeholder="مثال: متجري"
@@ -88,7 +92,7 @@ export default function AdminSettings() {
               type="number"
               step="0.01"
               name="default_commission_rate"
-              className="form-control"
+              className="form-input"
               value={settings.default_commission_rate}
               onChange={handleChange}
               placeholder="مثال: 10.00"
@@ -103,7 +107,7 @@ export default function AdminSettings() {
             <input
               type="email"
               name="contact_email"
-              className="form-control"
+              className="form-input"
               value={settings.contact_email}
               onChange={handleChange}
               placeholder="مثال: support@example.com"
@@ -115,7 +119,7 @@ export default function AdminSettings() {
             <input
               type="text"
               name="contact_phone"
-              className="form-control"
+              className="form-input"
               value={settings.contact_phone}
               onChange={handleChange}
               placeholder="مثال: 01xxxxxxxxx"
@@ -128,7 +132,7 @@ export default function AdminSettings() {
               type="number"
               step="0.01"
               name="default_shipping_fee"
-              className="form-control"
+              className="form-input"
               value={settings.default_shipping_fee}
               onChange={handleChange}
               placeholder="مثال: 50.00"
