@@ -1,15 +1,24 @@
 import { db } from '../db/index.js';
-import { subscriptionPlans } from '../db/schema/subscriptions.js';
+import { subscriptionPlans, vendorSubscriptions, subscriptionPromotions } from '../db/schema/subscriptions.js';
+import { sql } from 'drizzle-orm';
 
 async function seedPlans() {
   console.log('Seeding subscription plans...');
   
+  // Clear existing dependencies first (in a dev environment this is fine)
+  await db.delete(vendorSubscriptions);
+  await db.delete(subscriptionPromotions);
+  await db.delete(subscriptionPlans);
+
+  // Reset the ID sequence
+  await db.execute(sql`ALTER SEQUENCE subscription_plans_id_seq RESTART WITH 1`);
+
   const plans = [
     {
-      name: 'باقة الانطلاق',
-      slug: 'starter',
+      name: 'Basic',
+      slug: 'basic',
       priceMonthly: '0.00',
-      commissionRate: '15.00',
+      commissionRate: '12.00',
       productLimit: 50,
       imageLimitPerProduct: 3,
       autoShippingEnabled: false,
@@ -21,32 +30,32 @@ async function seedPlans() {
       isActive: true,
     },
     {
-      name: 'باقة النمو',
-      slug: 'growth',
+      name: 'Plus',
+      slug: 'plus',
       priceMonthly: '499.00',
-      commissionRate: '10.00',
+      commissionRate: '8.00',
       productLimit: 500,
       imageLimitPerProduct: 5,
       autoShippingEnabled: true,
       advancedAnalytics: true,
       bulkActionsEnabled: false,
       payoutCycleDays: 14,
-      trustBadge: 'verified',
+      trustBadge: null,
       sortOrder: 2,
       isActive: true,
     },
     {
-      name: 'الباقة الاحترافية',
+      name: 'Pro',
       slug: 'pro',
       priceMonthly: '1499.00',
-      commissionRate: '5.00',
+      commissionRate: '4.00',
       productLimit: null, // unlimited
       imageLimitPerProduct: 10,
       autoShippingEnabled: true,
       advancedAnalytics: true,
       bulkActionsEnabled: true,
       payoutCycleDays: 7,
-      trustBadge: 'featured',
+      trustBadge: 'verified',
       sortOrder: 3,
       isActive: true,
     }
@@ -57,11 +66,7 @@ async function seedPlans() {
       await db.insert(subscriptionPlans).values(plan);
       console.log(`Plan ${plan.name} created.`);
     } catch (err: any) {
-      if (err.code === '23505') {
-        console.log(`Plan ${plan.name} already exists.`);
-      } else {
-        console.error(`Error inserting ${plan.name}:`, err);
-      }
+      console.error(`Error inserting ${plan.name}:`, err);
     }
   }
 

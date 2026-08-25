@@ -262,14 +262,57 @@
   position: relative;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.subs-card.recommended {
-  border: 2px solid var(--brand-400);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-12px);
-  z-index: 10;
+/* Base Card (Basic) */
+.subs-card-basic {
+  /* Default styling applies */
 }
+
+/* Plus Card */
+.subs-card-plus {
+  border: 1px solid var(--brand-300);
+  background: linear-gradient(to bottom, var(--bg-surface), var(--brand-50));
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Pro Card (Premium/Dark) */
+.subs-card-pro {
+  background: var(--brand-900);
+  border: 1px solid var(--brand-700);
+  color: white;
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-8px);
+}
+.subs-card-pro .subs-card-title,
+.subs-card-pro .subs-card-desc,
+.subs-card-pro .subs-card-price {
+  color: white;
+}
+.subs-card-pro .subs-card-price-period,
+.subs-card-pro .subs-card-feature {
+  color: var(--brand-200);
+}
+.subs-card-pro .subs-card-feature svg {
+  color: var(--brand-300);
+}
+.subs-card-pro .subs-card-commission {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.subs-card-pro .subs-card-commission span,
+.subs-card-pro .subs-card-commission strong {
+  color: white;
+}
+.subs-card-pro .btn-primary {
+  background: white;
+  color: var(--brand-900);
+}
+.subs-card-pro .btn-primary:hover {
+  background: var(--brand-50);
+}
+
 @media (max-width: 768px) {
-  .subs-card.recommended {
+  .subs-card-plus, .subs-card-pro {
     transform: none;
   }
 }

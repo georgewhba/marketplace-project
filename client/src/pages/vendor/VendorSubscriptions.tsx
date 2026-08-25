@@ -220,12 +220,19 @@ export default function VendorSubscriptions() {
         animate="show"
         className="subs-cards"
       >
-        {plans?.map((plan: any, index: number) => {
+        {plans?.map((plan: any) => {
           const isCurrent = activePlanId === plan.id;
-          const isRecommended = index === 1; // Assume middle plan is recommended
           const originalPrice = parseFloat(plan.priceMonthly);
           const currentMonthly = hasPromo ? Math.max(0, originalPrice - parseFloat(plan.discountAmount || '0')) : originalPrice;
           
+          const getPlanDescription = (slug: string) => {
+            switch (slug) {
+              case 'basic': return 'الأفضل للبدء واختبار السوق بأقل مخاطرة.';
+              case 'plus': return 'المعادلة المثالية لزيادة أرباحك مع نمو مبيعاتك.';
+              case 'pro': return 'للمتاجر الاحترافية: عمولة أقل، أدوات متقدمة، وأولوية في كل شيء.';
+              default: return 'باقة مصممة خصيصاً لنمو مبيعاتك.';
+            }
+          };
           // Yearly calculation logic (10 months instead of 12 for standard discount)
           const displayedPrice = isYearly ? currentMonthly * 10 : currentMonthly;
           
@@ -234,7 +241,7 @@ export default function VendorSubscriptions() {
               key={plan.id} 
               variants={itemVariants}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className={`subs-card ${isRecommended ? 'recommended' : ''}`}
+              className={`subs-card subs-card-${plan.slug}`}
             >
               {isCurrent && (
                 <div className="subs-card-badge-current">
@@ -244,7 +251,7 @@ export default function VendorSubscriptions() {
               
               <div className="subs-card-title">{plan.name}</div>
               <p className="subs-card-desc">
-                {plan.description || (isRecommended ? 'المعادلة المثالية بين المبيعات العالية والعمولة المنخفضة.' : 'الأفضل للبدء واختبار السوق.')}
+                {plan.description || getPlanDescription(plan.slug)}
               </p>
               
               {/* Commission as the primary metric */}
@@ -297,7 +304,7 @@ export default function VendorSubscriptions() {
               </div>
               
               <button 
-                className={`btn subs-card-btn ${isCurrent ? 'btn-ghost' : isRecommended ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn subs-card-btn ${isCurrent ? 'btn-ghost' : plan.slug === 'pro' ? 'btn-primary' : 'btn-secondary'}`}
                 disabled={isCurrent || subscribeMutation.isPending}
                 onClick={() => {
                   if (window.confirm(`هل أنت متأكد من الاشتراك في باقة ${plan.name} بـ ${displayedPrice} ج.م ${isYearly ? 'سنوياً' : 'شهرياً'}؟`)) {
