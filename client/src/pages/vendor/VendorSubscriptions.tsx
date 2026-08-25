@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { motionTokens } from '../../lib/motion-tokens';
 import { AnimatedNumber } from '../../components/ui/AnimatedNumber';
 import { ChevronDown } from 'lucide-react';
+import './VendorSubscriptions.css';
 
 export default function VendorSubscriptions() {
   const queryClient = useQueryClient();
@@ -39,9 +40,7 @@ export default function VendorSubscriptions() {
     onError: (err: any) => addToast(err.message || 'حدث خطأ', 'error'),
   });
 
-  // Setup countdown for promo banner
   useEffect(() => {
-    // Arbitrary end date for demonstration, in a real app this comes from the promo data
     const end = new Date();
     end.setHours(23, 59, 59, 999);
     
@@ -63,11 +62,11 @@ export default function VendorSubscriptions() {
   }, []);
 
   if (loadingPlans || loadingSub) return (
-    <div className="p-6 flex justify-center items-center h-64">
+    <div className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
       <motion.div 
         animate={{ rotate: 360 }} 
         transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-        className="w-8 h-8 border-4 border-brand-200 border-t-brand-500 rounded-full"
+        style={{ width: 32, height: 32, border: '4px solid var(--brand-200)', borderTopColor: 'var(--brand-500)', borderRadius: '50%' }}
       />
     </div>
   );
@@ -75,10 +74,7 @@ export default function VendorSubscriptions() {
   const activePlanId = currentSub?.data?.planId;
   const plans = plansData?.data || [];
   
-  // Find highest commission to use as baseline for savings
   const maxCommission = plans.length > 0 ? Math.max(...plans.map((p: any) => p.commissionRate)) : 0;
-  
-  // Check if any plan has a promo
   const hasPromo = plans.some((p: any) => parseFloat(p.discountAmount || '0') > 0);
 
   const faqs = [
@@ -101,34 +97,34 @@ export default function VendorSubscriptions() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
+    <div className="subs-container">
       {/* Promo Banner */}
       <AnimatePresence>
         {hasPromo && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="bg-brand-900 text-brand-50 mb-8 overflow-hidden rounded-xl shadow-lg relative"
+            className="subs-promo"
           >
-            <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right relative z-10" style={{ background: 'var(--bg-gradient-mesh)' }}>
-              <div>
-                <strong className="block text-lg font-bold text-accent-400 mb-1">عرض محدود!</strong>
-                <p className="text-sm opacity-90">اشترك الآن واستفد من الخصم الحصري قبل انتهاء العرض.</p>
+            <div className="subs-promo-inner">
+              <div className="subs-promo-text">
+                <strong>عرض محدود!</strong>
+                <p>اشترك الآن واستفد من الخصم الحصري قبل انتهاء العرض.</p>
               </div>
-              <div className="flex items-center gap-3 shrink-0" dir="ltr">
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono bg-black/20 px-3 py-1 rounded-md min-w-[3ch] text-center">{String(timeLeft.hours).padStart(2, '0')}</span>
-                  <span className="text-[10px] uppercase mt-1 opacity-70">ساعة</span>
+              <div className="subs-promo-timer">
+                <div className="subs-timer-box">
+                  <span className="subs-timer-num">{String(timeLeft.hours).padStart(2, '0')}</span>
+                  <span className="subs-timer-label">ساعة</span>
                 </div>
-                <span className="text-xl font-bold opacity-50">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono bg-black/20 px-3 py-1 rounded-md min-w-[3ch] text-center">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                  <span className="text-[10px] uppercase mt-1 opacity-70">دقيقة</span>
+                <span style={{ fontSize: 'var(--font-size-xl)', opacity: 0.5 }}>:</span>
+                <div className="subs-timer-box">
+                  <span className="subs-timer-num">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                  <span className="subs-timer-label">دقيقة</span>
                 </div>
-                <span className="text-xl font-bold opacity-50">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono bg-black/20 px-3 py-1 rounded-md min-w-[3ch] text-center">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                  <span className="text-[10px] uppercase mt-1 opacity-70">ثانية</span>
+                <span style={{ fontSize: 'var(--font-size-xl)', opacity: 0.5 }}>:</span>
+                <div className="subs-timer-box">
+                  <span className="subs-timer-num">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                  <span className="subs-timer-label">ثانية</span>
                 </div>
               </div>
             </div>
@@ -136,11 +132,11 @@ export default function VendorSubscriptions() {
         )}
       </AnimatePresence>
 
-      <div className="text-center mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
-          استثمر في نمو مبيعاتك، <span className="text-brand-500">مش في العمولات</span>
+      <div className="subs-header">
+        <h1>
+          استثمر في نمو مبيعاتك، <span>مش في العمولات</span>
         </h1>
-        <p className="text-neutral-500 max-w-2xl mx-auto text-lg">
+        <p>
           اختر الباقة اللي تناسب طموحك. وفّر في العمولات كل ما مبيعاتك زادت، واستمتع بمميزات متقدمة بتكبر معاك.
         </p>
       </div>
@@ -150,22 +146,22 @@ export default function VendorSubscriptions() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: motionTokens.duration.base }}
-        className="card p-6 mb-12 max-w-3xl mx-auto relative overflow-hidden bg-brand-50 border-brand-200"
+        className="subs-calc"
       >
-        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-          <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 22h20L12 2zm0 3.8l7.2 14.2H4.8L12 5.8z"/>
-          </svg>
-        </div>
+        <svg className="subs-calc-svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 22h20L12 2zm0 3.8l7.2 14.2H4.8L12 5.8z"/>
+        </svg>
         
-        <h3 className="text-xl font-bold mb-6 text-center relative z-10 text-brand-900">
+        <h3 className="subs-calc-title">
           اكتشف حجم توفيرك الشهري
         </h3>
         
-        <div className="mb-8 relative z-10">
-          <div className="flex justify-between text-sm font-semibold text-brand-700 mb-2">
+        <div className="subs-calc-slider-wrap">
+          <div className="subs-calc-slider-header">
             <span>مبيعاتك المتوقعة شهرياً</span>
-            <AnimatedNumber value={salesEstimate} format={(v) => Math.round(v).toLocaleString('ar-EG') + ' ج.م'} />
+            <span className="value">
+              <AnimatedNumber value={salesEstimate} format={(v) => Math.round(v).toLocaleString('ar-EG') + ' ج.م'} />
+            </span>
           </div>
           <input 
             type="range" 
@@ -174,48 +170,26 @@ export default function VendorSubscriptions() {
             step="5000"
             value={salesEstimate} 
             onChange={(e) => setSalesEstimate(Number(e.target.value))}
-            className="w-full h-2 bg-brand-200 rounded-lg appearance-none cursor-pointer accent-brand-500"
+            className="subs-calc-slider"
             style={{ 
               background: `linear-gradient(to left, var(--brand-500) ${(salesEstimate / 200000) * 100}%, var(--brand-200) ${(salesEstimate / 200000) * 100}%)` 
             }}
           />
-          <style>{`
-            input[type=range]::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              appearance: none;
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              background: var(--brand-600);
-              cursor: pointer;
-              box-shadow: var(--shadow-sm);
-              border: 2px solid white;
-            }
-            input[type=range]::-moz-range-thumb {
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              background: var(--brand-600);
-              cursor: pointer;
-              box-shadow: var(--shadow-sm);
-              border: 2px solid white;
-            }
-          `}</style>
-          <div className="flex justify-between text-xs text-neutral-400 mt-2">
+          <div className="subs-calc-slider-labels">
             <span>0 ج.م</span>
             <span>+200,000 ج.م</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 relative z-10">
+        <div className="subs-calc-results">
           {plans.slice(1, 3).map((plan: any) => {
             const savingsPercent = maxCommission - plan.commissionRate;
             const savingsValue = (salesEstimate * savingsPercent) / 100;
             return (
-              <div key={plan.id} className="bg-white p-4 rounded-xl shadow-sm text-center border border-neutral-100">
-                <div className="text-sm text-neutral-500 mb-1">توفير عمولات في "{plan.name}"</div>
-                <div className="text-2xl font-bold text-success-600 flex items-center justify-center gap-1">
-                  + <AnimatedNumber value={savingsValue} /> <span className="text-sm font-normal">ج.م</span>
+              <div key={plan.id} className="subs-calc-result-box">
+                <div className="subs-calc-result-label">توفير عمولات في "{plan.name}"</div>
+                <div className="subs-calc-result-value">
+                  + <AnimatedNumber value={savingsValue} /> <small>ج.م</small>
                 </div>
               </div>
             );
@@ -224,25 +198,22 @@ export default function VendorSubscriptions() {
       </motion.div>
 
       {/* Monthly/Yearly Toggle */}
-      <div className="flex justify-center items-center gap-3 mb-10">
-        <span className={`text-sm font-medium transition-colors ${!isYearly ? 'text-brand-900' : 'text-neutral-400'}`}>شهري</span>
+      <div className="subs-toggle">
+        <span className={`subs-toggle-label ${!isYearly ? 'active' : ''}`}>شهري</span>
         <button 
-          className="relative w-14 h-8 bg-brand-100 rounded-full p-1 cursor-pointer transition-colors"
-          style={{ background: isYearly ? 'var(--brand-500)' : 'var(--neutral-300)' }}
+          className={`subs-toggle-btn ${isYearly ? 'active' : ''}`}
           onClick={() => setIsYearly(!isYearly)}
           aria-label="تبديل الدفع السنوي"
         >
           <motion.div 
-            className="w-6 h-6 bg-white rounded-full shadow-sm"
-            animate={{ x: isYearly ? -24 : 0 }}
+            className="subs-toggle-thumb"
+            animate={{ x: isYearly ? -32 : 0 }}
             transition={motionTokens.easing.spring}
           />
         </button>
-        <span className={`text-sm font-medium transition-colors flex items-center gap-2 ${isYearly ? 'text-brand-900' : 'text-neutral-400'}`}>
+        <span className={`subs-toggle-label ${isYearly ? 'active' : ''}`}>
           سنوي
-          <span className="text-xs bg-accent-100 text-accent-600 px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'var(--accent-light)' }}>
-            وفر شهرين
-          </span>
+          <span className="subs-toggle-badge">وفر شهرين</span>
         </span>
       </div>
 
@@ -251,8 +222,7 @@ export default function VendorSubscriptions() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="grid gap-6 items-end mb-16" 
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
+        className="subs-cards"
       >
         {plans?.map((plan: any, index: number) => {
           const isCurrent = activePlanId === plan.id;
@@ -268,126 +238,107 @@ export default function VendorSubscriptions() {
               key={plan.id} 
               variants={itemVariants}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className={`bg-white rounded-2xl relative flex flex-col overflow-hidden transition-shadow ${isRecommended ? 'z-10' : 'z-0'}`}
-              style={{
-                border: isRecommended ? '2px solid var(--brand-400)' : '1px solid var(--border-color)',
-                boxShadow: isRecommended ? '0 12px 32px -8px rgba(201, 95, 52, 0.2)' : 'var(--shadow-sm)',
-                transform: isRecommended ? 'translateY(-12px)' : 'none',
-                minHeight: isRecommended ? '105%' : '100%',
-              }}
+              className={`subs-card ${isRecommended ? 'recommended' : ''}`}
             >
               {isCurrent && (
-                <div className="absolute top-0 right-0 bg-neutral-900 text-white px-4 py-1.5 rounded-bl-xl text-xs font-semibold z-20 shadow-sm">
+                <div className="subs-card-badge-current">
                   باقتك الحالية
                 </div>
               )}
               
-              <div className="p-6 md:p-8 flex flex-col flex-1 relative z-10">
-                <div className="mb-6">
-                  <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-                  <p className="text-neutral-500 text-sm h-10">{plan.description || (isRecommended ? 'المعادلة المثالية بين المبيعات العالية والعمولة المنخفضة.' : 'الأفضل للبدء واختبار السوق.')}</p>
-                </div>
-                
-                {/* Commission as the primary metric */}
-                <div className="mb-8 p-4 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-brand-900">عمولة المبيعات</span>
-                  <div className="text-3xl font-bold text-brand-600 tracking-tighter">
-                    {plan.commissionRate}<span className="text-xl">%</span>
-                  </div>
-                </div>
-                
-                {/* Secondary metric: Price */}
-                <div className="mb-8">
-                  {originalPrice === 0 ? (
-                    <span className="text-3xl font-bold text-neutral-900">مجاناً للأبد</span>
-                  ) : (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-neutral-900 tracking-tighter">
-                        <AnimatedNumber value={displayedPrice} />
-                      </span>
-                      <span className="text-neutral-500 font-medium">
-                        ج.م / {isYearly ? 'سنوياً' : 'شهرياً'}
-                      </span>
-                    </div>
-                  )}
-                  {hasPromo && !isYearly && originalPrice > 0 && (
-                    <div className="text-sm text-neutral-400 line-through mt-1">{originalPrice} ج.م قبل الخصم</div>
-                  )}
-                  {isYearly && originalPrice > 0 && (
-                    <div className="text-sm text-success-600 font-medium mt-1">توفير {currentMonthly * 2} ج.م بالدفع السنوي</div>
-                  )}
-                </div>
-                
-                <div className="space-y-4 mb-8 flex-1 text-sm text-neutral-600">
-                  <div className="flex gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-400 mt-2 shrink-0" />
-                    <span>رفع حتى <strong>{plan.productLimit ? `${plan.productLimit} منتج` : 'عدد غير محدود من المنتجات'}</strong></span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-400 mt-2 shrink-0" />
-                    <span>إضافة <strong>{plan.imageLimitPerProduct} صور</strong> لكل منتج</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-400 mt-2 shrink-0" />
-                    <span>تحويل الأرباح كل <strong>{plan.payoutCycleDays} أيام</strong></span>
-                  </div>
-                  {plan.autoShippingEnabled && (
-                    <div className="flex gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-brand-400 mt-2 shrink-0" />
-                      <span>ربط آلي مع شركات الشحن</span>
-                    </div>
-                  )}
-                </div>
-                
-                <button 
-                  className={`btn w-full justify-center h-12 text-base transition-all ${
-                    isCurrent 
-                      ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed border-transparent' 
-                      : isRecommended 
-                        ? 'btn-primary shadow-lg shadow-brand-500/20' 
-                        : 'bg-white border-2 border-brand-200 text-brand-700 hover:border-brand-500'
-                  }`}
-                  disabled={isCurrent || subscribeMutation.isPending}
-                  onClick={() => {
-                    if (window.confirm(`هل أنت متأكد من الاشتراك في باقة ${plan.name} بـ ${displayedPrice} ج.م ${isYearly ? 'سنوياً' : 'شهرياً'}؟`)) {
-                      subscribeMutation.mutate(plan.id);
-                    }
-                  }}
-                >
-                  {subscribeMutation.isPending ? 'جاري التحويل...' : isCurrent ? 'باقتك الحالية' : (originalPrice === 0 ? 'ابدأ مجاناً' : 'اشترك الآن')}
-                </button>
+              <div className="subs-card-title">{plan.name}</div>
+              <p className="subs-card-desc">
+                {plan.description || (isRecommended ? 'المعادلة المثالية بين المبيعات العالية والعمولة المنخفضة.' : 'الأفضل للبدء واختبار السوق.')}
+              </p>
+              
+              {/* Commission as the primary metric */}
+              <div className="subs-card-commission">
+                <span>عمولة المبيعات</span>
+                <strong>
+                  {plan.commissionRate}<small>%</small>
+                </strong>
               </div>
+              
+              {/* Secondary metric: Price */}
+              <div className="subs-card-price-wrap">
+                {originalPrice === 0 ? (
+                  <div className="subs-card-price">مجاناً للأبد</div>
+                ) : (
+                  <>
+                    <div className="subs-card-price">
+                      <AnimatedNumber value={displayedPrice} />
+                      <span className="subs-card-price-period">ج.م / {isYearly ? 'سنوياً' : 'شهرياً'}</span>
+                    </div>
+                    {hasPromo && !isYearly && originalPrice > 0 && (
+                      <div className="subs-card-price-old">{originalPrice} ج.م قبل الخصم</div>
+                    )}
+                    {isYearly && originalPrice > 0 && (
+                      <div className="subs-card-price-save">توفير {currentMonthly * 2} ج.م بالدفع السنوي</div>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              <div className="subs-card-features">
+                <div className="subs-card-feature">
+                  <div className="subs-card-feature-dot" />
+                  <span>رفع حتى <strong>{plan.productLimit ? `${plan.productLimit} منتج` : 'عدد غير محدود من المنتجات'}</strong></span>
+                </div>
+                <div className="subs-card-feature">
+                  <div className="subs-card-feature-dot" />
+                  <span>إضافة <strong>{plan.imageLimitPerProduct} صور</strong> لكل منتج</span>
+                </div>
+                <div className="subs-card-feature">
+                  <div className="subs-card-feature-dot" />
+                  <span>تحويل الأرباح كل <strong>{plan.payoutCycleDays} أيام</strong></span>
+                </div>
+                {plan.autoShippingEnabled && (
+                  <div className="subs-card-feature">
+                    <div className="subs-card-feature-dot" />
+                    <span>ربط آلي مع شركات الشحن</span>
+                  </div>
+                )}
+              </div>
+              
+              <button 
+                className={`btn subs-card-btn ${isCurrent ? 'btn-ghost' : isRecommended ? 'btn-primary' : 'btn-secondary'}`}
+                disabled={isCurrent || subscribeMutation.isPending}
+                onClick={() => {
+                  if (window.confirm(`هل أنت متأكد من الاشتراك في باقة ${plan.name} بـ ${displayedPrice} ج.م ${isYearly ? 'سنوياً' : 'شهرياً'}؟`)) {
+                    subscribeMutation.mutate(plan.id);
+                  }
+                }}
+              >
+                {subscribeMutation.isPending ? 'جاري التحويل...' : isCurrent ? 'باقتك الحالية' : (originalPrice === 0 ? 'ابدأ مجاناً' : 'اشترك الآن')}
+              </button>
             </motion.div>
           );
         })}
       </motion.div>
 
       {/* Contextual Section */}
-      <div className="card bg-white p-8 md:p-12 mb-16 text-center max-w-4xl mx-auto border-neutral-200 shadow-sm">
-        <h2 className="text-2xl font-bold mb-4">ليه نسبة العمولة أهم من أي ميزة تانية؟</h2>
-        <p className="text-neutral-600 text-lg leading-relaxed mx-auto">
+      <div className="subs-context">
+        <h2>ليه نسبة العمولة أهم من أي ميزة تانية؟</h2>
+        <p>
           الاشتراك الشهري هو تكلفة ثابتة، لكن العمولة بتكبر مع كل مبيعة. لما تختار باقة بعمولة أقل، أنت بتضمن إن مكسبك من كل أوردر بيكبر. في التجارة الإلكترونية، <strong>كل 1% توفير في العمولة بيعني آلاف الجنيهات أرباح صافية</strong> ليك آخر السنة. إحنا صممنا الباقات عشان تكون شريك في نجاحك، مش عبء عليك.
         </p>
       </div>
 
       {/* FAQ Section */}
-      <div className="max-w-3xl mx-auto">
-        <h2 className="text-2xl font-bold mb-8 text-center">أسئلة شائعة</h2>
-        <div className="space-y-4">
+      <div className="subs-faq">
+        <h2>أسئلة شائعة</h2>
+        <div className="subs-faq-list">
           {faqs.map((faq, idx) => (
-            <div 
-              key={idx} 
-              className={`border rounded-xl transition-colors duration-300 ${expandedFaq === idx ? 'border-brand-300 bg-brand-50/30' : 'border-neutral-200 bg-white hover:border-brand-200'}`}
-            >
+            <div key={idx} className={`subs-faq-item ${expandedFaq === idx ? 'active' : ''}`}>
               <button 
-                className="w-full flex items-center justify-between p-5 text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-xl"
+                className="subs-faq-btn"
                 onClick={() => setExpandedFaq(expandedFaq === idx ? null : idx)}
               >
-                <span className="font-semibold text-neutral-800">{faq.q}</span>
+                <span>{faq.q}</span>
                 <motion.div
                   animate={{ rotate: expandedFaq === idx ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
-                  className="text-brand-500"
+                  style={{ color: 'var(--brand-500)' }}
                 >
                   <ChevronDown size={20} />
                 </motion.div>
@@ -399,9 +350,9 @@ export default function VendorSubscriptions() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="overflow-hidden"
+                    style={{ overflow: 'hidden' }}
                   >
-                    <div className="p-5 pt-0 text-neutral-600 leading-relaxed border-t border-brand-100/50 mt-2">
+                    <div className="subs-faq-answer">
                       {faq.a}
                     </div>
                   </motion.div>
