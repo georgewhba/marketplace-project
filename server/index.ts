@@ -149,9 +149,13 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 
 // In production, serve the built client
 if (env.NODE_ENV === 'production') {
-  app.use('*', serveStatic({ root: './client/dist' }));
+  // Serve static assets, but NOT index.html
+  // We want ALL index.html requests to go through our injection middleware
+  app.use('/assets/*', serveStatic({ root: './client/dist' }));
+  app.use('/vite.svg', serveStatic({ root: './client/dist' }));
+  app.use('/favicon.ico', serveStatic({ root: './client/dist' }));
   
-  // SPA fallback for React Router
+  // SPA fallback for React Router + explicit index.html handling
   app.get('*', async (c) => {
     try {
       let indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
