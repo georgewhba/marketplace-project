@@ -97,29 +97,30 @@ export default function ProductsPage() {
       </div>
 
       {/* Products grid */}
-      <motion.div 
-        className="grid grid-4"
-        initial="hidden"
-        animate="visible"
-        variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
-      >
-        {loading
-          ? Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)
-          : products.length === 0
-            ? (
-              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                <div className="empty-state__title">لا توجد منتجات</div>
-                <p className="empty-state__description">جرّب تغيير معايير البحث</p>
-                <Link to="/products" className="btn btn-secondary btn-md">
-                  عرض جميع المنتجات
-                </Link>
-              </div>
-            )
-            : products.map((p: any) => (
-                <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
-              ))
-        }
-      </motion.div>
+      {loading ? (
+        <div className="grid grid-4">
+          {Array.from({ length: 12 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+        </div>
+      ) : products.length === 0 ? (
+        <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+          <div className="empty-state__title">لا توجد منتجات</div>
+          <p className="empty-state__description">جرّب تغيير معايير البحث</p>
+          <Link to="/products" className="btn btn-secondary btn-md">
+            عرض جميع المنتجات
+          </Link>
+        </div>
+      ) : (
+        <motion.div 
+          className="grid grid-4"
+          initial="hidden"
+          animate="visible"
+          variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
+        >
+          {products.map((p: any) => (
+            <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
+          ))}
+        </motion.div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

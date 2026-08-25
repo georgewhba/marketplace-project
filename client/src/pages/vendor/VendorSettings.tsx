@@ -71,6 +71,14 @@ export default function VendorSettings() {
             <label className="form-label">وصف المتجر</label>
             <textarea className="input" rows={3} value={form.storeDescription} onChange={e => setForm(f => ({ ...f, storeDescription: e.target.value }))} />
           </div>
+          <div className="form-group">
+            <label className="form-label">رابط شعار المتجر (Logo URL)</label>
+            <input className="input" placeholder="https://..." value={form.logo} onChange={e => setForm(f => ({ ...f, logo: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">رابط غلاف المتجر (Banner URL)</label>
+            <input className="input" placeholder="https://..." value={form.banner} onChange={e => setForm(f => ({ ...f, banner: e.target.value }))} />
+          </div>
         </div>
 
         <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>

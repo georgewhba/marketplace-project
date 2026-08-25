@@ -92,19 +92,23 @@ export default function HomePage() {
               عرض الكل <ArrowLeft size={14} />
             </Link>
           </div>
-          <motion.div 
-            className="grid grid-4"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
-          >
-            {loading
-              ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
-              : data?.featuredProducts?.map((p: any) => (
-                  <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
-                ))}
-          </motion.div>
+          {loading ? (
+            <div className="grid grid-4">
+              {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <motion.div 
+              className="grid grid-4"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
+            >
+              {data?.featuredProducts?.map((p: any) => (
+                <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
+              ))}
+            </motion.div>
+          )}
         </section>
 
         {/* New Arrivals */}
@@ -115,19 +119,23 @@ export default function HomePage() {
               عرض الكل <ArrowLeft size={14} />
             </Link>
           </div>
-          <motion.div 
-            className="grid grid-4"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
-          >
-            {loading
-              ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
-              : data?.newArrivals?.map((p: any) => (
-                  <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
-                ))}
-          </motion.div>
+          {loading ? (
+            <div className="grid grid-4">
+              {Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <motion.div 
+              className="grid grid-4"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
+            >
+              {data?.newArrivals?.map((p: any) => (
+                <ProductCard key={p.id} product={p} onAddToCart={handleAddToCart} />
+              ))}
+            </motion.div>
+          )}
         </section>
       </div>
     </AnimatedPage>
