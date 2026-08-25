@@ -1327,6 +1327,8 @@ input, textarea, select, button {
   margin: var(--space-6) 0;
 }
 
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
 .text-muted { color: var(--text-muted); }
 .text-success { color: var(--success-500); }
 .text-error { color: var(--error-500); }

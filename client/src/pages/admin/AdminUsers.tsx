@@ -41,60 +41,60 @@ export default function AdminUsers() {
   ) : users;
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        <User size={24} color="var(--primary-500)" />
-        <h2 style={{ margin: 0, fontSize: 'var(--text-xl)', fontWeight: 700 }}>إدارة المستخدمين</h2>
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <User size={24} className="text-brand" />
+        <h1 className="page-header__title m-0">إدارة المستخدمين</h1>
       </div>
 
-      <div style={{ position: 'relative', marginBottom: 'var(--space-4)', maxWidth: 360 }}>
-        <Search size={18} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+      <div className="relative mb-4" style={{ maxWidth: 360 }}>
+        <Search size={18} className="text-muted" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
         <input className="input" placeholder="بحث بالاسم أو البريد..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingRight: 40 }} />
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="flex flex-col gap-3">
           {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 56 }} />)}
         </div>
       ) : (
-        <div className="card" style={{ overflow: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--neutral-200)' }}>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right', fontWeight: 600, fontSize: 'var(--text-sm)' }}>المستخدم</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right', fontWeight: 600, fontSize: 'var(--text-sm)' }}>البريد</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center', fontWeight: 600, fontSize: 'var(--text-sm)' }}>الدور</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center', fontWeight: 600, fontSize: 'var(--text-sm)' }}>الحالة</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center', fontWeight: 600, fontSize: 'var(--text-sm)' }}>إجراءات</th>
+              <tr>
+                <th>المستخدم</th>
+                <th>البريد</th>
+                <th className="text-center">الدور</th>
+                <th className="text-center">الحالة</th>
+                <th className="text-center">إجراءات</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(u => (
-                <tr key={u.id} style={{ borderBottom: '1px solid var(--neutral-100)' }}>
-                  <td style={{ padding: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-100)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                <tr key={u.id}>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center font-semibold text-brand" style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--brand-50)', fontSize: 'var(--font-size-sm)' }}>
                         {u.firstName[0]}
                       </div>
-                      <span style={{ fontWeight: 500 }}>{u.firstName} {u.lastName}</span>
+                      <span className="font-semibold">{u.firstName} {u.lastName}</span>
                     </div>
                   </td>
-                  <td style={{ padding: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--neutral-500)' }}>{u.email}</td>
-                  <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 'var(--text-xs)', fontWeight: 500, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: u.role === 'admin' ? 'var(--primary-100)' : 'var(--neutral-100)', color: u.role === 'admin' ? 'var(--primary-700)' : 'var(--neutral-600)' }}>
+                  <td className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{u.email}</td>
+                  <td className="text-center">
+                    <span className="flex items-center justify-center gap-1 font-semibold" style={{ display: 'inline-flex', fontSize: 'var(--font-size-xs)', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: u.role === 'admin' ? 'var(--brand-50)' : 'var(--bg-surface-2)', color: u.role === 'admin' ? 'var(--brand-700)' : 'var(--text-muted)' }}>
                       {u.role === 'admin' && <Shield size={12} />}
                       {roleLabels[u.role] ?? u.role}
                     </span>
                   </td>
-                  <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-                    <span className={`badge ${u.isActive ? 'badge--success' : 'badge--error'}`}>
+                  <td className="text-center">
+                    <span className={`badge ${u.isActive ? 'badge-success' : 'badge-error'}`}>
                       {u.isActive ? 'نشط' : 'معطّل'}
                     </span>
                   </td>
-                  <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
+                  <td className="text-center">
                     <button
-                      className="btn btn--ghost"
-                      style={{ padding: 'var(--space-2)', color: u.isActive ? 'var(--error-500)' : 'var(--success-500)' }}
+                      className="btn btn-ghost p-2"
+                      style={{ color: u.isActive ? 'var(--error-500)' : 'var(--success-500)' }}
                       title={u.isActive ? 'تعطيل' : 'تفعيل'}
                       onClick={() => toggleMutation.mutate(u.id)}
                       disabled={u.role === 'admin'}
@@ -110,10 +110,10 @@ export default function AdminUsers() {
       )}
 
       {meta && meta.totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
-          <button className="btn btn--outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronRight size={18} /> السابق</button>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-600)' }}>صفحة {meta.page} من {meta.totalPages}</span>
-          <button className="btn btn--outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>التالي <ChevronLeft size={18} /></button>
+        <div className="flex justify-center items-center gap-3 mt-6">
+          <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronRight size={18} /> السابق</button>
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>صفحة {meta.page} من {meta.totalPages}</span>
+          <button className="btn btn-outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>التالي <ChevronLeft size={18} /></button>
         </div>
       )}
     </div>

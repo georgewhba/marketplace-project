@@ -47,53 +47,55 @@ export default function VendorSettings() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 'var(--space-6)' }}>
+      <div className="max-w-2xl">
         {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80, marginBottom: 'var(--space-4)' }} />)}
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 'var(--space-6)', maxWidth: 640 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        <Store size={24} color="var(--primary-500)" />
-        <h2 style={{ margin: 0, fontSize: 'var(--text-xl)', fontWeight: 700 }}>إعدادات المتجر</h2>
+    <div className="max-w-2xl">
+      <div className="page-header mb-6">
+        <h1 className="page-header__title m-0 flex items-center gap-3">
+          <Store size={24} className="text-primary" style={{ color: 'var(--primary-500)' }} />
+          إعدادات المتجر
+        </h1>
       </div>
 
       <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(); }}>
-        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ marginTop: 0, fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>المعلومات الأساسية</h3>
-          <div className="form-group">
+        <div className="card p-5 mb-4">
+          <h3 className="mt-0 mb-4 font-semibold text-base">المعلومات الأساسية</h3>
+          <div className="form-group mb-3">
             <label className="form-label">اسم المتجر</label>
-            <input className="input" value={form.storeName} onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))} />
+            <input className="input w-full" value={form.storeName} onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))} />
           </div>
-          <div className="form-group">
+          <div className="form-group mb-3">
             <label className="form-label">وصف المتجر</label>
-            <textarea className="input" rows={3} value={form.storeDescription} onChange={e => setForm(f => ({ ...f, storeDescription: e.target.value }))} />
+            <textarea className="input w-full" rows={3} value={form.storeDescription} onChange={e => setForm(f => ({ ...f, storeDescription: e.target.value }))} />
           </div>
-          <div className="form-group">
+          <div className="form-group mb-3">
             <label className="form-label">رابط شعار المتجر (Logo URL)</label>
-            <input className="input" placeholder="https://..." value={form.logo} onChange={e => setForm(f => ({ ...f, logo: e.target.value }))} />
+            <input className="input w-full" placeholder="https://..." value={form.logo} onChange={e => setForm(f => ({ ...f, logo: e.target.value }))} />
           </div>
-          <div className="form-group">
+          <div className="form-group mb-3">
             <label className="form-label">رابط غلاف المتجر (Banner URL)</label>
-            <input className="input" placeholder="https://..." value={form.banner} onChange={e => setForm(f => ({ ...f, banner: e.target.value }))} />
+            <input className="input w-full" placeholder="https://..." value={form.banner} onChange={e => setForm(f => ({ ...f, banner: e.target.value }))} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ marginTop: 0, fontSize: 'var(--text-base)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>السياسات</h3>
-          <div className="form-group">
+        <div className="card p-5 mb-4">
+          <h3 className="mt-0 mb-4 font-semibold text-base">السياسات</h3>
+          <div className="form-group mb-3">
             <label className="form-label">سياسة الشحن</label>
-            <textarea className="input" rows={3} value={form.shippingPolicy} onChange={e => setForm(f => ({ ...f, shippingPolicy: e.target.value }))} />
+            <textarea className="input w-full" rows={3} value={form.shippingPolicy} onChange={e => setForm(f => ({ ...f, shippingPolicy: e.target.value }))} />
           </div>
-          <div className="form-group">
+          <div className="form-group mb-3">
             <label className="form-label">سياسة الإرجاع</label>
-            <textarea className="input" rows={3} value={form.returnPolicy} onChange={e => setForm(f => ({ ...f, returnPolicy: e.target.value }))} />
+            <textarea className="input w-full" rows={3} value={form.returnPolicy} onChange={e => setForm(f => ({ ...f, returnPolicy: e.target.value }))} />
           </div>
         </div>
 
-        <button className="btn btn--primary" type="submit" disabled={saveMutation.isPending} style={{ width: '100%' }}>
+        <button className="btn btn-primary w-full" type="submit" disabled={saveMutation.isPending}>
           <Save size={18} />
           {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
         </button>

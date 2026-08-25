@@ -36,11 +36,11 @@ export default function WishlistPage() {
   });
 
   return (
-    <div className="container page-content" style={{ padding: 'var(--space-8) var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-        <Heart size={24} color="var(--primary-500)" fill="var(--primary-500)" />
-        <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)' }}>المفضلة</h1>
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-500)' }}>({items.length} منتج)</span>
+    <div className="container page-content">
+      <div className="flex items-center gap-3 mb-6">
+        <Heart size={24} style={{ color: 'var(--primary-500)', fill: 'var(--primary-500)' }} />
+        <h1 className="m-0 text-2xl font-bold">المفضلة</h1>
+        <span className="text-sm text-muted">({items.length} منتج)</span>
       </div>
 
       {isLoading ? (
@@ -48,11 +48,11 @@ export default function WishlistPage() {
           {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 280 }} />)}
         </div>
       ) : items.length === 0 ? (
-        <div className="empty-state" style={{ padding: 'var(--space-12) var(--space-4)' }}>
-          <Heart size={48} color="var(--neutral-300)" />
-          <div className="empty-state__title" style={{ marginTop: 'var(--space-4)' }}>المفضلة فارغة</div>
-          <p style={{ color: 'var(--neutral-500)', marginBottom: 'var(--space-4)' }}>أضف منتجات إلى المفضلة لتجدها بسهولة لاحقاً</p>
-          <Link to="/products" className="btn btn--primary">تصفح المنتجات</Link>
+        <div className="empty-state">
+          <Heart size={48} className="text-muted" />
+          <div className="empty-state__title mt-4">المفضلة فارغة</div>
+          <p className="text-muted mb-4">أضف منتجات إلى المفضلة لتجدها بسهولة لاحقاً</p>
+          <Link to="/products" className="btn btn-primary">تصفح المنتجات</Link>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
@@ -63,33 +63,32 @@ export default function WishlistPage() {
             const comparePrice = p.compareAtPrice ? parseFloat(p.compareAtPrice) : 0;
             const hasDiscount = comparePrice > price;
             return (
-              <div key={item.id} className="card product-card" style={{ overflow: 'hidden' }}>
-                <Link to={`/products/${p.slug}`} style={{ display: 'block' }}>
-                  <div style={{ aspectRatio: '4/3', background: 'var(--neutral-100)', overflow: 'hidden' }}>
+              <div key={item.id} className="card product-card overflow-hidden">
+                <Link to={`/products/${p.slug}`} className="block">
+                  <div className="bg-neutral-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
                     {p.images?.[0] ? (
-                      <img src={p.images[0].url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={p.images[0].url} alt={p.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-400)' }}>
+                      <div className="w-full h-full flex items-center justify-center text-muted">
                         <ShoppingCart size={32} />
                       </div>
                     )}
                   </div>
                 </Link>
-                <div style={{ padding: 'var(--space-3)' }}>
-                  <Link to={`/products/${p.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <h4 style={{ margin: '0 0 var(--space-2)', fontSize: 'var(--text-sm)', fontWeight: 600, lineHeight: 1.4 }}>{p.name}</h4>
+                <div className="p-3">
+                  <Link to={`/products/${p.slug}`} className="no-underline text-inherit">
+                    <h4 className="m-0 mb-2 text-sm font-semibold leading-snug">{p.name}</h4>
                   </Link>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--primary-600)' }}>{price.toLocaleString('ar-EG')} ج.م</span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="font-bold text-primary">{price.toLocaleString('ar-EG')} ج.م</span>
                     {hasDiscount && (
-                      <span style={{ textDecoration: 'line-through', fontSize: 'var(--text-xs)', color: 'var(--neutral-400)' }}>
+                      <span className="line-through text-xs text-muted">
                         {comparePrice.toLocaleString('ar-EG')} ج.م
                       </span>
                     )}
                   </div>
                   <button
-                    className="btn btn--outline"
-                    style={{ width: '100%', fontSize: 'var(--text-sm)', color: 'var(--error-500)', borderColor: 'var(--error-200)' }}
+                    className="btn btn-outline w-full text-sm"
                     onClick={() => removeMutation.mutate(p.id)}
                     disabled={removeMutation.isPending}
                   >

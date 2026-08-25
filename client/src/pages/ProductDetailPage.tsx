@@ -95,17 +95,17 @@ export default function ProductDetailPage() {
         <span>{product.name}</span>
       </div>
 
-      <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
+      <div className="flex gap-8 flex-wrap">
         {/* Images */}
         <div style={{ flex: '0 0 480px', maxWidth: '100%' }}>
-          <div className="card" style={{ marginBottom: 'var(--space-3)' }}>
-            <div style={{ aspectRatio: '1', overflow: 'hidden', position: 'relative' }}>
+          <div className="card mb-3">
+            <div className="relative overflow-hidden" style={{ aspectRatio: '1' }}>
               <AnimatePresence mode="wait">
                 <motion.img
                   key={selectedImage}
                   src={images[selectedImage]?.imageUrl || 'https://picsum.photos/seed/fallback/800/800'}
                   alt={product.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  className="w-full h-full object-cover"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -120,13 +120,10 @@ export default function ProductDetailPage() {
                 <button
                   key={i}
                   onClick={() => setSelectedImage(i)}
-                  style={{
-                    width: 72, height: 72, borderRadius: 'var(--radius-md)',
-                    overflow: 'hidden', cursor: 'pointer',
-                    border: i === selectedImage ? '2px solid var(--brand-500)' : '1px solid var(--border-color)',
-                  }}
+                  className={`overflow-hidden rounded-md cursor-pointer border ${i === selectedImage ? 'border-primary' : 'border-neutral-200'}`}
+                  style={{ width: 72, height: 72 }}
                 >
-                  <img src={img.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -134,30 +131,30 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Info */}
-        <div style={{ flex: 1, minWidth: 300 }}>
-          <h1 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
+        <div className="flex-1" style={{ minWidth: 300 }}>
+          <h1 className="text-2xl font-bold mb-3">
             {product.name}
           </h1>
 
           {/* Rating */}
           <div className="flex items-center gap-3 mb-4">
             <StarRating rating={parseFloat(product.rating || '0')} />
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+            <span className="text-sm text-muted">
               ({product.reviewCount || 0} تقييم)
             </span>
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>
+            <span className="text-sm text-muted">
               | {product.totalSold || 0} مبيع
             </span>
           </div>
 
           {/* Price */}
           <div className="flex items-center gap-3 mb-6">
-            <span style={{ fontSize: 'var(--font-size-3xl)', fontWeight: 700, color: 'var(--brand-600)' }}>
+            <span className="text-3xl font-bold text-primary">
               {price.toLocaleString('ar-EG')} ج.م
             </span>
             {comparePrice && (
               <>
-                <span className="price-tag--original" style={{ fontSize: 'var(--font-size-lg)' }}>
+                <span className="price-tag--original text-lg">
                   {comparePrice.toLocaleString('ar-EG')}
                 </span>
                 <span className="badge badge-error">خصم {discount}%</span>
@@ -192,7 +189,7 @@ export default function ProductDetailPage() {
                 <ShoppingCart size={18} />
                 {addingToCart ? 'جارٍ الإضافة...' : 'أضف للسلة'}
               </button>
-              <button className="btn btn-ghost btn-lg" onClick={handleWishlist} style={{ padding: 'var(--space-4)' }}>
+              <button className="btn btn-ghost btn-lg p-4" onClick={handleWishlist}>
                 <Heart size={20} />
               </button>
             </div>
@@ -200,17 +197,14 @@ export default function ProductDetailPage() {
 
           {/* Vendor */}
           {product.vendor && (
-            <div className="card" style={{ padding: 'var(--space-4)' }}>
-              <Link to={`/store/${product.vendor.storeSlug}`} className="flex items-center gap-3" style={{ textDecoration: 'none' }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 'var(--radius-md)',
-                  background: 'var(--brand-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Store size={20} style={{ color: 'var(--brand-500)' }} />
+            <div className="card p-4">
+              <Link to={`/store/${product.vendor.storeSlug}`} className="flex items-center gap-3 no-underline">
+                <div className="flex items-center justify-center rounded-md bg-primary-50" style={{ width: 44, height: 44 }}>
+                  <Store size={20} className="text-primary" />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{product.vendor.storeName}</div>
-                  <div className="flex items-center gap-2" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                  <div className="font-semibold text-primary-dark">{product.vendor.storeName}</div>
+                  <div className="flex items-center gap-2 text-xs text-muted">
                     <StarRating rating={parseFloat(product.vendor.rating || '0')} size={12} />
                     <span>({product.vendor.reviewCount} تقييم)</span>
                   </div>
@@ -222,14 +216,14 @@ export default function ProductDetailPage() {
           {/* Description */}
           {product.description && (
             <motion.div 
-              style={{ marginTop: 'var(--space-6)' }}
+              className="mt-6"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
             >
-              <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>وصف المنتج</h3>
-              <p style={{ fontSize: 'var(--font-size-base)', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              <h3 className="text-base font-semibold mb-3">وصف المنتج</h3>
+              <p className="text-base text-secondary leading-relaxed">
                 {product.description}
               </p>
             </motion.div>
@@ -240,13 +234,13 @@ export default function ProductDetailPage() {
       {/* Reviews */}
       {product.reviews && product.reviews.length > 0 && (
         <motion.section 
-          style={{ marginTop: 'var(--space-12)' }}
+          className="mt-12"
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-50px" }}
           transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
         >
-          <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--space-6)' }}>
+          <h2 className="text-xl font-bold mb-6">
             التقييمات ({product.reviewCount})
           </h2>
           <div className="flex flex-col gap-4">
@@ -255,28 +249,24 @@ export default function ProductDetailPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <StarRating rating={review.rating} size={14} />
-                    {review.title && <strong style={{ fontSize: 'var(--font-size-sm)' }}>{review.title}</strong>}
+                    {review.title && <strong className="text-sm">{review.title}</strong>}
                   </div>
                   {review.isVerifiedPurchase && (
                     <span className="badge badge-success">مشتري مؤكد</span>
                   )}
                 </div>
                 {review.comment && (
-                  <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+                  <p className="text-sm text-secondary mb-2">
                     {review.comment}
                   </p>
                 )}
                 {review.vendorReply && (
-                  <div style={{
-                    marginTop: 'var(--space-3)', padding: 'var(--space-3)',
-                    background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)',
-                    fontSize: 'var(--font-size-sm)',
-                  }}>
-                    <strong style={{ color: 'var(--brand-600)' }}>رد البائع: </strong>
+                  <div className="mt-3 p-3 bg-surface-2 rounded-md text-sm">
+                    <strong className="text-primary">رد البائع: </strong>
                     {review.vendorReply}
                   </div>
                 )}
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-2)' }}>
+                <div className="text-xs text-muted mt-2">
                   {new Date(review.createdAt).toLocaleDateString('ar-EG')}
                 </div>
               </div>

@@ -79,67 +79,67 @@ export default function VendorOrders() {
   });
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <h2 style={{ margin: '0 0 var(--space-5)', fontSize: 'var(--text-xl)', fontWeight: 700 }}>إدارة الطلبات</h2>
+    <div>
+      <div className="page-header mb-6">
+        <h1 className="page-header__title m-0">إدارة الطلبات</h1>
+      </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         {['all', ...statusFlow, 'cancelled'].map(s => (
           <button
             key={s}
-            className={`btn ${filter === s ? 'btn--primary' : 'btn--outline'}`}
-            style={{ fontSize: 'var(--text-sm)', padding: 'var(--space-2) var(--space-3)' }}
+            className={`btn ${filter === s ? 'btn-primary' : 'btn-outline'} btn-sm`}
             onClick={() => setFilter(s)}
           >
             {s === 'all' ? 'الكل' : statusLabels[s]?.label ?? s}
           </button>
         ))}
-        <div style={{ position: 'relative', marginRight: 'auto' }}>
-          <Search size={16} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--neutral-400)' }} />
+        <div className="relative mr-auto">
+          <Search size={16} className="absolute text-muted" style={{ right: 10, top: '50%', transform: 'translateY(-50%)' }} />
           <input className="input" placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ paddingRight: 34, fontSize: 'var(--text-sm)', height: 36, maxWidth: 200 }} />
+            style={{ paddingRight: 34, height: 36, maxWidth: 200 }} />
         </div>
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="flex flex-col gap-3">
           {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state border-0">
           <div className="empty-state__title">لا توجد طلبات</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="flex flex-col gap-3">
           {filtered.map(item => {
             const st = statusLabels[item.status] ?? statusLabels.pending;
             const Icon = st.icon;
             const next = getNextStatus(item.status);
             return (
-              <div key={item.id} className="card" style={{ padding: 'var(--space-4)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+              <div key={item.id} className="card p-4">
+                <div className="flex justify-between items-start flex-wrap gap-3">
+                  <div className="flex-1" style={{ minWidth: 200 }}>
+                    <div className="flex items-center gap-2 mb-2">
                       <Icon size={18} color={st.color} />
-                      <span style={{ color: st.color, fontWeight: 600, fontSize: 'var(--text-sm)' }}>{st.label}</span>
-                      <span style={{ color: 'var(--neutral-400)', fontSize: 'var(--text-xs)' }}>•</span>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-500)' }}>طلب #{item.orderNumber || item.orderId}</span>
+                      <span className="font-semibold" style={{ color: st.color, fontSize: 'var(--font-size-sm)' }}>{st.label}</span>
+                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>•</span>
+                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>طلب #{item.orderNumber || item.orderId}</span>
                     </div>
-                    <div style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>{item.productName}</div>
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-500)' }}>
+                    <div className="font-semibold mb-1">{item.productName}</div>
+                    <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
                       الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م
-                      <span style={{ margin: '0 var(--space-2)', color: 'var(--neutral-300)' }}>|</span>
+                      <span className="mx-2" style={{ color: 'var(--neutral-300)' }}>|</span>
                       العميل: {item.customerName || '—'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-                    <div style={{ fontWeight: 700, fontSize: 'var(--text-lg)' }}>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="font-bold text-lg">
                       {parseFloat(item.total).toLocaleString('ar-EG')} ج.م
                     </div>
                     {next && (
                       <button
-                        className="btn btn--primary"
-                        style={{ fontSize: 'var(--text-sm)', padding: 'var(--space-1) var(--space-3)' }}
+                        className="btn btn-primary btn-sm"
                         disabled={updateStatusMutation.isPending}
                         onClick={() => {
                           if (item.status === 'processing' && next === 'shipped') {
@@ -153,7 +153,7 @@ export default function VendorOrders() {
                         {statusLabels[next]?.label ?? next}
                       </button>
                     )}
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-400)' }}>
+                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                       {new Date(item.createdAt).toLocaleDateString('ar-EG')}
                     </div>
                   </div>
@@ -165,31 +165,32 @@ export default function VendorOrders() {
       )}
 
       {meta && meta.totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
-          <button className="btn btn--outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+        <div className="flex justify-center items-center gap-3 mt-6">
+          <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
             <ChevronRight size={18} /> السابق
           </button>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-600)' }}>صفحة {meta.page} من {meta.totalPages}</span>
-          <button className="btn btn--outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>صفحة {meta.page} من {meta.totalPages}</span>
+          <button className="btn btn-outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
             التالي <ChevronLeft size={18} />
           </button>
         </div>
       )}
 
       {shipmentModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-overlay)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="card" style={{ width: 400, padding: 'var(--space-5)', position: 'relative' }}>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'var(--bg-overlay)' }}>
+          <div className="card p-5 relative" style={{ width: 400 }}>
             <button
-              style={{ position: 'absolute', top: 15, right: 15, background: 'none', border: 'none', cursor: 'pointer' }}
+              className="absolute bg-transparent border-0 cursor-pointer"
+              style={{ top: 15, right: 15 }}
               onClick={() => setShipmentModal(null)}
             >
-              <X size={20} color="var(--neutral-500)" />
+              <X size={20} className="text-muted" />
             </button>
-            <h3 style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>شحن الطلب #{shipmentModal.orderNumber}</h3>
+            <h3 className="mt-0 mb-4 font-semibold text-lg">شحن الطلب #{shipmentModal.orderNumber}</h3>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
+            <div className="flex flex-col gap-3 mb-5">
               {meta?.isBostaEnabled && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     checked={shippingProvider === 'bosta'}
@@ -199,7 +200,7 @@ export default function VendorOrders() {
                 </label>
               )}
               
-              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   checked={shippingProvider === 'manual'}
@@ -209,7 +210,7 @@ export default function VendorOrders() {
               </label>
 
               {shippingProvider === 'manual' && (
-                <div style={{ marginTop: 'var(--space-2)' }}>
+                <div className="mt-2">
                   <label className="label">رقم التتبع</label>
                   <input
                     type="text"
@@ -222,18 +223,16 @@ export default function VendorOrders() {
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            <div className="flex gap-3">
               <button
-                className="btn btn--primary"
-                style={{ flex: 1 }}
+                className="btn btn-primary flex-1"
                 disabled={createShipmentMutation.isPending || (shippingProvider === 'manual' && !trackingNumber)}
                 onClick={() => createShipmentMutation.mutate({ itemId: shipmentModal.id, provider: shippingProvider })}
               >
                 {createShipmentMutation.isPending ? 'جاري الإنشاء...' : 'تأكيد الشحن'}
               </button>
               <button
-                className="btn btn--outline"
-                style={{ flex: 1 }}
+                className="btn btn-outline flex-1"
                 onClick={() => setShipmentModal(null)}
               >
                 إلغاء

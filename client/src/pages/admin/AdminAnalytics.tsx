@@ -51,16 +51,17 @@ export default function AdminAnalytics() {
   };
 
   return (
-    <div className="space-y-8">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">التحليلات المتقدمة</h1>
-          <p className="text-[var(--text-secondary)] mt-1">نظرة شاملة على أداء المنصة</p>
+          <h1 className="text-primary" style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold' }}>التحليلات المتقدمة</h1>
+          <p className="text-secondary mt-1">نظرة شاملة على أداء المنصة</p>
         </div>
         <select 
           value={days} 
           onChange={(e) => setDays(Number(e.target.value))}
-          className="border border-[var(--border-color)] rounded-[var(--radius-md)] px-4 py-2 bg-[var(--bg-surface)] focus:border-[var(--brand-500)] outline-none"
+          className="form-select"
+          style={{ width: 'auto' }}
         >
           <option value={7}>آخر 7 أيام</option>
           <option value={30}>آخر 30 يوم</option>
@@ -69,20 +70,20 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Metrics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-3">
         {[
           { label: 'إجمالي المبيعات', value: overview?.metrics?.sales ? formatCurrency(overview.metrics.sales) : '0', change: overview?.metrics?.salesChange },
           { label: 'الطلبات المكتملة', value: overview?.metrics?.orders || 0, change: overview?.metrics?.ordersChange },
           { label: 'عملاء جدد', value: overview?.metrics?.newCustomers || 0, change: overview?.metrics?.customersChange },
         ].map((stat, i) => (
-          <div key={i} className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
-            <h3 className="text-[var(--text-secondary)] font-medium mb-2">{stat.label}</h3>
+          <div key={i} className="card card-body">
+            <h3 className="text-secondary mb-2" style={{ fontWeight: 500 }}>{stat.label}</h3>
             {loadingOverview ? (
-              <div className="skeleton h-8 w-24" />
+              <div className="skeleton" style={{ height: '32px', width: '96px' }} />
             ) : (
-              <div className="flex items-end gap-3">
-                <span className="text-2xl font-bold text-[var(--text-primary)]">{stat.value}</span>
-                <span style={{ color: getChangeColor(stat.change || 0) }} className="text-sm font-medium mb-1">
+              <div className="flex items-center gap-3">
+                <span className="text-primary" style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 'bold' }}>{stat.value}</span>
+                <span style={{ color: getChangeColor(stat.change || 0), fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
                   {stat.change > 0 ? '+' : ''}{stat.change}%
                 </span>
               </div>
@@ -92,16 +93,16 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Sales Chart */}
-      <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
+      <div className="card card-body">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">المبيعات اليومية</h2>
+          <h2 className="text-primary" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold' }}>المبيعات اليومية</h2>
           <button className="btn btn-ghost btn-sm" onClick={() => handleExport('daily_sales', overview?.dailyBreakdown || [])}>
-            <Download size={16} className="ml-2" />
+            <Download size={16} style={{ marginLeft: 'var(--space-2)' }} />
             تصدير
           </button>
         </div>
         {loadingOverview ? (
-          <div className="skeleton h-[200px] w-full" />
+          <div className="skeleton" style={{ height: '200px', width: '100%' }} />
         ) : overview?.dailyBreakdown?.length > 0 ? (
           <BarChart 
             data={overview.dailyBreakdown.map((d: any) => ({
@@ -111,57 +112,57 @@ export default function AdminAnalytics() {
             formatValue={formatCurrency}
           />
         ) : (
-          <div className="text-center p-8 text-[var(--text-secondary)]">لا توجد بيانات</div>
+          <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-secondary)' }}>لا توجد بيانات</div>
         )}
       </div>
 
       {/* Funnel & Categories */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
-          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-6">قمع التحويل (Funnel)</h2>
+      <div className="grid grid-2">
+        <div className="card card-body">
+          <h2 className="text-primary mb-6" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold' }}>قمع التحويل (Funnel)</h2>
           {loadingFunnel ? (
-            <div className="space-y-4"><div className="skeleton h-8 w-full" /><div className="skeleton h-8 w-full" /></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}><div className="skeleton" style={{ height: '32px', width: '100%' }} /><div className="skeleton" style={{ height: '32px', width: '100%' }} /></div>
           ) : (
-            <div className="space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
               <ProgressBar value={funnel?.views || 0} max={funnel?.views || 1} label="مشاهدات المنتجات" />
               <ProgressBar value={funnel?.inCart || 0} max={funnel?.views || 1} label="في سلة التسوق" color="var(--info-500)" />
               <ProgressBar value={funnel?.ordered || 0} max={funnel?.views || 1} label="الطلبات المؤكدة" color="var(--success-500)" />
               
-              <div className="mt-8 pt-6 border-t border-[var(--border-color)] grid grid-cols-2 gap-4 text-center">
+              <div style={{ marginTop: 'var(--space-8)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', textAlign: 'center' }}>
                 <div>
-                  <p className="text-[var(--text-secondary)] text-sm mb-1">معدل الإضافة للسلة</p>
-                  <p className="text-xl font-bold">{funnel?.cartConversion}%</p>
+                  <p className="text-secondary mb-1" style={{ fontSize: 'var(--font-size-sm)' }}>معدل الإضافة للسلة</p>
+                  <p style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold' }}>{funnel?.cartConversion}%</p>
                 </div>
                 <div>
-                  <p className="text-[var(--text-secondary)] text-sm mb-1">معدل التحويل النهائي</p>
-                  <p className="text-xl font-bold text-[var(--success-500)]">{funnel?.orderConversion}%</p>
+                  <p className="text-secondary mb-1" style={{ fontSize: 'var(--font-size-sm)' }}>معدل التحويل النهائي</p>
+                  <p className="text-success" style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold' }}>{funnel?.orderConversion}%</p>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
+        <div className="card card-body">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">أداء الأقسام</h2>
+            <h2 className="text-primary" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold' }}>أداء الأقسام</h2>
             <button className="btn btn-ghost btn-sm" onClick={() => handleExport('categories', categories || [])}>
-              <Download size={16} className="ml-2" />
+              <Download size={16} style={{ marginLeft: 'var(--space-2)' }} />
               تصدير
             </button>
           </div>
           {loadingCategories ? (
-            <div className="space-y-4"><div className="skeleton h-12 w-full" /><div className="skeleton h-12 w-full" /></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}><div className="skeleton" style={{ height: '48px', width: '100%' }} /><div className="skeleton" style={{ height: '48px', width: '100%' }} /></div>
           ) : (
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               {categories?.map((cat: any) => (
-                <div key={cat.id} className="flex justify-between items-center border-b border-[var(--border-color)] pb-3 last:border-0">
+                <div key={cat.id} className="flex justify-between items-center" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-3)' }}>
                   <div>
-                    <p className="font-medium text-[var(--text-primary)]">{cat.name}</p>
-                    <p className="text-sm text-[var(--text-secondary)]">{cat.activeProducts} منتج نشط</p>
+                    <p className="text-primary" style={{ fontWeight: 500 }}>{cat.name}</p>
+                    <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>{cat.activeProducts} منتج نشط</p>
                   </div>
-                  <div className="text-left">
-                    <p className="font-bold text-[var(--brand-600)]">{formatCurrency(cat.totalSales)}</p>
-                    <p className="text-sm text-[var(--text-secondary)]">⭐ {cat.avgRating}</p>
+                  <div style={{ textAlign: 'left' }}>
+                    <p className="text-brand" style={{ fontWeight: 'bold' }}>{formatCurrency(cat.totalSales)}</p>
+                    <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>⭐ {cat.avgRating}</p>
                   </div>
                 </div>
               ))}
@@ -171,68 +172,72 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Top Products & Vendors */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
+      <div className="grid grid-2">
+        <div className="card card-body">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">أفضل المنتجات</h2>
+            <h2 className="text-primary" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold' }}>أفضل المنتجات</h2>
             <button className="btn btn-ghost btn-sm" onClick={() => handleExport('top_products', topProducts || [])}>
-              <Download size={16} className="ml-2" />
+              <Download size={16} style={{ marginLeft: 'var(--space-2)' }} />
               تصدير
             </button>
           </div>
           {loadingProducts ? (
-            <div className="skeleton h-40 w-full" />
+            <div className="skeleton" style={{ height: '160px', width: '100%' }} />
           ) : (
-            <table className="w-full text-sm text-right">
-              <thead>
-                <tr className="text-[var(--text-secondary)] border-b border-[var(--border-color)]">
-                  <th className="pb-3 font-medium">المنتج</th>
-                  <th className="pb-3 font-medium">المبيعات</th>
-                  <th className="pb-3 font-medium">الإيرادات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProducts?.map((product: any) => (
-                  <tr key={product.id} className="border-b border-[var(--border-color)] last:border-0">
-                    <td className="py-3 font-medium text-[var(--text-primary)]">{product.name}</td>
-                    <td className="py-3">{product.totalSold}</td>
-                    <td className="py-3 font-bold text-[var(--brand-600)]">{formatCurrency(product.totalRevenue)}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>المبيعات</th>
+                    <th>الإيرادات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {topProducts?.map((product: any) => (
+                    <tr key={product.id}>
+                      <td className="text-primary" style={{ fontWeight: 500 }}>{product.name}</td>
+                      <td>{product.totalSold}</td>
+                      <td className="text-brand" style={{ fontWeight: 'bold' }}>{formatCurrency(product.totalRevenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
+        <div className="card card-body">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-[var(--text-primary)]">أفضل البائعين</h2>
+            <h2 className="text-primary" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold' }}>أفضل البائعين</h2>
             <button className="btn btn-ghost btn-sm" onClick={() => handleExport('top_vendors', topVendors || [])}>
-              <Download size={16} className="ml-2" />
+              <Download size={16} style={{ marginLeft: 'var(--space-2)' }} />
               تصدير
             </button>
           </div>
           {loadingVendors ? (
-            <div className="skeleton h-40 w-full" />
+            <div className="skeleton" style={{ height: '160px', width: '100%' }} />
           ) : (
-            <table className="w-full text-sm text-right">
-              <thead>
-                <tr className="text-[var(--text-secondary)] border-b border-[var(--border-color)]">
-                  <th className="pb-3 font-medium">البائع</th>
-                  <th className="pb-3 font-medium">الطلبات</th>
-                  <th className="pb-3 font-medium">الإيرادات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topVendors?.map((vendor: any) => (
-                  <tr key={vendor.id} className="border-b border-[var(--border-color)] last:border-0">
-                    <td className="py-3 font-medium text-[var(--text-primary)]">{vendor.storeName}</td>
-                    <td className="py-3">{vendor.totalOrders}</td>
-                    <td className="py-3 font-bold text-[var(--brand-600)]">{formatCurrency(vendor.totalRevenue)}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>البائع</th>
+                    <th>الطلبات</th>
+                    <th>الإيرادات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {topVendors?.map((vendor: any) => (
+                    <tr key={vendor.id}>
+                      <td className="text-primary" style={{ fontWeight: 500 }}>{vendor.storeName}</td>
+                      <td>{vendor.totalOrders}</td>
+                      <td className="text-brand" style={{ fontWeight: 'bold' }}>{formatCurrency(vendor.totalRevenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

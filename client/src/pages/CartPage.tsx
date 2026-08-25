@@ -77,8 +77,7 @@ export default function CartPage() {
       <h1 className="page-header__title mb-8">سلة التسوق ({items.length} منتج)</h1>
 
       <motion.div 
-        className="flex gap-8" 
-        style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}
+        className="flex gap-8 flex-wrap items-start" 
         initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: motionTokens.duration.slow, ...motionTokens.easing.spring }}
@@ -86,22 +85,23 @@ export default function CartPage() {
         {/* Items */}
         <div style={{ flex: '1 1 500px' }}>
           {items.map((item: any) => (
-            <div key={item.id} className="card mb-4" style={{ padding: 'var(--space-4)' }}>
+            <div key={item.id} className="card mb-4 p-4">
               <div className="flex gap-4">
                 <img
                   src={item.productImage || 'https://picsum.photos/seed/fallback/100/100'}
                   alt={item.productName}
-                  style={{ width: 80, height: 80, borderRadius: 'var(--radius-md)', objectFit: 'cover' }}
+                  className="rounded-md object-cover"
+                  style={{ width: 80, height: 80 }}
                 />
-                <div style={{ flex: 1 }}>
-                  <Link to={`/products/${item.productSlug}`} style={{ fontWeight: 600, color: 'var(--text-primary)', textDecoration: 'none' }}>
+                <div className="flex-1">
+                  <Link to={`/products/${item.productSlug}`} className="font-semibold text-primary-dark no-underline">
                     {item.productName}
                   </Link>
-                  <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--brand-600)', marginTop: 'var(--space-2)' }}>
+                  <div className="text-lg font-bold text-primary mt-2">
                     {parseFloat(item.productPrice).toLocaleString('ar-EG')} ج.م
                   </div>
                   {!item.productIsActive && (
-                    <span className="badge badge-error" style={{ marginTop: 'var(--space-2)' }}>المنتج غير متاح</span>
+                    <span className="badge badge-error mt-2">المنتج غير متاح</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -115,7 +115,7 @@ export default function CartPage() {
                     </button>
                   </div>
                   <button className="btn btn-ghost btn-sm" onClick={() => removeItem(item.id)}>
-                    <Trash2 size={16} style={{ color: 'var(--error-500)' }} />
+                    <Trash2 size={16} className="text-red-500" />
                   </button>
                 </div>
               </div>
@@ -126,23 +126,23 @@ export default function CartPage() {
         {/* Summary */}
         <div style={{ flex: '0 0 320px' }}>
           <div className="card card-body">
-            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>ملخص الطلب</h3>
+            <h3 className="text-lg font-semibold mb-4">ملخص الطلب</h3>
             <div className="flex justify-between mb-2">
               <span className="text-muted">المجموع الفرعي</span>
-              <span style={{ fontWeight: 600 }}>{parseFloat(cart.subtotal).toLocaleString('ar-EG')} ج.م</span>
+              <span className="font-semibold">{parseFloat(cart.subtotal).toLocaleString('ar-EG')} ج.م</span>
             </div>
             <div className="flex justify-between mb-4">
               <span className="text-muted">الشحن</span>
-              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>يُحسب عند الدفع</span>
+              <span className="text-sm text-muted">يُحسب عند الدفع</span>
             </div>
             <hr className="divider" />
             <div className="flex justify-between mb-6">
-              <span style={{ fontWeight: 700, fontSize: 'var(--font-size-lg)' }}>الإجمالي</span>
-              <span style={{ fontWeight: 700, fontSize: 'var(--font-size-lg)', color: 'var(--brand-600)' }}>
+              <span className="font-bold text-lg">الإجمالي</span>
+              <span className="font-bold text-lg text-primary">
                 {parseFloat(cart.subtotal).toLocaleString('ar-EG')} ج.م
               </span>
             </div>
-            <button className="btn btn-primary btn-lg" style={{ width: '100%' }} onClick={() => navigate('/checkout')}>
+            <button className="btn btn-primary btn-lg w-full" onClick={() => navigate('/checkout')}>
               إتمام الشراء
             </button>
           </div>

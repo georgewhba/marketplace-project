@@ -38,23 +38,23 @@ export default function AdminRoles() {
     setShowForm(true);
   };
 
-  if (isLoading) return <div style={{ padding: 'var(--space-6)' }}>جاري التحميل...</div>;
+  if (isLoading) return <div className="p-6">جاري التحميل...</div>;
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0, fontSize: 'var(--text-2xl)' }}>
-          <Shield size={24} color="var(--primary-500)" />
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="page-header__title m-0 flex items-center gap-2">
+          <Shield size={24} className="text-brand" />
           الأدوار والصلاحيات
         </h1>
-        <button className="btn btn--primary" onClick={() => { setEditId(null); setForm({ name: '' }); setShowForm(!showForm); }}>
+        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '' }); setShowForm(!showForm); }}>
           <Plus size={18} /> {showForm ? 'إلغاء' : 'إضافة دور جديد'}
         </button>
       </div>
 
       {showForm && (
-        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
-          <h2 style={{ marginTop: 0, fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)' }}>
+        <div className="card p-5 mb-6">
+          <h2 className="mt-0 mb-4 font-semibold" style={{ fontSize: 'var(--font-size-lg)' }}>
             {editId ? 'تعديل دور' : 'إضافة دور جديد'}
           </h2>
           <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(form); }}>
@@ -67,15 +67,15 @@ export default function AdminRoles() {
                 required 
               />
             </div>
-            <button className="btn btn--primary" type="submit" disabled={saveMutation.isPending}>
+            <button className="btn btn-primary" type="submit" disabled={saveMutation.isPending}>
               {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
             </button>
           </form>
         </div>
       )}
 
-      <div className="table-responsive card">
-        <table className="table">
+      <div className="card" style={{ overflowX: 'auto' }}>
+        <table className="data-table">
           <thead>
             <tr>
               <th>المعرف</th>
@@ -90,13 +90,13 @@ export default function AdminRoles() {
                 <td>{r.id}</td>
                 <td>{r.name}</td>
                 <td>
-                  <span className={`badge ${r.isSystem ? 'badge--primary' : 'badge--outline'}`}>
+                  <span className={`badge ${r.isSystem ? 'badge-brand' : 'badge-neutral'}`}>
                     {r.isSystem ? 'نعم' : 'لا'}
                   </span>
                 </td>
                 <td>
                   <button 
-                    className="btn btn--icon" 
+                    className="btn btn-ghost p-2" 
                     onClick={() => handleEdit(r)}
                     disabled={r.isSystem}
                     title={r.isSystem ? 'لا يمكن تعديل دور أساسي في النظام' : 'تعديل'}

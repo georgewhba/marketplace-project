@@ -46,14 +46,14 @@ export function AdminPayouts() {
   });
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>طلبات السحب</h1>
-        <p style={{ color: 'var(--neutral-500)', margin: 0 }}>إدارة طلبات سحب الأرباح المقدمة من البائعين.</p>
+    <div>
+      <div className="mb-6">
+        <h1 className="page-header__title m-0 mb-2">طلبات السحب</h1>
+        <p className="text-muted m-0">إدارة طلبات سحب الأرباح المقدمة من البائعين.</p>
       </div>
 
       <div className="card" style={{ overflowX: 'auto' }}>
-        <table className="table" style={{ width: '100%', minWidth: 800 }}>
+        <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
           <thead>
             <tr>
               <th>رقم الطلب</th>
@@ -84,20 +84,20 @@ export function AdminPayouts() {
               payouts.map((item) => (
                 <tr key={item.id}>
                   <td>#REQ-{item.id}</td>
-                  <td style={{ fontWeight: 500 }}>{item.vendorName}</td>
+                  <td className="font-semibold">{item.vendorName}</td>
                   <td>SET-{item.settlementId}</td>
-                  <td style={{ fontWeight: 700 }}>{formatCurrency(Number(item.amount))}</td>
-                  <td style={{ fontSize: 'var(--text-xs)' }}>{formatDate(item.createdAt)}</td>
+                  <td className="font-semibold">{formatCurrency(Number(item.amount))}</td>
+                  <td style={{ fontSize: 'var(--font-size-xs)' }}>{formatDate(item.createdAt)}</td>
                   <td>
-                    <span className={`badge ${item.status === 'paid' ? 'badge--success' : item.status === 'rejected' ? 'badge--error' : 'badge--warning'}`}>
+                    <span className={`badge ${item.status === 'paid' ? 'badge-success' : item.status === 'rejected' ? 'badge-error' : 'badge-warning'}`}>
                       {item.status === 'paid' ? 'مدفوع' : item.status === 'rejected' ? 'مرفوض' : 'قيد الانتظار'}
                     </span>
                   </td>
                   <td>
                     {item.status === 'pending' ? (
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                      <div className="flex gap-2">
                         <button 
-                          className="btn btn--primary btn--sm" 
+                          className="btn btn-primary btn-sm" 
                           onClick={() => {
                             if (window.confirm('هل قمت بتحويل المبلغ فعلياً لحساب البائع البنكي؟ هذا الإجراء سيسجل العملية كمدفوعة ويخصم الرصيد.')) {
                               approveMutation.mutate(item.id);
@@ -109,7 +109,7 @@ export function AdminPayouts() {
                           <CheckCircle size={16} style={{ marginInlineEnd: '4px' }} /> تأكيد الدفع
                         </button>
                         <button 
-                          className="btn btn--danger btn--sm" 
+                          className="btn btn-danger btn-sm" 
                           onClick={() => {
                             if (window.confirm('هل أنت متأكد من رفض طلب السحب؟')) {
                               rejectMutation.mutate(item.id);
@@ -122,7 +122,7 @@ export function AdminPayouts() {
                         </button>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span className="text-muted flex items-center gap-1" style={{ fontSize: 'var(--font-size-xs)' }}>
                         <Clock size={14} /> تمت المعالجة
                       </span>
                     )}

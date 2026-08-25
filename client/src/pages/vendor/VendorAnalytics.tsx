@@ -30,16 +30,17 @@ export default function VendorAnalytics() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div>
+      <div className="page-header flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">أداء المتجر</h1>
-          <p className="text-[var(--text-secondary)] mt-1">نظرة تحليلية لمبيعاتك ومنتجاتك</p>
+          <h1 className="page-header__title m-0">أداء المتجر</h1>
+          <p className="page-header__subtitle mt-1">نظرة تحليلية لمبيعاتك ومنتجاتك</p>
         </div>
         <select 
           value={days} 
           onChange={(e) => setDays(Number(e.target.value))}
-          className="border border-[var(--border-color)] rounded-[var(--radius-md)] px-4 py-2 bg-[var(--bg-surface)] focus:border-[var(--brand-500)] outline-none"
+          className="input"
+          style={{ width: 'auto' }}
         >
           <option value={7}>آخر 7 أيام</option>
           <option value={30}>آخر 30 يوم</option>
@@ -48,21 +49,21 @@ export default function VendorAnalytics() {
       </div>
 
       {/* Metrics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-3 mb-8">
         {[
           { label: 'إجمالي المبيعات', value: overview?.metrics?.sales ? formatCurrency(overview.metrics.sales) : '0', change: overview?.metrics?.salesChange },
           { label: 'الطلبات المكتملة', value: overview?.metrics?.orders || 0, change: overview?.metrics?.ordersChange },
           { label: 'متوسط قيمة الطلب', value: overview?.metrics?.aov ? formatCurrency(overview.metrics.aov) : '0', change: 0 },
         ].map((stat, i) => (
-          <div key={i} className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
-            <h3 className="text-[var(--text-secondary)] font-medium mb-2">{stat.label}</h3>
+          <div key={i} className="stat-card">
+            <h3 className="stat-card__label mb-2">{stat.label}</h3>
             {loadingOverview ? (
-              <div className="skeleton h-8 w-24" />
+              <div className="skeleton" style={{ height: 32, width: '60%' }} />
             ) : (
               <div className="flex items-end gap-3">
-                <span className="text-2xl font-bold text-[var(--text-primary)]">{stat.value}</span>
+                <span className="stat-card__value">{stat.value}</span>
                 {stat.change !== 0 && (
-                  <span style={{ color: getChangeColor(stat.change || 0) }} className="text-sm font-medium mb-1">
+                  <span style={{ color: getChangeColor(stat.change || 0), fontSize: 'var(--font-size-sm)' }} className="font-semibold mb-1">
                     {stat.change > 0 ? '+' : ''}{stat.change}%
                   </span>
                 )}
@@ -73,16 +74,16 @@ export default function VendorAnalytics() {
       </div>
 
       {/* Sales Chart */}
-      <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
+      <div className="card p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">المبيعات اليومية</h2>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleExport('store_sales', overview?.dailyBreakdown || [])}>
-            <Download size={16} className="ml-2" />
+          <h2 className="font-bold text-lg m-0">المبيعات اليومية</h2>
+          <button className="btn btn-ghost btn-sm flex items-center gap-1" onClick={() => handleExport('store_sales', overview?.dailyBreakdown || [])}>
+            <Download size={16} />
             تصدير
           </button>
         </div>
         {loadingOverview ? (
-          <div className="skeleton h-[200px] w-full" />
+          <div className="skeleton w-full" style={{ height: 200 }} />
         ) : overview?.dailyBreakdown?.length > 0 ? (
           <BarChart 
             data={overview.dailyBreakdown.map((d: any) => ({
@@ -92,51 +93,49 @@ export default function VendorAnalytics() {
             formatValue={formatCurrency}
           />
         ) : (
-          <div className="text-center p-8 text-[var(--text-secondary)]">لا توجد بيانات</div>
+          <div className="empty-state border-0">لا توجد بيانات</div>
         )}
       </div>
 
       {/* Products Performance */}
-      <div className="bg-[var(--bg-surface)] p-6 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] border border-[var(--border-color)]">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">أداء المنتجات</h2>
-          <button className="btn btn-ghost btn-sm" onClick={() => handleExport('store_products', products || [])}>
-            <Download size={16} className="ml-2" />
+      <div className="card p-0 mb-8" style={{ overflowX: 'auto' }}>
+        <div className="flex justify-between items-center p-6 border-b" style={{ borderColor: 'var(--border-color)' }}>
+          <h2 className="font-bold text-lg m-0">أداء المنتجات</h2>
+          <button className="btn btn-ghost btn-sm flex items-center gap-1" onClick={() => handleExport('store_products', products || [])}>
+            <Download size={16} />
             تصدير
           </button>
         </div>
         {loadingProducts ? (
-          <div className="skeleton h-40 w-full" />
+          <div className="p-6"><div className="skeleton w-full" style={{ height: 160 }} /></div>
         ) : products?.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-right min-w-[600px]">
-              <thead>
-                <tr className="text-[var(--text-secondary)] border-b border-[var(--border-color)]">
-                  <th className="pb-3 font-medium">المنتج</th>
-                  <th className="pb-3 font-medium">المشاهدات</th>
-                  <th className="pb-3 font-medium">المبيعات</th>
-                  <th className="pb-3 font-medium">معدل التحويل</th>
-                  <th className="pb-3 font-medium">الإيرادات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products?.map((product: any) => {
-                  const conversion = product.views > 0 ? ((product.totalSold / product.views) * 100).toFixed(2) : '0.00';
-                  return (
-                    <tr key={product.id} className="border-b border-[var(--border-color)] last:border-0 hover:bg-[var(--bg-surface-2)] transition-colors">
-                      <td className="py-3 font-medium text-[var(--text-primary)]">{product.name}</td>
-                      <td className="py-3">{product.views}</td>
-                      <td className="py-3">{product.totalSold}</td>
-                      <td className="py-3 font-medium text-[var(--success-500)]">{conversion}%</td>
-                      <td className="py-3 font-bold text-[var(--brand-600)]">{formatCurrency(product.revenue)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>المشاهدات</th>
+                <th>المبيعات</th>
+                <th>معدل التحويل</th>
+                <th>الإيرادات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products?.map((product: any) => {
+                const conversion = product.views > 0 ? ((product.totalSold / product.views) * 100).toFixed(2) : '0.00';
+                return (
+                  <tr key={product.id}>
+                    <td className="font-semibold">{product.name}</td>
+                    <td>{product.views}</td>
+                    <td>{product.totalSold}</td>
+                    <td className="font-semibold" style={{ color: 'var(--success-500)' }}>{conversion}%</td>
+                    <td className="font-bold text-brand">{formatCurrency(product.revenue)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
-          <div className="text-center p-8 text-[var(--text-secondary)]">لا توجد منتجات</div>
+          <div className="empty-state border-0">لا توجد منتجات</div>
         )}
       </div>
     </div>

@@ -21,25 +21,25 @@ export function VendorLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--neutral-200)', position: 'sticky', top: 0, zIndex: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
+      <div className="dashboard-mobile-header flex items-center justify-between p-3 px-4 sticky top-0 z-40 border-b" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+        <div className="flex items-center gap-3">
+          <button className="sidebar-toggle bg-transparent border-0 cursor-pointer p-1 flex items-center text-muted" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu size={24} />
           </button>
           
           {location.pathname !== '/vendor' && (
             <button 
               onClick={() => navigate(-1)} 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)', padding: 'var(--space-1)' }}
+              className="bg-transparent border-0 cursor-pointer flex items-center text-muted p-1"
               title="رجوع"
             >
               <ChevronRight size={24} />
             </button>
           )}
 
-          <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة البائع</span>
+          <span className="font-semibold" style={{ fontSize: 'var(--font-size-lg)' }}>لوحة البائع</span>
         </div>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+        <Link to="/" className="flex items-center gap-1 font-semibold text-brand no-underline" style={{ fontSize: 'var(--font-size-sm)' }}>
           العودة للمتجر
         </Link>
       </div>
@@ -115,8 +115,8 @@ export default function VendorDashboard() {
 
       {/* Low stock warning */}
       {data?.lowStockProducts?.length > 0 && (
-        <div className="card card-body mb-8">
-          <h3 className="flex items-center gap-2" style={{ fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--warning-700)' }}>
+        <div className="card p-4 mb-8">
+          <h3 className="flex items-center gap-2 font-semibold m-0 mb-4" style={{ color: 'var(--warning-700)' }}>
             <AlertTriangle size={18} /> منتجات بمخزون منخفض
           </h3>
           <div className="flex flex-col gap-2">
@@ -132,41 +132,43 @@ export default function VendorDashboard() {
 
       {/* Recent orders */}
       <div className="card">
-        <div className="card-body">
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>أحدث الطلبات</h3>
+        <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+          <h3 className="font-semibold m-0">أحدث الطلبات</h3>
         </div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>رقم الطلب</th>
-              <th>المنتج</th>
-              <th>الكمية</th>
-              <th>المبلغ</th>
-              <th>الحالة</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.recentOrders || []).map((item: any) => {
-              const statusMap: Record<string, { label: string; cls: string }> = {
-                pending: { label: 'معلق', cls: 'badge-warning' },
-                confirmed: { label: 'مؤكد', cls: 'badge-info' },
-                shipped: { label: 'شُحن', cls: 'badge-info' },
-                delivered: { label: 'وُصّل', cls: 'badge-success' },
-                cancelled: { label: 'ملغي', cls: 'badge-error' },
-              };
-              const s = statusMap[item.vendorStatus] || statusMap.pending;
-              return (
-                <tr key={item.id}>
-                  <td style={{ fontWeight: 600 }}>{item.orderNumber}</td>
-                  <td>{item.productName}</td>
-                  <td>{item.quantity}</td>
-                  <td>{parseFloat(item.total).toLocaleString('ar-EG')} ج.م</td>
-                  <td><span className={`badge ${s.cls}`}><span className="badge-dot" /> {s.label}</span></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th>
+                <th>المنتج</th>
+                <th>الكمية</th>
+                <th>المبلغ</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.recentOrders || []).map((item: any) => {
+                const statusMap: Record<string, { label: string; cls: string }> = {
+                  pending: { label: 'معلق', cls: 'badge-warning' },
+                  confirmed: { label: 'مؤكد', cls: 'badge-info' },
+                  shipped: { label: 'شُحن', cls: 'badge-info' },
+                  delivered: { label: 'وُصّل', cls: 'badge-success' },
+                  cancelled: { label: 'ملغي', cls: 'badge-error' },
+                };
+                const s = statusMap[item.vendorStatus] || statusMap.pending;
+                return (
+                  <tr key={item.id}>
+                    <td className="font-semibold">{item.orderNumber}</td>
+                    <td>{item.productName}</td>
+                    <td>{item.quantity}</td>
+                    <td>{parseFloat(item.total).toLocaleString('ar-EG')} ج.م</td>
+                    <td><span className={`badge ${s.cls}`}><span className="badge-dot" /> {s.label}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

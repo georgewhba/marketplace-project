@@ -35,25 +35,26 @@ export function AdminLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--neutral-200)', position: 'sticky', top: 0, zIndex: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)' }}>
+      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 40 }}>
+        <div className="flex items-center gap-3">
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
             <Menu size={24} />
           </button>
           
           {location.pathname !== '/admin' && (
             <button 
               onClick={() => navigate(-1)} 
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--neutral-700)', padding: 'var(--space-1)' }}
+              className="text-secondary"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 'var(--space-1)' }}
               title="رجوع"
             >
               <ChevronRight size={24} />
             </button>
           )}
 
-          <span style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--neutral-900)' }}>لوحة الإدارة</span>
+          <span className="text-primary" style={{ fontWeight: 600, fontSize: 'var(--font-size-lg)' }}>لوحة الإدارة</span>
         </div>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--primary-600)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--brand-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
           العودة للمتجر
         </Link>
       </div>
@@ -130,7 +131,7 @@ export default function AdminDashboard() {
           <div className="stat-card__value"><AnimatedNumber value={parseFloat(stats.totalRevenue || '0')} suffix=" ج.م" decimals={2} /></div>
         </div>
         <div className="stat-card">
-          <div className="stat-card__label" style={{ color: 'var(--warning-500)' }}>بائعين بانتظار الموافقة</div>
+          <div className="stat-card__label text-warning">بائعين بانتظار الموافقة</div>
           <div className="stat-card__value"><AnimatedNumber value={stats.pendingVendors || 0} /></div>
         </div>
       </div>
@@ -138,7 +139,7 @@ export default function AdminDashboard() {
       {/* Recent orders table */}
       <div className="card">
         <div className="card-body">
-          <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>أحدث الطلبات</h3>
+          <h3 className="text-primary mb-4" style={{ fontWeight: 600 }}>أحدث الطلبات</h3>
         </div>
         <table className="data-table">
           <thead>
@@ -162,11 +163,11 @@ export default function AdminDashboard() {
               const s = statusLabels[order.status] || statusLabels.pending;
               return (
                 <tr key={order.id}>
-                  <td style={{ fontWeight: 600 }}>{order.orderNumber}</td>
+                  <td className="text-primary" style={{ fontWeight: 600 }}>{order.orderNumber}</td>
                   <td>{order.customerName}</td>
                   <td>{parseFloat(order.total).toLocaleString('ar-EG')} ج.م</td>
                   <td><span className={`badge ${s.cls}`}><span className="badge-dot" /> {s.label}</span></td>
-                  <td style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                  <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                     {new Date(order.createdAt).toLocaleDateString('ar-EG')}
                   </td>
                 </tr>

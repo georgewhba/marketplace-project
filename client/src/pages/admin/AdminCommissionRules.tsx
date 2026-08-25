@@ -71,25 +71,25 @@ export function AdminCommissionRules() {
   };
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+    <div>
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>قواعد العمولة</h1>
-          <p style={{ color: 'var(--neutral-500)', margin: 0 }}>إدارة نسب العمولة المخصصة للبائعين والأقسام.</p>
+          <h1 className="text-primary" style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>قواعد العمولة</h1>
+          <p className="text-muted" style={{ margin: 0 }}>إدارة نسب العمولة المخصصة للبائعين والأقسام.</p>
         </div>
-        <button className="btn btn--primary" onClick={() => setIsFormOpen(!isFormOpen)}>
+        <button className="btn btn-primary" onClick={() => setIsFormOpen(!isFormOpen)}>
           <Plus size={18} style={{ marginInlineEnd: '8px' }} /> إضافة قاعدة
         </button>
       </div>
 
       {isFormOpen && (
-        <div className="card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-          <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>قاعدة جديدة</h2>
+        <div className="card card-body mb-6">
+          <h2 className="text-primary" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>قاعدة جديدة</h2>
           <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
             <div className="form-group">
-              <label className="label">النطاق</label>
+              <label className="form-label">النطاق</label>
               <select 
-                className="input" 
+                className="form-select" 
                 value={formData.scope}
                 onChange={(e) => setFormData({...formData, scope: e.target.value as any, targetId: ''})}
               >
@@ -101,9 +101,9 @@ export function AdminCommissionRules() {
             
             {formData.scope !== 'global' && (
               <div className="form-group">
-                <label className="label">معرف ال{formData.scope === 'vendor' ? 'بائع' : 'قسم'} المستهدف</label>
+                <label className="form-label">معرف ال{formData.scope === 'vendor' ? 'بائع' : 'قسم'} المستهدف</label>
                 <input
-                  className="input"
+                  className="form-input"
                   type="number"
                   required
                   value={formData.targetId}
@@ -113,9 +113,9 @@ export function AdminCommissionRules() {
             )}
             
             <div className="form-group">
-              <label className="label">النسبة (%)</label>
+              <label className="form-label">النسبة (%)</label>
               <input
-                className="input"
+                className="form-input"
                 type="number"
                 step="0.01"
                 required
@@ -125,9 +125,9 @@ export function AdminCommissionRules() {
             </div>
             
             <div className="form-group">
-              <label className="label">الأولوية (الأعلى يفوز)</label>
+              <label className="form-label">الأولوية (الأعلى يفوز)</label>
               <input
-                className="input"
+                className="form-input"
                 type="number"
                 required
                 value={formData.priority}
@@ -136,9 +136,9 @@ export function AdminCommissionRules() {
             </div>
             
             <div className="form-group">
-              <label className="label">فعال من</label>
+              <label className="form-label">فعال من</label>
               <input
-                className="input"
+                className="form-input"
                 type="date"
                 required
                 value={formData.effectiveFrom}
@@ -147,9 +147,9 @@ export function AdminCommissionRules() {
             </div>
             
             <div className="form-group">
-              <label className="label">فعال إلى (اختياري)</label>
+              <label className="form-label">فعال إلى (اختياري)</label>
               <input
-                className="input"
+                className="form-input"
                 type="date"
                 value={formData.effectiveTo}
                 onChange={(e) => setFormData({...formData, effectiveTo: e.target.value})}
@@ -157,7 +157,7 @@ export function AdminCommissionRules() {
             </div>
             
             <div style={{ gridColumn: '1 / -1', marginTop: 'var(--space-2)' }}>
-              <button type="submit" className="btn btn--primary" disabled={createMutation.isPending}>
+              <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
                 {createMutation.isPending ? 'جاري الحفظ...' : 'حفظ القاعدة'}
               </button>
             </div>
@@ -172,7 +172,7 @@ export function AdminCommissionRules() {
         borderRadius: 'var(--radius-lg)', 
         display: 'flex', 
         gap: 'var(--space-3)', 
-        fontSize: 'var(--text-sm)',
+        fontSize: 'var(--font-size-sm)',
         marginBottom: 'var(--space-6)'
       }}>
         <Info size={20} style={{ flexShrink: 0 }} />
@@ -219,13 +219,13 @@ export function AdminCommissionRules() {
                 <tr key={rule.id}>
                   <td>{rule.scope === 'global' ? 'عام' : rule.scope === 'category' ? 'قسم' : 'بائع'}</td>
                   <td>{rule.targetId ?? '-'}</td>
-                  <td style={{ fontWeight: 600 }}>{rule.rate}%</td>
+                  <td className="text-primary" style={{ fontWeight: 600 }}>{rule.rate}%</td>
                   <td>{rule.priority}</td>
-                  <td style={{ fontSize: 'var(--text-xs)' }}>{formatDate(rule.effectiveFrom)}</td>
-                  <td style={{ fontSize: 'var(--text-xs)' }}>{rule.effectiveTo ? formatDate(rule.effectiveTo) : 'مستمر'}</td>
+                  <td style={{ fontSize: 'var(--font-size-xs)' }}>{formatDate(rule.effectiveFrom)}</td>
+                  <td style={{ fontSize: 'var(--font-size-xs)' }}>{rule.effectiveTo ? formatDate(rule.effectiveTo) : 'مستمر'}</td>
                   <td>
                     <button 
-                      className="btn btn--danger btn--sm" 
+                      className="btn btn-ghost text-error btn-sm" 
                       onClick={() => {
                         if (window.confirm('هل أنت متأكد من حذف القاعدة؟')) {
                           deleteMutation.mutate(rule.id);

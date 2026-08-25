@@ -39,14 +39,16 @@ export function AdminSettlements() {
   });
 
   return (
-    <div style={{ padding: 'var(--space-6)' }}>
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '0 0 var(--space-2)' }}>دورات التسوية</h1>
-        <p style={{ color: 'var(--neutral-500)', margin: 0 }}>مراجعة واعتماد المبالغ المستحقة للبائعين.</p>
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-header__title">دورات التسوية</h1>
+          <p className="page-header__subtitle mt-2">مراجعة واعتماد المبالغ المستحقة للبائعين.</p>
+        </div>
       </div>
 
       <div className="card" style={{ overflowX: 'auto' }}>
-        <table className="table" style={{ width: '100%', minWidth: 800 }}>
+        <table className="data-table">
           <thead>
             <tr>
               <th>#</th>
@@ -69,7 +71,7 @@ export function AdminSettlements() {
             ) : settlements.length === 0 ? (
               <tr>
                 <td colSpan={8}>
-                  <div className="empty-state" style={{ border: 'none' }}>
+                  <div className="empty-state border-0">
                     <div className="empty-state__title">لا توجد تسويات حالية</div>
                   </div>
                 </td>
@@ -78,22 +80,22 @@ export function AdminSettlements() {
               settlements.map((item) => (
                 <tr key={item.id}>
                   <td>SET-{item.id}</td>
-                  <td style={{ fontWeight: 500 }}>{item.vendorName}</td>
-                  <td style={{ fontSize: 'var(--text-xs)' }}>
+                  <td className="font-semibold">{item.vendorName}</td>
+                  <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                     {new Date(item.periodStart).toLocaleDateString('ar-EG')} - {new Date(item.periodEnd).toLocaleDateString('ar-EG')}
                   </td>
                   <td>{formatCurrency(Number(item.grossSales))}</td>
                   <td style={{ color: 'var(--error-600)' }}>{formatCurrency(Number(item.totalCommission))}</td>
-                  <td style={{ fontWeight: 700 }}>{formatCurrency(Number(item.netPayable))}</td>
+                  <td className="font-bold">{formatCurrency(Number(item.netPayable))}</td>
                   <td>
-                    <span className={`badge ${item.status === 'paid' ? 'badge--success' : item.status === 'finalized' ? 'badge--info' : 'badge--warning'}`}>
+                    <span className={`badge ${item.status === 'paid' ? 'badge-success' : item.status === 'finalized' ? 'badge-info' : 'badge-warning'}`}>
                       {item.status === 'paid' ? 'مدفوعة' : item.status === 'finalized' ? 'معتمدة' : 'مسودة'}
                     </span>
                   </td>
                   <td>
                     {item.status === 'draft' ? (
                       <button 
-                        className="btn btn--primary btn--sm" 
+                        className="btn btn-primary btn-sm flex items-center gap-1" 
                         onClick={() => {
                           if (window.confirm('اعتماد التسوية يمنع تعديلها لاحقاً ويسمح للبائع بسحب رصيدها. هل أنت متأكد؟')) {
                             finalizeMutation.mutate(item.id);
@@ -101,10 +103,10 @@ export function AdminSettlements() {
                         }}
                         disabled={finalizeMutation.isPending}
                       >
-                        <CheckCircle size={16} style={{ marginInlineEnd: '4px' }} /> اعتماد
+                        <CheckCircle size={16} /> اعتماد
                       </button>
                     ) : (
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-400)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span className="text-muted flex items-center gap-1" style={{ fontSize: 'var(--font-size-xs)' }}>
                         <Clock size={14} /> تمت المراجعة
                       </span>
                     )}

@@ -79,15 +79,14 @@ export default function ProductsPage() {
       </div>
 
       {/* Sort bar */}
-      <div className="flex items-center justify-between mb-6" style={{ flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <SlidersHorizontal size={16} className="text-muted" />
-          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)' }}>ترتيب حسب:</span>
+          <span className="text-sm text-muted">ترتيب حسب:</span>
           {sortOptions.map(opt => (
             <button
               key={opt.value}
               className={`tab ${sort === opt.value ? 'active' : ''}`}
-              style={{ border: 'none', padding: 'var(--space-2) var(--space-3)' }}
               onClick={() => updateParam('sort', opt.value)}
             >
               {opt.label}

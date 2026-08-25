@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
 import { Save } from 'lucide-react';
 
 export default function AdminSettings() {
   const toast = useToast();
+  const qc = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
@@ -13,6 +15,8 @@ export default function AdminSettings() {
     contact_email: '',
     contact_phone: '',
     default_shipping_fee: '',
+    currency: '',
+    min_order_amount: '',
   });
 
   useEffect(() => {
@@ -24,6 +28,13 @@ export default function AdminSettings() {
           data.forEach((item: any) => {
             if (item.key in currentSettings) {
               (currentSettings as any)[item.key] = item.value;
+            }
+          });
+        } else if (typeof data === 'object') {
+          // In case it returns an object directly
+          Object.keys(data).forEach(key => {
+            if (key in currentSettings) {
+               (currentSettings as any)[key] = data[key];
             }
           });
         }
@@ -53,6 +64,8 @@ export default function AdminSettings() {
       if (settings.site_name) {
         document.title = settings.site_name;
       }
+      // Invalidate global site settings cache so header/footer update
+      qc.invalidateQueries({ queryKey: ['site-settings'] });
     } catch (err: any) {
       toast.error(err.message || 'فشل حفظ الإعدادات');
     } finally {
@@ -60,14 +73,14 @@ export default function AdminSettings() {
     }
   };
 
-  if (loading) return <div>{Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 60, marginBottom: 16 }} />)}</div>;
+  if (loading) return <div className="flex flex-col gap-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 60 }} />)}</div>;
 
   return (
     <>
       <div className="page-header">
         <div>
           <h1 className="page-header__title">إعدادات المنصة</h1>
-          <p className="page-header__subtitle" style={{ marginTop: 'var(--space-2)' }}>تعديل الإعدادات العامة للمنصة</p>
+          <p className="page-header__subtitle mt-2">تعديل الإعدادات العامة للمنصة</p>
         </div>
       </div>
 
@@ -79,7 +92,7 @@ export default function AdminSettings() {
             <input
               type="text"
               name="site_name"
-              className="form-input"
+              className="input"
               value={settings.site_name}
               onChange={handleChange}
               placeholder="مثال: متجري"
@@ -92,12 +105,12 @@ export default function AdminSettings() {
               type="number"
               step="0.01"
               name="default_commission_rate"
-              className="form-input"
+              className="input"
               value={settings.default_commission_rate}
               onChange={handleChange}
               placeholder="مثال: 10.00"
             />
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>
+            <p className="text-muted mt-1" style={{ fontSize: 'var(--font-size-xs)' }}>
               ستطبق هذه النسبة كإعداد افتراضي على البائعين الجدد.
             </p>
           </div>
@@ -107,7 +120,7 @@ export default function AdminSettings() {
             <input
               type="email"
               name="contact_email"
-              className="form-input"
+              className="input"
               value={settings.contact_email}
               onChange={handleChange}
               placeholder="مثال: support@example.com"
@@ -119,7 +132,7 @@ export default function AdminSettings() {
             <input
               type="text"
               name="contact_phone"
-              className="form-input"
+              className="input"
               value={settings.contact_phone}
               onChange={handleChange}
               placeholder="مثال: 01xxxxxxxxx"
@@ -132,14 +145,39 @@ export default function AdminSettings() {
               type="number"
               step="0.01"
               name="default_shipping_fee"
-              className="form-input"
+              className="input"
               value={settings.default_shipping_fee}
               onChange={handleChange}
               placeholder="مثال: 50.00"
             />
           </div>
 
-          <div style={{ marginTop: 'var(--space-6)' }}>
+          <div className="form-group">
+            <label className="form-label">العملة الافتراضية</label>
+            <input
+              type="text"
+              name="currency"
+              className="input"
+              value={settings.currency}
+              onChange={handleChange}
+              placeholder="مثال: EGP"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">الحد الأدنى للطلب</label>
+            <input
+              type="number"
+              step="0.01"
+              name="min_order_amount"
+              className="input"
+              value={settings.min_order_amount}
+              onChange={handleChange}
+              placeholder="مثال: 100.00"
+            />
+          </div>
+
+          <div className="mt-6">
             <button type="submit" className="btn btn-primary w-full" disabled={saving}>
               {saving ? <div className="spinner" /> : <Save size={18} />}
               {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}

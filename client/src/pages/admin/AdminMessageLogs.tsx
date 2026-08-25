@@ -24,21 +24,21 @@ export default function AdminMessageLogs() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 'var(--space-4)' }}>سجل الرسائل</h2>
+      <h1 className="page-header__title mb-4">سجل الرسائل</h1>
 
-      <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+      <div className="card card-body mb-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="form-group mb-0" style={{ flex: 1, minWidth: 200 }}>
             <label className="form-label">القناة</label>
-            <select className="input" value={channel} onChange={e => { setChannel(e.target.value); setPage(1); }}>
+            <select className="form-select" value={channel} onChange={e => { setChannel(e.target.value); setPage(1); }}>
               <option value="">الكل</option>
               <option value="email">البريد الإلكتروني</option>
               <option value="sms">الرسائل النصية</option>
             </select>
           </div>
-          <div className="form-group" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+          <div className="form-group mb-0" style={{ flex: 1, minWidth: 200 }}>
             <label className="form-label">الحالة</label>
-            <select className="input" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+            <select className="form-select" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
               <option value="">الكل</option>
               <option value="sent">تم الإرسال</option>
               <option value="failed">فشل الإرسال</option>
@@ -52,7 +52,7 @@ export default function AdminMessageLogs() {
         <div>جاري التحميل...</div>
       ) : (
         <div className="card" style={{ overflowX: 'auto' }}>
-          <table className="table">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>القناة</th>
@@ -65,7 +65,7 @@ export default function AdminMessageLogs() {
             <tbody>
               {data?.logs?.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
+                  <td colSpan={5} className="text-center" style={{ padding: 'var(--space-4)' }}>
                     لا توجد رسائل مسجلة
                   </td>
                 </tr>
@@ -74,11 +74,11 @@ export default function AdminMessageLogs() {
                 <tr key={log.id}>
                   <td>
                     {log.channel === 'email' ? (
-                      <span className="badge" style={{ background: 'var(--brand-100)', color: 'var(--brand-700)' }}>
+                      <span className="badge badge-brand">
                         <Mail size={14} style={{ marginLeft: 4 }} /> بريد
                       </span>
                     ) : (
-                      <span className="badge" style={{ background: 'var(--info-50)', color: 'var(--info-700)' }}>
+                      <span className="badge badge-info">
                         <MessageSquare size={14} style={{ marginLeft: 4 }} /> رسالة نصية
                       </span>
                     )}
@@ -86,15 +86,15 @@ export default function AdminMessageLogs() {
                   <td style={{ direction: 'ltr', textAlign: 'right' }}>{log.recipient}</td>
                   <td>{log.templateKey || '-'}</td>
                   <td>
-                    {log.status === 'sent' && <span className="badge" style={{ background: 'var(--success-50)', color: 'var(--success-700)' }}><CheckCircle2 size={14} /> تم الإرسال</span>}
-                    {log.status === 'failed' && <span className="badge badge--danger" title={log.errorMessage}><AlertCircle size={14} /> فشل</span>}
-                    {log.status === 'pending' && <span className="badge"><Clock size={14} /> قيد الانتظار</span>}
+                    {log.status === 'sent' && <span className="badge badge-success"><CheckCircle2 size={14} style={{ marginLeft: 4 }} /> تم الإرسال</span>}
+                    {log.status === 'failed' && <span className="badge badge-error" title={log.errorMessage}><AlertCircle size={14} style={{ marginLeft: 4 }} /> فشل</span>}
+                    {log.status === 'pending' && <span className="badge badge-neutral"><Clock size={14} style={{ marginLeft: 4 }} /> قيد الانتظار</span>}
                   </td>
                   <td>
-                    <div style={{ fontSize: '0.875rem' }}>
+                    <div style={{ fontSize: 'var(--font-size-sm)' }}>
                       {formatDate(log.createdAt)}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--neutral-500)' }}>
+                    <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                       {formatTime(log.createdAt)}
                     </div>
                   </td>
@@ -105,7 +105,7 @@ export default function AdminMessageLogs() {
           
           {/* Pagination */}
           {data?.meta && data.meta.totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-2)', padding: 'var(--space-4)', borderTop: '1px solid var(--neutral-200)' }}>
+            <div className="flex justify-center gap-2 p-4" style={{ borderTop: '1px solid var(--border-color)' }}>
               {Array.from({ length: data.meta.totalPages }).map((_, i) => (
                 <button 
                   key={i} 

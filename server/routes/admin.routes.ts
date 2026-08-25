@@ -238,13 +238,23 @@ adminRoutes.get('/products', requirePermission('products.moderate'), validate('q
       categoryName: categories.name,
     })
     .from(products)
-    .innerJoin(vendors, eq(products.vendorId, vendors.id))
-    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(vendors, eq(products.vendorId, vendors.id))
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause)
     .orderBy(desc(products.createdAt))
     .limit(limit).offset(getOffset(page, limit));
 
-  return sendSuccess(c, productList, 200, getPaginationMeta(page, limit, total));
+  const productIds = productList.map(p => p.id);
+  const images = productIds.length > 0
+    ? await db.select().from(productImages).where(sql`${productImages.productId} IN ${productIds}`).orderBy(asc(productImages.sortOrder))
+    : [];
+
+  const productsWithImages = productList.map(p => ({
+    ...p,
+    images: images.filter(img => img.productId === p.id),
+  }));
+
+  return sendSuccess(c, productsWithImages, 200, getPaginationMeta(page, limit, total));
 });
 
 // PUT /api/admin/products/:id/feature

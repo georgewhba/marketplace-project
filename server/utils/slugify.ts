@@ -3,7 +3,7 @@
  * Arabic characters are preserved; special characters are removed.
  */
 export function slugify(text: string): string {
-  return text
+  const slug = text
     .toString()
     .trim()
     .toLowerCase()
@@ -11,6 +11,8 @@ export function slugify(text: string): string {
     .replace(/[^\u0600-\u06FF\u0750-\u077Fa-z0-9-]/g, '') // Keep Arabic + Latin alphanumerics + dashes
     .replace(/-+/g, '-')            // Collapse multiple dashes
     .replace(/^-+|-+$/g, '');       // Trim leading/trailing dashes
+    
+  return slug || Math.random().toString(36).substring(2, 10); // Fallback if empty (e.g. only emojis)
 }
 
 /**

@@ -80,7 +80,7 @@ export default function AdminCoupons() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
+      <div className="flex justify-between items-center mb-6">
         <h1 className="page-header__title">إدارة الكوبونات</h1>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} />
@@ -92,7 +92,7 @@ export default function AdminCoupons() {
         {loading ? (
           <div style={{ padding: 'var(--space-6)', textAlign: 'center' }}>جاري التحميل...</div>
         ) : coupons.length === 0 ? (
-          <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div className="text-muted" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
             <Ticket size={48} style={{ margin: '0 auto var(--space-4)', opacity: 0.5 }} />
             <p>لا توجد كوبونات حالياً</p>
           </div>
@@ -112,7 +112,7 @@ export default function AdminCoupons() {
             <tbody>
               {coupons.map((coupon) => (
                 <tr key={coupon.id}>
-                  <td><span style={{ fontWeight: 'bold', fontFamily: 'monospace', background: 'var(--neutral-100)', padding: '4px 8px', borderRadius: '4px' }}>{coupon.code}</span></td>
+                  <td><span className="text-primary" style={{ fontWeight: 'bold', fontFamily: 'monospace', background: 'var(--neutral-100)', padding: '4px 8px', borderRadius: '4px' }}>{coupon.code}</span></td>
                   <td>{coupon.discountType === 'percentage' ? 'نسبة مئوية' : 'مبلغ ثابت'}</td>
                   <td>
                     {coupon.discountValue}
@@ -123,9 +123,8 @@ export default function AdminCoupons() {
                   <td>{coupon.minOrderValue ? `${coupon.minOrderValue} ج.م` : '-'}</td>
                   <td>
                     <button 
-                      className="btn btn-outline" 
+                      className="btn btn-ghost text-error btn-sm" 
                       onClick={() => handleDelete(coupon.id)}
-                      style={{ color: 'var(--error-600)', borderColor: 'var(--error-200)', padding: 'var(--space-2)' }}
                       title="حذف"
                     >
                       <Trash size={16} />
@@ -148,23 +147,23 @@ export default function AdminCoupons() {
             transition={{ duration: motionTokens.duration.fast }}
           >
             <motion.div 
-              className="modal"
+              className="modal card"
               initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               transition={{ duration: motionTokens.duration.base, ...motionTokens.easing.spring }}
             >
             <div className="modal-header">
-              <h3>إضافة كوبون جديد</h3>
+              <h3 className="text-primary">إضافة كوبون جديد</h3>
               <button className="modal-close" onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
             <div className="modal-body">
-              <form onSubmit={handleSubmit} id="coupon-form" className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-sm font-semibold">كود الكوبون *</label>
+              <form onSubmit={handleSubmit} id="coupon-form" className="flex flex-col gap-4">
+                <div className="form-group">
+                  <label className="form-label">كود الكوبون *</label>
                   <input 
                     type="text" 
-                    className="input w-full" 
+                    className="form-input" 
                     value={formData.code} 
                     onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })} 
                     placeholder="مثال: SUMMER2024" 
@@ -172,11 +171,11 @@ export default function AdminCoupons() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">نوع الخصم *</label>
+                <div className="grid grid-2 gap-4">
+                  <div className="form-group">
+                    <label className="form-label">نوع الخصم *</label>
                     <select 
-                      className="input w-full" 
+                      className="form-select" 
                       value={formData.discountType}
                       onChange={e => setFormData({ ...formData, discountType: e.target.value })}
                     >
@@ -184,11 +183,11 @@ export default function AdminCoupons() {
                       <option value="fixed">مبلغ ثابت (ج.م)</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">قيمة الخصم *</label>
+                  <div className="form-group">
+                    <label className="form-label">قيمة الخصم *</label>
                     <input 
                       type="number" 
-                      className="input w-full" 
+                      className="form-input" 
                       min="1" 
                       step="0.01" 
                       value={formData.discountValue}
@@ -198,22 +197,22 @@ export default function AdminCoupons() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">الحد الأدنى للطلب (اختياري)</label>
+                <div className="grid grid-2 gap-4">
+                  <div className="form-group">
+                    <label className="form-label">الحد الأدنى للطلب (اختياري)</label>
                     <input 
                       type="number" 
-                      className="input w-full" 
+                      className="form-input" 
                       min="0"
                       value={formData.minOrderValue}
                       onChange={e => setFormData({ ...formData, minOrderValue: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">الحد الأقصى للخصم (اختياري)</label>
+                  <div className="form-group">
+                    <label className="form-label">الحد الأقصى للخصم (اختياري)</label>
                     <input 
                       type="number" 
-                      className="input w-full" 
+                      className="form-input" 
                       min="0"
                       value={formData.maxDiscount}
                       onChange={e => setFormData({ ...formData, maxDiscount: e.target.value })}
@@ -222,22 +221,22 @@ export default function AdminCoupons() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">حد الاستخدام الكلي (اختياري)</label>
+                <div className="grid grid-2 gap-4">
+                  <div className="form-group">
+                    <label className="form-label">حد الاستخدام الكلي (اختياري)</label>
                     <input 
                       type="number" 
-                      className="input w-full" 
+                      className="form-input" 
                       min="1"
                       value={formData.usageLimit}
                       onChange={e => setFormData({ ...formData, usageLimit: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <label className="block mb-2 text-sm font-semibold">تاريخ الانتهاء (اختياري)</label>
+                  <div className="form-group">
+                    <label className="form-label">تاريخ الانتهاء (اختياري)</label>
                     <input 
                       type="date" 
-                      className="input w-full" 
+                      className="form-input" 
                       value={formData.expiresAt}
                       onChange={e => setFormData({ ...formData, expiresAt: e.target.value })}
                     />
@@ -246,7 +245,7 @@ export default function AdminCoupons() {
               </form>
             </div>
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
-              <button className="btn btn-outline" onClick={() => setIsModalOpen(false)}>إلغاء</button>
+              <button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>إلغاء</button>
               <button type="submit" form="coupon-form" className="btn btn-primary">حفظ الكوبون</button>
             </div>
             </motion.div>
