@@ -263,9 +263,8 @@
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 /* Base Card (Basic) */
-.subs-card-basic {
-  /* Default styling applies */
-}
+/* Default styling applies from .subs-card */
+
 
 /* Plus Card */
 .subs-card-plus {

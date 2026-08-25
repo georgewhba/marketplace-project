@@ -141,57 +141,6 @@ export default function VendorSubscriptions() {
         </p>
       </div>
 
-      {/* Savings Calculator Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: motionTokens.duration.base }}
-        className="subs-calc"
-      >
-        <h3 className="subs-calc-title">
-          اكتشف حجم توفيرك الشهري
-        </h3>
-        
-        <div className="subs-calc-slider-wrap">
-          <div className="subs-calc-slider-header">
-            <span>مبيعاتك المتوقعة شهرياً</span>
-            <span className="value">
-              <AnimatedNumber value={salesEstimate} format={(v) => Math.round(v).toLocaleString('ar-EG') + ' ج.م'} />
-            </span>
-          </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="200000" 
-            step="5000"
-            value={salesEstimate} 
-            onChange={(e) => setSalesEstimate(Number(e.target.value))}
-            className="subs-calc-slider"
-            style={{ 
-              background: `linear-gradient(to left, var(--brand-500) ${(salesEstimate / 200000) * 100}%, var(--brand-200) ${(salesEstimate / 200000) * 100}%)` 
-            }}
-          />
-          <div className="subs-calc-slider-labels">
-            <span>0 ج.م</span>
-            <span>+200,000 ج.م</span>
-          </div>
-        </div>
-
-        <div className="subs-calc-results">
-          {plans.slice(1, 3).map((plan: any) => {
-            const savingsPercent = maxCommission - plan.commissionRate;
-            const savingsValue = (salesEstimate * savingsPercent) / 100;
-            return (
-              <div key={plan.id} className="subs-calc-result-box">
-                <div className="subs-calc-result-label">توفير عمولات في "{plan.name}"</div>
-                <div className="subs-calc-result-value">
-                  + <AnimatedNumber value={savingsValue} /> <small>ج.م</small>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </motion.div>
 
       {/* Monthly/Yearly Toggle */}
       <div className="subs-toggle">
@@ -317,6 +266,59 @@ export default function VendorSubscriptions() {
             </motion.div>
           );
         })}
+      </motion.div>
+
+      {/* Savings Calculator Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: motionTokens.duration.base }}
+        className="subs-calc"
+      >
+        <h3 className="subs-calc-title">
+          اكتشف حجم توفيرك الشهري
+        </h3>
+        
+        <div className="subs-calc-slider-wrap">
+          <div className="subs-calc-slider-header">
+            <span>مبيعاتك المتوقعة شهرياً</span>
+            <span className="value">
+              <AnimatedNumber value={salesEstimate} format={(v) => Math.round(v).toLocaleString('ar-EG') + ' ج.م'} />
+            </span>
+          </div>
+          <input 
+            type="range" 
+            min="0" 
+            max="200000" 
+            step="5000"
+            value={salesEstimate} 
+            onChange={(e) => setSalesEstimate(Number(e.target.value))}
+            className="subs-calc-slider"
+            style={{ 
+              background: `linear-gradient(to left, var(--brand-500) ${(salesEstimate / 200000) * 100}%, var(--brand-200) ${(salesEstimate / 200000) * 100}%)` 
+            }}
+          />
+          <div className="subs-calc-slider-labels">
+            <span>0 ج.م</span>
+            <span>+200,000 ج.م</span>
+          </div>
+        </div>
+
+        <div className="subs-calc-results">
+          {plans.slice(1, 3).map((plan: any) => {
+            const savingsPercent = maxCommission - plan.commissionRate;
+            const savingsValue = (salesEstimate * savingsPercent) / 100;
+            return (
+              <div key={plan.id} className="subs-calc-result-box">
+                <div className="subs-calc-result-label">توفير عمولات في "{plan.name}"</div>
+                <div className="subs-calc-result-value">
+                  + <AnimatedNumber value={savingsValue} /> <small>ج.م</small>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </motion.div>
 
       {/* Contextual Section */}

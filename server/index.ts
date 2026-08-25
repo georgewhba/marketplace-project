@@ -9,6 +9,7 @@ import { requestLogger } from './middleware/logger.js';
 import * as Sentry from '@sentry/node';
 import { db, queryClient } from './db/index.js';
 import { sql } from 'drizzle-orm';
+import { subscriptionPlans } from './db/schema/subscriptions.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import cron from 'node-cron';
@@ -211,38 +212,62 @@ if (isCronRunner) {
 
 // Start server only if not in test environment
 if (env.NODE_ENV !== 'test') {
-  const server = serve({
-    fetch: app.fetch,
-    port: env.PORT,
-  }, (info) => {
-    console.log(`\n  Marketplace server running at http://localhost:${info.port}`);
-    console.log(`  Environment: ${env.NODE_ENV}`);
-    console.log(`  CORS origin: ${env.CORS_ORIGIN}`);
-    console.log(`  PM2 Instance: ${process.env.NODE_APP_INSTANCE ?? 'none'}\n`);
-  });
-
-  // Graceful shutdown handling
-  const shutdown = async (signal: string) => {
-    console.log(`\n[${signal}] Received. Shutting down gracefully...`);
-    
-    // Stop accepting new connections
-    server.close(() => {
-      console.log('HTTP server closed.');
-    });
-
+  
+  // Auto-seed subscription plans for production if empty
+  const autoSeedPlans = async () => {
     try {
-      // Close database connections safely
-      await queryClient.end({ timeout: 5 });
-      console.log('Database connections closed.');
-      process.exit(0);
-    } catch (err) {
-      console.error('Error during database shutdown:', err);
-      process.exit(1);
+      const existing = await db.select({ count: sql<number>`count(*)` }).from(subscriptionPlans);
+      if (Number(existing[0].count) === 0) {
+        console.log('[Auto-Seed] No subscription plans found. Seeding default (Basic, Plus, Pro) plans...');
+        const plansToInsert = [
+          { name: 'Basic', slug: 'basic', priceMonthly: '0.00', commissionRate: '12.00', productLimit: 50, imageLimitPerProduct: 3, autoShippingEnabled: false, advancedAnalytics: false, bulkActionsEnabled: false, payoutCycleDays: 30, sortOrder: 1, isActive: true },
+          { name: 'Plus', slug: 'plus', priceMonthly: '499.00', commissionRate: '8.00', productLimit: 500, imageLimitPerProduct: 5, autoShippingEnabled: true, advancedAnalytics: true, bulkActionsEnabled: false, payoutCycleDays: 14, sortOrder: 2, isActive: true },
+          { name: 'Pro', slug: 'pro', priceMonthly: '1499.00', commissionRate: '4.00', productLimit: null, imageLimitPerProduct: 10, autoShippingEnabled: true, advancedAnalytics: true, bulkActionsEnabled: true, payoutCycleDays: 7, trustBadge: 'verified', sortOrder: 3, isActive: true }
+        ];
+        for (const p of plansToInsert) {
+          await db.insert(subscriptionPlans).values(p);
+        }
+        console.log('[Auto-Seed] Subscription plans seeded successfully.');
+      }
+    } catch (error) {
+      console.error('[Auto-Seed] Error seeding plans:', error);
     }
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  autoSeedPlans().then(() => {
+    const server = serve({
+      fetch: app.fetch,
+      port: env.PORT,
+    }, (info) => {
+      console.log(`\n  Marketplace server running at http://localhost:${info.port}`);
+      console.log(`  Environment: ${env.NODE_ENV}`);
+      console.log(`  CORS origin: ${env.CORS_ORIGIN}`);
+      console.log(`  PM2 Instance: ${process.env.NODE_APP_INSTANCE ?? 'none'}\n`);
+    });
+
+    // Graceful shutdown handling
+    const shutdown = async (signal: string) => {
+      console.log(`\n[${signal}] Received. Shutting down gracefully...`);
+      
+      // Stop accepting new connections
+      server.close(() => {
+        console.log('HTTP server closed.');
+      });
+
+      try {
+        // Close database connections safely
+        await queryClient.end({ timeout: 5 });
+        console.log('Database connections closed.');
+        process.exit(0);
+      } catch (err) {
+        console.error('Error during database shutdown:', err);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  });
 }
 
 export default app;
