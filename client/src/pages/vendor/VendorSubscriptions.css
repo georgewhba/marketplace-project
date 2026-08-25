@@ -442,14 +442,4 @@
   line-height: 1.7;
 }
 
-/* SVG Background fix */
-.subs-calc-svg {
-  position: absolute;
-  top: -20px;
-  right: -20px;
-  width: 250px;
-  height: 250px;
-  opacity: 0.03;
-  pointer-events: none;
-  color: var(--brand-900);
-}
+  /* Removed SVG Background fix */

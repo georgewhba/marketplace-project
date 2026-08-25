@@ -148,10 +148,6 @@ export default function VendorSubscriptions() {
         transition={{ duration: motionTokens.duration.base }}
         className="subs-calc"
       >
-        <svg className="subs-calc-svg" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L2 22h20L12 2zm0 3.8l7.2 14.2H4.8L12 5.8z"/>
-        </svg>
-        
         <h3 className="subs-calc-title">
           اكتشف حجم توفيرك الشهري
         </h3>
