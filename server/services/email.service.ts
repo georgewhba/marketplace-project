@@ -34,7 +34,7 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
 
     if (resend) {
       const result = await resend.emails.send({
-        from: 'Marketplace <noreply@your-marketplace.com>',
+        from: `Marketplace <${env.EMAIL_FROM}>`,
         to: options.to,
         subject: options.subject,
         html: htmlContent,
