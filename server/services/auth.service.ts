@@ -64,9 +64,8 @@ function parseExpiry(expiry: string): number {
 }
 
 export async function register(input: RegisterInput) {
-  if (process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
-    throw AppError.internal('النظام غير مهيأ لإرسال رسائل البريد الإلكتروني. الرجاء إضافة RESEND_API_KEY في إعدادات Railway.');
-  }
+  const skipOtp = process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY;
+  if (skipOtp) console.warn('Skipping OTP verification because RESEND_API_KEY is missing');
 
   const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
   
@@ -77,38 +76,71 @@ export async function register(input: RegisterInput) {
     if (existing[0]!.isActive) {
       throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
     } else {
-      // Resend OTP for unverified account
+      // Resend OTP for unverified account (or activate if skipOtp)
       const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-      await db.update(users).set({ 
+      const [updatedUser] = await db.update(users).set({ 
         otpCode, 
         otpExpiresAt, 
         passwordHash,
         firstName: input.firstName,
         lastName: input.lastName,
         phone: input.phone,
-      }).where(eq(users.id, existing[0]!.id));
+        isActive: skipOtp,
+        emailVerifiedAt: skipOtp ? new Date() : null
+      }).where(eq(users.id, existing[0]!.id)).returning();
       
-      sendOtpEmail(input.email, otpCode, input.firstName);
-      return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
+      if (!skipOtp) {
+        sendOtpEmail(input.email, otpCode, input.firstName);
+        return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
+      }
+      
+      const accessToken = generateAccessToken(updatedUser!);
+      const refreshTokenValue = generateRefreshTokenValue();
+      const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+      await db.insert(refreshTokens).values({ userId: updatedUser!.id, tokenHash: hashToken(refreshTokenValue), expiresAt });
+      
+      return {
+        requiresOtp: false,
+        message: 'تم تفعيل الحساب',
+        user: { id: updatedUser!.id, email: updatedUser!.email, firstName: updatedUser!.firstName, lastName: updatedUser!.lastName, role: updatedUser!.role },
+        accessToken,
+        refreshToken: refreshTokenValue,
+      };
     }
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-  await db.insert(users).values({
+  const [newUser] = await db.insert(users).values({
     email: input.email,
     passwordHash,
     firstName: input.firstName,
     lastName: input.lastName,
     phone: input.phone,
     role: 'customer',
-    isActive: false, // inactive until OTP is verified
+    isActive: skipOtp, // active if skipOtp
+    emailVerifiedAt: skipOtp ? new Date() : null,
     otpCode,
     otpExpiresAt,
-  });
+  }).returning();
 
-  sendOtpEmail(input.email, otpCode, input.firstName);
-  return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
+  if (!skipOtp) {
+    sendOtpEmail(input.email, otpCode, input.firstName);
+    return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
+  }
+
+  const accessToken = generateAccessToken(newUser!);
+  const refreshTokenValue = generateRefreshTokenValue();
+  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+  await db.insert(refreshTokens).values({ userId: newUser!.id, tokenHash: hashToken(refreshTokenValue), expiresAt });
+  
+  return {
+    requiresOtp: false,
+    message: 'تم إنشاء الحساب بنجاح',
+    user: { id: newUser!.id, email: newUser!.email, firstName: newUser!.firstName, lastName: newUser!.lastName, role: newUser!.role },
+    accessToken,
+    refreshToken: refreshTokenValue,
+  };
 }
 
 export async function verifyRegistrationOTP(email: string, otp: string) {
@@ -152,10 +184,6 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
-  if (process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY) {
-    throw AppError.internal('النظام غير مهيأ لإرسال رسائل البريد الإلكتروني. الرجاء إضافة RESEND_API_KEY في إعدادات Railway.');
-  }
-
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
   if (existing.length > 0) {
