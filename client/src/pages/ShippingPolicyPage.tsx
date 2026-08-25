@@ -1,9 +1,13 @@
+import { useSiteName } from '../hooks/useSiteSettings';
+
 export default function ShippingPolicyPage() {
+  const siteName = useSiteName();
   return (
     <div className="container" style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto' }}>
       <h1 className="page-header__title mb-6">الشحن والتوصيل</h1>
       <div className="card p-6">
-        <p className="mb-4">نسعى في سوق مصر لتوفير أفضل تجربة شحن لتصلك مشترياتك في أسرع وقت ممكن.</p>
+        <h3 className="text-xl font-bold mb-3">1. مناطق التوصيل</h3>
+        <p className="mb-4">نسعى في {siteName} لتوفير أفضل تجربة شحن لتصلك مشترياتك في أسرع وقت ممكن.</p>
         
         <h2 className="mb-2 font-bold mt-6">مناطق التغطية</h2>
         <p className="mb-4 text-secondary">

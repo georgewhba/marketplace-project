@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { useSiteName } from '../hooks/useSiteSettings';
 import { useToast } from '../toast';
 
 import { ArrowRight } from 'lucide-react';
@@ -9,6 +10,7 @@ export default function RegisterPage() {
   const { pathname } = window.location;
   const isVendor = pathname.includes('/vendor');
   const { register, registerVendor } = useAuth();
+  const siteName = useSiteName();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -47,9 +49,9 @@ export default function RegisterPage() {
         <span>العودة للمتجر</span>
       </Link>
       <div className="auth-card" style={{ maxWidth: isVendor ? 520 : 440 }}>
-        <h1 className="auth-card__title">{isVendor ? 'سجّل متجرك' : 'إنشاء حساب'}</h1>
+        <h1 className="auth-card__title">{isVendor ? `ابدأ البيع على ${siteName}` : `انضم إلى ${siteName}`}</h1>
         <p className="auth-card__subtitle">
-          {isVendor ? 'ابدأ البيع على سوق مصر' : 'انضم إلى سوق مصر'}
+          {isVendor ? 'ابدأ البيع على ' + siteName : 'انضم إلى ' + siteName}
         </p>
 
         <form onSubmit={handleSubmit}>

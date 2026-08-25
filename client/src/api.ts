@@ -102,6 +102,7 @@ export const authApi = {
 
 // Store
 export const storeApi = {
+  getSettings: () => api.get<any>('/store/settings'),
   getHome: () => api.get<any>('/store/home'),
   getCategories: () => api.get<any>('/store/categories'),
   getCategory: (slug: string) => api.get<any>(`/store/categories/${slug}`),

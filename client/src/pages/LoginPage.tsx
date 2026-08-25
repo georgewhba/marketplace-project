@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { useSiteName } from '../hooks/useSiteSettings';
 import { useToast } from '../toast';
 
 import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, mfaLogin } = useAuth();
+  const siteName = useSiteName();
   const toast = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -50,7 +52,7 @@ export default function LoginPage() {
       </Link>
       <div className="auth-card">
         <h1 className="auth-card__title">تسجيل الدخول</h1>
-        <p className="auth-card__subtitle">أهلاً بك في سوق مصر</p>
+        <p className="auth-card__subtitle">أهلاً بك في {siteName}</p>
 
         <form onSubmit={handleSubmit}>
           {showMfa ? (

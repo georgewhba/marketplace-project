@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { useTheme } from '../hooks/useTheme';
 import { cartApi } from '../api';
+import { useSiteName } from '../hooks/useSiteSettings';
 
 const MotionLink = motion.create(Link);
 
@@ -14,6 +15,7 @@ export function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const siteName = useSiteName();
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -60,8 +62,8 @@ export function Header() {
     <header className="header">
       <div className="header__inner">
         <Link to="/" className="header__logo" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <img src="/favicon.svg" alt="سوق مصر" width="32" height="32" />
-          سوق مصر
+          <img src="/favicon.svg" alt={siteName} width="32" height="32" />
+          {siteName}
         </Link>
 
         <form className="header__search" onSubmit={handleSearch}>
@@ -170,11 +172,13 @@ export function Header() {
 }
 
 export function Footer() {
+  const siteName = useSiteName();
+  
   return (
     <footer className="footer">
       <div className="footer__grid">
         <div className="footer__brand">
-          <div className="footer__brand-name">سوق مصر</div>
+          <div className="footer__brand-name">{siteName}</div>
           <p>منصة التجارة الإلكترونية الأولى في مصر. تسوّق من أفضل البائعين المعتمدين.</p>
         </div>
         <div>
@@ -205,7 +209,7 @@ export function Footer() {
         </div>
       </div>
       <div className="footer__bottom">
-        © {new Date().getFullYear()} سوق مصر — جميع الحقوق محفوظة
+        © {new Date().getFullYear()} {siteName} — جميع الحقوق محفوظة
       </div>
     </footer>
   );

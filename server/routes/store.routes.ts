@@ -10,6 +10,12 @@ import { optionalAuth } from '../middleware/authenticate.js';
 
 const storeRoutes = new Hono();
 
+// GET /api/store/settings
+storeRoutes.get('/settings', async (c: any) => {
+  const [siteNameSetting] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'site_name')).limit(1);
+  return sendSuccess(c, { siteName: siteNameSetting?.value || 'سوق مصر' });
+});
+
 // GET /api/store/home — homepage data
 storeRoutes.get('/home', async (c) => {
   // Featured products
