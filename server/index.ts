@@ -217,7 +217,7 @@ if (env.NODE_ENV !== 'test') {
   const autoSeedPlans = async () => {
     try {
       const existing = await db.select({ count: sql<number>`count(*)` }).from(subscriptionPlans);
-      if (Number(existing[0].count) === 0) {
+      if (!existing[0] || Number(existing[0].count) === 0) {
         console.log('[Auto-Seed] No subscription plans found. Seeding default (Basic, Plus, Pro) plans...');
         const plansToInsert = [
           { name: 'Basic', slug: 'basic', priceMonthly: '0.00', commissionRate: '12.00', productLimit: 50, imageLimitPerProduct: 3, autoShippingEnabled: false, advancedAnalytics: false, bulkActionsEnabled: false, payoutCycleDays: 30, sortOrder: 1, isActive: true },
