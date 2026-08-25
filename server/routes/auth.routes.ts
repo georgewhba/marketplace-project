@@ -36,8 +36,8 @@ authRoutes.post('/verify-otp', authRateLimit, async (c) => {
 
 // POST /api/auth/google
 authRoutes.post('/google', authRateLimit, async (c) => {
-  const { idToken } = await c.req.json();
-  const result = await authService.googleAuth(idToken);
+  const { idToken, vendorData } = await c.req.json();
+  const result = await authService.googleAuth(idToken, vendorData);
   setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
   setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
   return sendSuccess(c, { user: result.user });
@@ -47,9 +47,11 @@ authRoutes.post('/google', authRateLimit, async (c) => {
 authRoutes.post('/register/vendor', authRateLimit, validate('body', vendorRegisterSchema), async (c) => {
   const input = getValidated<VendorRegisterInput>(c, 'body');
   const result = await authService.registerVendor(input);
-  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  return sendCreated(c, { user: result.user });
+  if (result.accessToken && result.refreshToken) {
+    setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+    setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  }
+  return sendCreated(c, result);
 });
 
 // POST /api/auth/login

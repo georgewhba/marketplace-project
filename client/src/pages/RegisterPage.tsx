@@ -38,9 +38,22 @@ export default function RegisterPage() {
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
       if (credentialResponse.credential) {
-        await googleAuth(credentialResponse.credential);
-        toast.success('تم التسجيل بواسطة Google بنجاح');
-        navigate('/');
+        if (isVendor) {
+          if (!form.storeName) {
+            toast.error('يرجى إدخال اسم المتجر أولاً قبل التسجيل بواسطة Google');
+            return;
+          }
+          await googleAuth(credentialResponse.credential, {
+            storeName: form.storeName,
+            storeDescription: form.storeDescription
+          });
+          toast.success('تم تسجيل متجرك بواسطة Google — في انتظار الموافقة');
+          navigate('/');
+        } else {
+          await googleAuth(credentialResponse.credential);
+          toast.success('تم التسجيل بواسطة Google بنجاح');
+          navigate('/');
+        }
       }
     } catch (err: any) {
       toast.error(err.message || 'فشل التسجيل بواسطة Google');
@@ -53,9 +66,15 @@ export default function RegisterPage() {
     try {
       if (step === 'details') {
         if (isVendor) {
-          await registerVendor(form);
-          toast.success('تم تسجيل متجرك — في انتظار الموافقة');
-          navigate('/');
+          const result = await registerVendor(form) as any;
+          if (result?.requiresOtp) {
+            setStep('otp');
+            setCountdown(120);
+            toast.success(result?.message || 'تم إرسال رمز التحقق');
+          } else {
+            toast.success('تم تسجيل متجرك — في انتظار الموافقة');
+            navigate('/');
+          }
         } else {
           const { storeName, storeDescription, ...userData } = form;
           const result = await register(userData);
@@ -106,35 +125,31 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit}>
           {step === 'details' ? (
             <>
-              {!isVendor && (
-                <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
-                  {(window.ENV?.VITE_GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID) ? (
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={() => toast.error('فشل التسجيل بواسطة Google')}
-                      text="signup_with"
-                      theme="outline"
-                    />
-                  ) : (
-                    <button 
-                      type="button" 
-                      className="btn btn-outline" 
-                      style={{ width: '100%' }}
-                      onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
-                    >
-                      التسجيل بواسطة Google (غير مفعل)
-                    </button>
-                  )}
-                </div>
-              )}
+              <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
+                {(window.ENV?.VITE_GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID) ? (
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => toast.error('فشل التسجيل بواسطة Google')}
+                    text="signup_with"
+                    theme="outline"
+                  />
+                ) : (
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ width: '100%' }}
+                    onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
+                  >
+                    التسجيل بواسطة Google (غير مفعل)
+                  </button>
+                )}
+              </div>
               
-              {!isVendor && (
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
-                  <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
-                  <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>أو</span>
-                  <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
+                <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
+                <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>أو</span>
+                <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
+              </div>
 
               <div className="flex gap-4 mb-4">
                 <div className="form-group" style={{ flex: 1 }}>

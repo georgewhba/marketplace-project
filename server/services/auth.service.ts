@@ -64,8 +64,8 @@ function parseExpiry(expiry: string): number {
 }
 
 export async function register(input: RegisterInput) {
-  const skipOtp = process.env.NODE_ENV === 'production' && !env.RESEND_API_KEY;
-  if (skipOtp) console.warn('Skipping OTP verification because RESEND_API_KEY is missing');
+  const skipOtp = false;
+
 
   const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
   
@@ -126,6 +126,7 @@ export async function register(input: RegisterInput) {
 
   if (!skipOtp) {
     sendOtpEmail(input.email, otpCode, input.firstName);
+    console.log(`[OTP] user ${input.email} code: ${otpCode}`);
     return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
   }
 
@@ -184,10 +185,84 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
+  const skipOtp = false;
+
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, input.email)).limit(1);
+  const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
+  
+  const otpCode = generateOTP();
+  const otpExpiresAt = new Date(Date.now() + 120 * 1000); // 120 seconds
+
   if (existing.length > 0) {
-    throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
+    if (existing[0]!.isActive) {
+      throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
+    } else {
+      // User exists but unverified, update them
+      const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+      const storeSlug = slugify(input.storeName);
+
+      const existingSlug = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, storeSlug)).limit(1);
+      if (existingSlug.length > 0) {
+        throw AppError.conflict('اسم المتجر مستخدم بالفعل');
+      }
+
+      await db.transaction(async (tx) => {
+        await tx.update(users).set({ 
+          otpCode, 
+          otpExpiresAt, 
+          passwordHash,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phone: input.phone,
+          isActive: skipOtp,
+          emailVerifiedAt: skipOtp ? new Date() : null,
+          role: 'vendor'
+        }).where(eq(users.id, existing[0]!.id));
+
+        const [commissionSetting] = await tx.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
+        const commissionRate = commissionSetting?.value || '10.00';
+
+        const existingVendor = await tx.select({ id: vendors.id }).from(vendors).where(eq(vendors.userId, existing[0]!.id)).limit(1);
+        if (existingVendor.length > 0) {
+          await tx.update(vendors).set({
+            storeName: input.storeName,
+            storeSlug,
+            storeDescription: input.storeDescription,
+            status: 'pending',
+            commissionRate,
+          }).where(eq(vendors.userId, existing[0]!.id));
+        } else {
+          await tx.insert(vendors).values({
+            userId: existing[0]!.id,
+            storeName: input.storeName,
+            storeSlug,
+            storeDescription: input.storeDescription,
+            status: 'pending',
+            commissionRate,
+          });
+        }
+      });
+
+      if (!skipOtp) {
+        sendOtpEmail(input.email, otpCode, input.firstName);
+        console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+        return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
+      }
+      
+      const updatedUser = await getProfile(existing[0]!.id);
+      const accessToken = generateAccessToken({ id: updatedUser.id, email: updatedUser.email, role: updatedUser.role });
+      const refreshTokenValue = generateRefreshTokenValue();
+      const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+      await db.insert(refreshTokens).values({ userId: updatedUser.id, tokenHash: hashToken(refreshTokenValue), expiresAt });
+      
+      return {
+        requiresOtp: false,
+        message: 'تم تسجيل متجرك — في انتظار الموافقة',
+        user: updatedUser,
+        accessToken,
+        refreshToken: refreshTokenValue,
+      };
+    }
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -199,13 +274,7 @@ export async function registerVendor(input: VendorRegisterInput) {
     throw AppError.conflict('اسم المتجر مستخدم بالفعل');
   }
 
-  // ATOMIC TRANSACTION: user + vendor + refresh token are one unit.
-  // If the vendor insert fails (e.g. slug race between pre-check and now),
-  // the user row is automatically rolled back — no orphan users possible.
-  const refreshTokenValue = generateRefreshTokenValue();
-  const refreshTokenHash = hashToken(refreshTokenValue);
-  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
-
+  // ATOMIC TRANSACTION: user + vendor
   let newUser: { id: number; email: string; firstName: string; lastName: string; role: string };
 
   await db.transaction(async (tx) => {
@@ -216,6 +285,10 @@ export async function registerVendor(input: VendorRegisterInput) {
       lastName: input.lastName,
       phone: input.phone,
       role: 'vendor',
+      isActive: skipOtp,
+      emailVerifiedAt: skipOtp ? new Date() : null,
+      otpCode,
+      otpExpiresAt,
     }).returning({
       id: users.id,
       email: users.email,
@@ -230,8 +303,6 @@ export async function registerVendor(input: VendorRegisterInput) {
     const [commissionSetting] = await tx.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
     const commissionRate = commissionSetting?.value || '10.00';
 
-    // Inserting vendor inside the same tx — any constraint violation here
-    // (e.g. unique storeSlug race) rolls back the user insert automatically
     await tx.insert(vendors).values({
       userId: user.id,
       storeName: input.storeName,
@@ -240,17 +311,28 @@ export async function registerVendor(input: VendorRegisterInput) {
       status: 'pending',
       commissionRate,
     });
-
-    await tx.insert(refreshTokens).values({
-      userId: user.id,
-      tokenHash: refreshTokenHash,
-      expiresAt,
-    });
   });
 
+  if (!skipOtp) {
+    sendOtpEmail(input.email, otpCode, input.firstName);
+    console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+    return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
+  }
+
   const accessToken = generateAccessToken(newUser!);
+  const refreshTokenValue = generateRefreshTokenValue();
+  const refreshTokenHash = hashToken(refreshTokenValue);
+  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+
+  await db.insert(refreshTokens).values({
+    userId: newUser!.id,
+    tokenHash: refreshTokenHash,
+    expiresAt,
+  });
 
   return {
+    requiresOtp: false,
+    message: 'تم تسجيل متجرك — في انتظار الموافقة',
     user: await getProfile(newUser!.id),
     accessToken,
     refreshToken: refreshTokenValue,
@@ -614,7 +696,7 @@ export async function resetPassword(token: string, newPassword: string) {
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
 }
 
-export async function googleAuth(idToken: string) {
+export async function googleAuth(idToken: string, vendorData?: { storeName: string, storeDescription?: string }) {
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -641,7 +723,7 @@ export async function googleAuth(idToken: string) {
       firstName: given_name || 'مستخدم',
       lastName: family_name || '',
       passwordHash: '', // OAuth users don't have a password
-      role: 'customer',
+      role: vendorData ? 'vendor' : 'customer',
       avatarUrl: picture,
       googleId,
       isActive: true,
@@ -649,10 +731,37 @@ export async function googleAuth(idToken: string) {
     }).returning();
     user = newUser as any;
   } else {
-    // Update existing user to link google if not linked
-    if (!user.googleId) {
+    // Update existing user to link google if not linked, and potentially upgrade to vendor
+    if (vendorData && user.role === 'customer') {
+      const [updatedUser] = await db.update(users).set({ role: 'vendor', googleId: user.googleId || googleId, emailVerifiedAt: new Date(), isActive: true }).where(eq(users.id, user.id)).returning();
+      user = updatedUser as any;
+    } else if (!user.googleId) {
       const [updatedUser] = await db.update(users).set({ googleId, emailVerifiedAt: new Date(), isActive: true }).where(eq(users.id, user.id)).returning();
       user = updatedUser as any;
+    }
+  }
+
+  if (vendorData) {
+    const storeSlug = slugify(vendorData.storeName);
+    const existingSlug = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, storeSlug)).limit(1);
+    
+    // Check if this user already has a vendor profile
+    const existingVendor = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.userId, user!.id)).limit(1);
+    
+    if (existingVendor.length === 0) {
+      if (existingSlug.length > 0) {
+        throw AppError.conflict('اسم المتجر مستخدم بالفعل');
+      }
+      const [commissionSetting] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
+      const commissionRate = commissionSetting?.value || '10.00';
+      await db.insert(vendors).values({
+        userId: user!.id,
+        storeName: vendorData.storeName,
+        storeSlug,
+        storeDescription: vendorData.storeDescription,
+        status: 'pending',
+        commissionRate,
+      });
     }
   }
 

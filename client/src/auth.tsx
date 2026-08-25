@@ -22,7 +22,7 @@ interface AuthContextType {
   mfaLogin: (tempToken: string, token: string) => Promise<void>;
   register: (data: any) => Promise<any>;
   verifyOtp: (email: string, otp: string) => Promise<void>;
-  googleAuth: (idToken: string) => Promise<void>;
+  googleAuth: (idToken: string, vendorData?: any) => Promise<void>;
   registerVendor: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -115,8 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
-  const googleAuth = async (idToken: string) => {
-    const res = await authApi.googleAuth({ idToken }) as any;
+  const googleAuth = async (idToken: string, vendorData?: any) => {
+    const res = await authApi.googleAuth({ idToken, vendorData }) as any;
     const data = res.data || res;
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
