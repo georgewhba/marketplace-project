@@ -108,7 +108,7 @@ export default function RegisterPage() {
             <>
               {!isVendor && (
                 <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
-                  {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                  {(window.ENV?.VITE_GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID) ? (
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
                       onError={() => toast.error('فشل التسجيل بواسطة Google')}

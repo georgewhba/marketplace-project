@@ -154,7 +154,15 @@ if (env.NODE_ENV === 'production') {
   // SPA fallback for React Router
   app.get('*', async (c) => {
     try {
-      const indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
+      let indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
+      
+      // Inject Runtime Environment Variables
+      const runtimeEnv = {
+        VITE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || '',
+      };
+      const scriptTag = `<script>window.ENV = ${JSON.stringify(runtimeEnv)};</script></head>`;
+      indexHtml = indexHtml.replace('</head>', scriptTag);
+      
       return c.html(indexHtml);
     } catch (err) {
       return c.notFound();

@@ -85,7 +85,7 @@ export default function LoginPage() {
           ) : (
             <>
               <div style={{ marginBottom: 'var(--space-6)', display: 'flex', justifyContent: 'center' }}>
-                {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                {(window.ENV?.VITE_GOOGLE_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID) ? (
                   <GoogleLogin
                     onSuccess={handleGoogleSuccess}
                     onError={() => toast.error('فشل تسجيل الدخول بواسطة Google')}

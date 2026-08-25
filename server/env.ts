@@ -23,6 +23,7 @@ const envSchema = z.object({
   PAYMOB_IFRAME_ID: z.string().optional(),
   PAYMOB_HMAC: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
   EMAIL_FROM: z.string().optional().default('onboarding@resend.dev'),
   BOSTA_API_KEY: z.string().optional(),
   BOSTA_WEBHOOK_SECRET: z.string().optional().default('bosta_secret_123'),
