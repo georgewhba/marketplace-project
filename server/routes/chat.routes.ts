@@ -47,7 +47,7 @@ chatRoutes.post('/', aiRateLimit, async (c) => {
     })) : [];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       contents: [
         ...formattedHistory,
         { role: 'user', parts: [{ text: message }] }
@@ -63,7 +63,18 @@ chatRoutes.post('/', aiRateLimit, async (c) => {
     return c.json({ reply });
   } catch (error: any) {
     console.error('[AI Chat] Error:', error);
-    const errorMessage = error?.message || 'حدث خطأ أثناء الاتصال بالدعم الذكي.';
+    let errorMessage = error?.message || 'حدث خطأ أثناء الاتصال بالدعم الذكي.';
+    try {
+      if (errorMessage.startsWith('{')) {
+        const parsed = JSON.parse(errorMessage);
+        errorMessage = parsed?.error?.message || errorMessage;
+      }
+    } catch (e) {}
+    
+    if (errorMessage.includes('high demand')) {
+      errorMessage = 'يوجد ضغط كبير على السيرفرات حالياً، يرجى المحاولة بعد قليل.';
+    }
+
     return c.json({ error: `حدث خطأ: ${errorMessage}` }, 500);
   }
 });
