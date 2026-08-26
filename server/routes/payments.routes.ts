@@ -259,8 +259,8 @@ router.post('/webhook/paymob-mock', async (c) => {
   
   if (typeof orderId === 'string' && orderId.startsWith('SUB-')) {
     const parts = orderId.split('-');
-    const vendorId = parseInt(parts[1], 10);
-    const planId = parseInt(parts[2], 10);
+    const vendorId = parseInt(parts[1] || '0', 10);
+    const planId = parseInt(parts[2] || '0', 10);
     
     if (success) {
       const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
