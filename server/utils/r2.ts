@@ -10,17 +10,20 @@ let s3Client: S3Client | null = null;
 const accountId = env.R2_ACCOUNT_ID?.trim();
 const accessKeyId = env.R2_ACCESS_KEY_ID?.trim();
 const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim();
+const jurisdiction = env.R2_JURISDICTION?.trim(); // optional, e.g., 'eu'
 
 if (accountId && accessKeyId && secretAccessKey) {
+  const jurisdictionPart = jurisdiction ? `.${jurisdiction}` : '';
+  const endpointUrl = `https://${accountId}${jurisdictionPart}.r2.cloudflarestorage.com`;
+  
   s3Client = new S3Client({
     region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    endpoint: endpointUrl,
     credentials: {
       accessKeyId,
       secretAccessKey,
     },
     forcePathStyle: true,
-    // Disable automatic checksums as they can cause AccessDenied in Cloudflare R2 with newer AWS SDKs
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
   });

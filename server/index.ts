@@ -151,15 +151,20 @@ app.get('/api/debug/r2', async (c) => {
   const hasSecretKey = !!env.R2_SECRET_ACCESS_KEY;
   const bucketName = env.R2_BUCKET_NAME || 'NOT_SET';
   const publicUrl = env.R2_PUBLIC_URL || 'NOT_SET';
+  const jurisdiction = env.R2_JURISDICTION?.trim() || '';
 
   let tlsTestResult = 'Not tested';
   let tlsError = null;
+  let endpointUsed = 'NOT_SET';
 
   if (accountId !== 'NOT_SET') {
     const https = await import('node:https');
     
     try {
-      const endpoint = `${accountId}.r2.cloudflarestorage.com`;
+      const jurisdictionPart = jurisdiction ? `.${jurisdiction}` : '';
+      const endpoint = `${accountId}${jurisdictionPart}.r2.cloudflarestorage.com`;
+      endpointUsed = endpoint;
+      
       tlsTestResult = await new Promise((resolve, reject) => {
         const req = https.request({
           hostname: endpoint,
@@ -189,7 +194,9 @@ app.get('/api/debug/r2', async (c) => {
       hasAccessKey,
       hasSecretKey,
       bucketName,
-      publicUrl
+      publicUrl,
+      jurisdiction,
+      endpointUsed
     },
     tlsTest: {
       result: tlsTestResult,
