@@ -195,7 +195,7 @@ export function Header({ className }: { className?: string }) {
              </motion.button>
 
              {menuOpen && (
-                <div className="dropdown__menu" style={{ right: 0, left: 'auto' }}>
+                <div className="dropdown__menu">
                   {/* Theme */}
                   <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] mb-1">
                     <span className="text-sm font-semibold">المظهر</span>
@@ -208,17 +208,22 @@ export function Header({ className }: { className?: string }) {
                     <>
                       <Link to="/notifications" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
                         <div className="flex items-center gap-2"><Bell size={16} /> الإشعارات</div>
-                        {unreadCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{unreadCount}</span>}
+                        {unreadCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{unreadCount}</span>}
                       </Link>
-                      <Link to="/wishlist" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                        <Heart size={16} /> المفضلة
-                      </Link>
-                      {user.role !== 'vendor' && user.role !== 'admin' && (
-                        <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
-                          <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
-                          {cartItemCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{cartItemCount}</span>}
-                        </Link>
+
+                      {user?.role !== 'vendor' && user?.role !== 'admin' && (
+                        <>
+                          <Link to="/wishlist" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                            <Heart size={16} /> المفضلة
+                          </Link>
+                          <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
+                            <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
+                            {cartItemCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{cartItemCount}</span>}
+                          </Link>
+                        </>
                       )}
+
+                      <hr className="dropdown__divider" />
                       <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}>
                         <User size={16} /> حسابي
                       </Link>
