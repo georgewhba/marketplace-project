@@ -126,7 +126,7 @@ export default function VendorOrders() {
                       <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>•</span>
                       <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>طلب #{item.orderNumber || item.orderId}</span>
                     </div>
-                    <div className="font-semibold mb-1 break-words whitespace-normal">{item.productName}</div>
+                    <div className="font-semibold mb-1 whitespace-normal">{item.productName}</div>
                     <div className="text-muted flex flex-wrap items-center gap-1" style={{ fontSize: 'var(--font-size-sm)' }}>
                       <span>الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م</span>
                       <span className="hidden sm:inline" style={{ color: 'var(--neutral-300)' }}>|</span>

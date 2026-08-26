@@ -22,16 +22,16 @@ export function VendorLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header flex items-center justify-between p-3 px-4 sticky z-40 border-b" style={{ top: 'var(--header-height)', background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+      <div className="dashboard-mobile-header">
         <div className="flex items-center gap-3">
-          <button className="sidebar-toggle bg-transparent border-0 cursor-pointer p-1 flex items-center text-muted" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu size={24} />
           </button>
           
           {location.pathname !== '/vendor' && (
             <button 
               onClick={() => navigate(-1)} 
-              className="bg-transparent border-0 cursor-pointer flex items-center text-muted p-1"
+              className="sidebar-toggle"
               title="رجوع"
             >
               <ChevronRight size={24} />

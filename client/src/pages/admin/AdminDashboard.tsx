@@ -36,17 +36,16 @@ export function AdminLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 'var(--header-height)', zIndex: 40 }}>
+      <div className="dashboard-mobile-header">
         <div className="flex items-center gap-3">
-          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu size={24} />
           </button>
           
           {location.pathname !== '/admin' && (
             <button 
               onClick={() => navigate(-1)} 
-              className="text-secondary"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 'var(--space-1)' }}
+              className="sidebar-toggle"
               title="رجوع"
             >
               <ChevronRight size={24} />
