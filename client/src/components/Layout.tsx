@@ -11,7 +11,7 @@ import { useSiteName } from '../hooks/useSiteSettings';
 
 const MotionLink = motion.create(Link);
 
-export function Header() {
+export function Header({ className }: { className?: string }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -59,7 +59,7 @@ export function Header() {
   };
 
   return (
-    <header className="header">
+    <header className={`header ${className || ''}`}>
       <div className="header__inner">
         <Link to="/" className="header__logo" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <img src="/favicon.svg" alt={siteName} width="32" height="32" />
@@ -78,7 +78,7 @@ export function Header() {
         </form>
 
         <div className="header__actions">
-          <button className="header__icon-btn" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
+          <button className="header__icon-btn hidden md:flex" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
@@ -96,7 +96,7 @@ export function Header() {
                   </span>
                 )}
               </MotionLink>
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn" title="المفضلة">
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn hidden md:flex" title="المفضلة">
                 <Heart size={20} />
               </MotionLink>
               <MotionLink 
@@ -136,9 +136,9 @@ export function Header() {
             <div className="dropdown" ref={menuRef}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <User size={18} />
-                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
+                <span className="hidden md:inline" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'plus' && (
-                  <span style={{ 
+                  <span className="hidden md:inline" style={{ 
                     background: 'linear-gradient(to right, var(--brand-400), var(--brand-600))',
                     color: 'white',
                     fontSize: 'var(--font-size-xs, 0.65rem)',
@@ -151,7 +151,7 @@ export function Header() {
                   </span>
                 )}
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'pro' && (
-                  <span style={{ 
+                  <span className="hidden md:inline" style={{ 
                     background: 'linear-gradient(45deg, #1f2937, #111827)',
                     color: 'var(--warning-500, #fbbf24)',
                     border: '1px solid #374151',
@@ -168,6 +168,15 @@ export function Header() {
 
               {menuOpen && (
                 <div className="dropdown__menu">
+                  <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] mb-1">
+                    <span className="text-sm font-semibold">المظهر</span>
+                    <button onClick={toggleTheme} className="p-1 rounded bg-[var(--bg-surface-2)]">
+                      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    </button>
+                  </div>
+                  <Link to="/wishlist" className="dropdown__item md:hidden" onClick={() => setMenuOpen(false)}>
+                    <Heart size={16} /> المفضلة
+                  </Link>
                   <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}>
                     <User size={16} /> حسابي
                   </Link>

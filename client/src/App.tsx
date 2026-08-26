@@ -103,7 +103,7 @@ function StoreLayout({ children }: { children: ReactNode }) {
 function DashboardWrapper({ children }: { children: ReactNode }) {
   return (
     <>
-      <Header />
+      <Header className="hidden md:block" />
       <PageWrapper>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </PageWrapper>
