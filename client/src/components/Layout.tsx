@@ -79,14 +79,14 @@ export function Header({ className }: { className?: string }) {
 
         <div className="header__actions" ref={menuRef}>
           {/* DESKTOP: Theme toggle */}
-          <button className="header__icon-btn hidden md:flex" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
+          <button className="header__icon-btn max-md:!hidden" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
           {user && (
             <>
               {/* DESKTOP: Notifications */}
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn hidden md:flex" title="الإشعارات" style={{ position: 'relative' }}>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn max-md:!hidden" title="الإشعارات" style={{ position: 'relative' }}>
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span style={{
@@ -100,7 +100,7 @@ export function Header({ className }: { className?: string }) {
               </MotionLink>
 
               {/* DESKTOP: Wishlist */}
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn hidden md:flex" title="المفضلة">
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn max-md:!hidden" title="المفضلة">
                 <Heart size={20} />
               </MotionLink>
             </>
@@ -112,7 +112,7 @@ export function Header({ className }: { className?: string }) {
               whileHover={{ scale: 1.05 }} 
               whileTap={{ scale: 0.95 }} 
               to="/cart" 
-              className="header__icon-btn hidden md:flex" 
+              className="header__icon-btn max-md:!hidden" 
               title="السلة" 
               style={{ position: 'relative' }}
             >
@@ -138,11 +138,11 @@ export function Header({ className }: { className?: string }) {
 
           {/* DESKTOP: Login / User Menu */}
           {!user ? (
-            <MotionLink whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} to="/login" className="btn btn-primary btn-sm hidden md:flex">
+            <MotionLink whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} to="/login" className="btn btn-primary btn-sm max-md:!hidden">
               تسجيل الدخول
             </MotionLink>
           ) : (
-            <div className="dropdown hidden md:block">
+            <div className="dropdown max-md:!hidden">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <div className="flex items-center"><User size={18} /></div>
                 <span className="inline" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
