@@ -338,13 +338,23 @@
   transform: translateY(-8px);
 }
 [data-theme="dark"] .subs-card-pro {
-  background: var(--brand-100);
-  border-color: var(--brand-500);
+  background: linear-gradient(145deg, var(--bg-surface), var(--bg-page));
+  border: 1px solid var(--accent-500);
+  box-shadow: 0 4px 24px rgba(212, 160, 23, 0.15);
 }
 .subs-card-pro .subs-card-title,
 .subs-card-pro .subs-card-desc,
 .subs-card-pro .subs-card-price {
   color: white;
+}
+[data-theme="dark"] .subs-card-pro .subs-card-title {
+  color: var(--accent-400);
+}
+[data-theme="dark"] .subs-card-pro .subs-card-desc {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .subs-card-pro .subs-card-price {
+  color: var(--text-primary);
 }
 .subs-card-pro .subs-card-price-period,
 .subs-card-pro .subs-card-feature {
@@ -352,34 +362,44 @@
 }
 [data-theme="dark"] .subs-card-pro .subs-card-price-period,
 [data-theme="dark"] .subs-card-pro .subs-card-feature {
-  color: var(--brand-900);
+  color: var(--text-secondary);
 }
 .subs-card-pro .subs-card-feature svg {
   color: var(--brand-300);
 }
 [data-theme="dark"] .subs-card-pro .subs-card-feature svg {
-  color: var(--brand-500);
+  color: var(--accent-500);
 }
 .subs-card-pro .subs-card-commission {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
 }
+[data-theme="dark"] .subs-card-pro .subs-card-commission {
+  background: rgba(212, 160, 23, 0.1);
+  border-color: rgba(212, 160, 23, 0.2);
+}
 .subs-card-pro .subs-card-commission span,
 .subs-card-pro .subs-card-commission strong {
   color: white;
+}
+[data-theme="dark"] .subs-card-pro .subs-card-commission span,
+[data-theme="dark"] .subs-card-pro .subs-card-commission strong {
+  color: var(--accent-400);
 }
 .subs-card-pro .btn-primary {
   background: white;
   color: var(--brand-900);
 }
 [data-theme="dark"] .subs-card-pro .btn-primary {
-  color: var(--brand-100);
+  background: var(--accent-500);
+  color: #17130f;
+  border-color: var(--accent-500);
 }
 .subs-card-pro .btn-primary:hover {
   background: var(--brand-50);
 }
 [data-theme="dark"] .subs-card-pro .btn-primary:hover {
-  background: var(--brand-900);
+  background: var(--accent-400);
 }
 
 @media (max-width: 768px) {
