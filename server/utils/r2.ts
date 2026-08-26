@@ -3,13 +3,17 @@ import { env } from '../env.js';
 
 let s3Client: S3Client | null = null;
 
-if (env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY) {
+const accountId = env.R2_ACCOUNT_ID?.trim();
+const accessKeyId = env.R2_ACCESS_KEY_ID?.trim();
+const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim();
+
+if (accountId && accessKeyId && secretAccessKey) {
   s3Client = new S3Client({
     region: 'auto',
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
     credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+      accessKeyId,
+      secretAccessKey,
     },
     forcePathStyle: true,
   });
@@ -32,7 +36,7 @@ export async function uploadToR2(buffer: Buffer, filename: string, contentType: 
   const key = `uploads/${filename}`;
 
   const command = new PutObjectCommand({
-    Bucket: env.R2_BUCKET_NAME,
+    Bucket: env.R2_BUCKET_NAME.trim(),
     Key: key,
     Body: buffer,
     ContentType: contentType,
@@ -67,7 +71,7 @@ export async function deleteFromR2(fileUrl: string): Promise<void> {
   const key = fileUrl.replace(`${publicUrlBase}/`, '');
 
   const command = new DeleteObjectCommand({
-    Bucket: env.R2_BUCKET_NAME,
+    Bucket: env.R2_BUCKET_NAME.trim(),
     Key: key,
   });
 
