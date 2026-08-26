@@ -127,8 +127,9 @@ describe('Senior Security — Concurrency & Race Conditions', () => {
     const successes = results.filter(r => r.status === 201);
     expect(successes.length).toBeLessThanOrEqual(1);
     
-    if (successes.length === 1 && successes[0].body?.data) {
-       cleanupIds.orderIds.push((successes[0].body.data as any).id);
+    const success = successes[0];
+    if (successes.length === 1 && success?.body?.data) {
+       cleanupIds.orderIds.push((success.body.data as any).id);
     }
   });
 });
