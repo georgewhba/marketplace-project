@@ -203,8 +203,20 @@ export default function ProductDetailPage() {
                   <Store size={20} className="text-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold text-primary-dark">{product.vendor.storeName}</div>
-                  <div className="flex items-center gap-2 text-xs text-muted">
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold text-primary-dark">{product.vendor.storeName}</div>
+                    {product.vendor.subscriptionPlanSlug === 'pro' && (
+                      <span className="badge badge-pro flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                        برو <span style={{ fontSize: '0.8rem' }}>💎</span>
+                      </span>
+                    )}
+                    {product.vendor.subscriptionPlanSlug === 'plus' && (
+                      <span className="badge badge-plus flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                        بلس <span style={{ fontSize: '0.8rem' }}>✨</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted mt-1">
                     <StarRating rating={parseFloat(product.vendor.rating || '0')} size={12} />
                     <span>({product.vendor.reviewCount} تقييم)</span>
                   </div>

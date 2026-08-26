@@ -31,6 +31,7 @@ const ShippingPolicyPage = lazy(() => import('./pages/ShippingPolicyPage'));
 const FaqPage = lazy(() => import('./pages/FaqPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const MotionPreviewPage = lazy(() => import('./pages/MotionPreviewPage'));
+const MockPaymobPage = lazy(() => import('./pages/MockPaymobPage'));
 // Vendor pages
 const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
 const VendorOrders = lazy(() => import('./pages/vendor/VendorOrders'));
@@ -140,6 +141,7 @@ function AnimatedRoutes() {
         <Route path="/faq" element={<StoreLayout><Suspense fallback={<Loading />}><FaqPage /></Suspense></StoreLayout>} />
         <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
         <Route path="/motion-preview" element={<StoreLayout><Suspense fallback={<Loading />}><MotionPreviewPage /></Suspense></StoreLayout>} />
+        <Route path="/mock-paymob" element={<StoreLayout><Suspense fallback={<Loading />}><MockPaymobPage /></Suspense></StoreLayout>} />
         {/* Vendor dashboard */}
         <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>
           <Route index element={<VendorDashboard />} />

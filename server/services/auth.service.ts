@@ -3,8 +3,8 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../db/index.js';
-import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings, vendorSubscriptions, subscriptionPlans } from '../db/schema/index.js';
+import { eq, and } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
@@ -470,7 +470,21 @@ export async function getProfile(userId: number) {
   let vendorInfo = null;
   if (user.role === 'vendor') {
     const [vendor] = await db.select().from(vendors).where(eq(vendors.userId, userId)).limit(1);
-    vendorInfo = vendor ?? null;
+    
+    if (vendor) {
+      const [subscription] = await db.select({
+        id: vendorSubscriptions.id,
+        status: vendorSubscriptions.status,
+        planSlug: subscriptionPlans.slug,
+        planName: subscriptionPlans.name,
+      })
+      .from(vendorSubscriptions)
+      .innerJoin(subscriptionPlans, eq(vendorSubscriptions.planId, subscriptionPlans.id))
+      .where(and(eq(vendorSubscriptions.vendorId, vendor.id), eq(vendorSubscriptions.status, 'active')))
+      .limit(1);
+
+      vendorInfo = { ...vendor, subscription: subscription || null };
+    }
   }
 
   const [mfa] = await db.select({ enabled: mfaSecrets.enabled }).from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);

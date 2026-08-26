@@ -370,7 +370,14 @@ export default function VendorSubscriptions() {
       {/* Custom Confirm Modal */}
       <AnimatePresence>
         {confirmModal.isOpen && (
-          <div className="subs-modal-overlay" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>
+          <motion.div 
+            key="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="subs-modal-overlay" 
+            onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+          >
             <motion.div 
               className="subs-modal-content"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -399,7 +406,7 @@ export default function VendorSubscriptions() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

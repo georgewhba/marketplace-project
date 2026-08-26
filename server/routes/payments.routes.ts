@@ -248,10 +248,50 @@ router.get('/:orderId/status', authenticate, async (c) => {
   return c.json({
     success: true,
     data: {
-      orderStatus: order.status,
-      paymentStatus: lastPayment ? lastPayment.status : 'unknown',
+      status: lastPayment ? lastPayment.status : 'pending',
     }
   });
+});
+
+// Mock Paymob Webhook (For development without real credentials)
+router.post('/webhook/paymob-mock', async (c) => {
+  const { orderId, success } = await c.req.json();
+  
+  if (typeof orderId === 'string' && orderId.startsWith('SUB-')) {
+    const parts = orderId.split('-');
+    const vendorId = parseInt(parts[1], 10);
+    const planId = parseInt(parts[2], 10);
+    
+    if (success) {
+      const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
+      if (!plan) return c.json({ success: false, message: 'Plan not found' });
+      
+      const now = new Date();
+      let periodEnd: Date | null = new Date();
+      // Assume 30 days for mock
+      periodEnd.setDate(now.getDate() + 30);
+      
+      const [pendingSub] = await db.select().from(vendorSubscriptions).where(and(eq(vendorSubscriptions.vendorId, vendorId), eq(vendorSubscriptions.status, 'pending_payment')));
+      
+      if (pendingSub) {
+        await db.update(vendorSubscriptions)
+          .set({ status: 'active', currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true })
+          .where(eq(vendorSubscriptions.id, pendingSub.id));
+      } else {
+        await db.insert(vendorSubscriptions).values({
+          vendorId, planId, status: 'active', currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true
+        });
+      }
+      
+      await db.delete(commissionRules).where(and(eq(commissionRules.scope, 'vendor'), eq(commissionRules.targetId, vendorId)));
+      await db.insert(commissionRules).values({
+        scope: 'vendor', targetId: vendorId, rate: plan.commissionRate, priority: 100, effectiveFrom: now
+      });
+    }
+    return c.json({ success: true });
+  }
+
+  return c.json({ success: true, message: 'Not a subscription mock' });
 });
 
 export default router;

@@ -945,20 +945,31 @@ input, textarea, select, button {
 .toast {
   min-width: 320px;
   padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  animation: slideIn 300ms ease;
   font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.95);
+}
+[data-theme="dark"] .toast {
+  background: rgba(34, 28, 22, 0.95);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
 }
 
-.toast-success { border-right: 3px solid var(--success-500); }
-.toast-error { border-right: 3px solid var(--error-500); }
-.toast-info { border-right: 3px solid var(--info-500); }
+.toast-success { border-right: 4px solid var(--success-500); color: var(--success-700); }
+.toast-error { border-right: 4px solid var(--error-500); color: var(--error-700); }
+.toast-info { border-right: 4px solid var(--brand-500); color: var(--brand-700); }
+[data-theme="dark"] .toast-success { color: var(--success-400); }
+[data-theme="dark"] .toast-error { color: var(--error-400); }
+[data-theme="dark"] .toast-info { color: var(--brand-400); }
 
 /* ══════════════════════════════════════════════
    SKELETON

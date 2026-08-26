@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { products, categories, vendors, productImages, reviews, siteSettings, subscriptionPlans, subscriptionPromotions } from '../db/schema/index.js';
+import { products, categories, vendors, productImages, reviews, siteSettings, subscriptionPlans, subscriptionPromotions, vendorSubscriptions } from '../db/schema/index.js';
 import { eq, and, gte, lte, like, desc, asc, sql, ilike } from 'drizzle-orm';
 import { sendSuccess } from '../utils/response.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
@@ -217,8 +217,17 @@ storeRoutes.get('/products/:slug', async (c) => {
 
   // Get vendor info
   const [vendor] = await db
-    .select({ id: vendors.id, storeName: vendors.storeName, storeSlug: vendors.storeSlug, rating: vendors.rating, reviewCount: vendors.reviewCount })
+    .select({ 
+      id: vendors.id, 
+      storeName: vendors.storeName, 
+      storeSlug: vendors.storeSlug, 
+      rating: vendors.rating, 
+      reviewCount: vendors.reviewCount,
+      subscriptionPlanSlug: subscriptionPlans.slug
+    })
     .from(vendors)
+    .leftJoin(vendorSubscriptions, and(eq(vendorSubscriptions.vendorId, vendors.id), eq(vendorSubscriptions.status, 'active')))
+    .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, vendorSubscriptions.planId))
     .where(eq(vendors.id, product.vendorId))
     .limit(1);
 

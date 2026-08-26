@@ -136,7 +136,34 @@ export function Header() {
             <div className="dropdown" ref={menuRef}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <User size={18} />
-                <span style={{ fontSize: '0.8125rem' }}>{user.firstName}</span>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{user.firstName}</span>
+                {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'plus' && (
+                  <span style={{ 
+                    background: 'linear-gradient(to right, var(--brand-400), var(--brand-600))',
+                    color: 'white',
+                    fontSize: '0.65rem',
+                    padding: '2px 6px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    marginRight: '4px'
+                  }}>
+                    بلس
+                  </span>
+                )}
+                {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'pro' && (
+                  <span style={{ 
+                    background: 'linear-gradient(45deg, #1f2937, #111827)',
+                    color: '#fbbf24',
+                    border: '1px solid #374151',
+                    fontSize: '0.65rem',
+                    padding: '2px 6px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    marginRight: '4px'
+                  }}>
+                    برو
+                  </span>
+                )}
               </motion.button>
 
               {menuOpen && (
