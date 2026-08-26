@@ -178,7 +178,7 @@ export default function VendorOrders() {
 
       {shipmentModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'var(--bg-overlay)' }}>
-          <div className="card p-5 relative" style={{ width: 400 }}>
+          <div className="card p-5 relative" style={{ width: '100%', maxWidth: 400 }}>
             <button
               className="absolute bg-transparent border-0 cursor-pointer"
               style={{ top: 15, right: 15 }}

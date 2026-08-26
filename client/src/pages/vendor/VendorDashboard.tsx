@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2, CreditCard, Tag } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2, CreditCard } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 
 const sidebarLinks = [

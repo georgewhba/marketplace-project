@@ -172,6 +172,7 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-wrap: break-word;
 }
 
 body {
@@ -546,6 +547,7 @@ input, textarea, select, button {
   color: var(--text-primary);
   margin-bottom: var(--space-2);
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -636,7 +638,7 @@ input, textarea, select, button {
 .header__search-input {
   width: 100%;
   padding: var(--space-2) var(--space-4);
-  padding-left: 40px;
+  padding-inline-end: 40px;
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-md);
   background: var(--bg-surface-2);
@@ -654,7 +656,7 @@ input, textarea, select, button {
 
 .header__search-icon {
   position: absolute;
-  left: var(--space-3);
+  inset-inline-end: var(--space-3);
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
@@ -1359,6 +1361,11 @@ input, textarea, select, button {
 .gap-4 { gap: var(--space-4); }
 .gap-6 { gap: var(--space-6); }
 
+/* Flex min-width utility for truncation and overflow prevention */
+.min-w-0 { min-width: 0; }
+.flex-1 { flex: 1; }
+.w-full { width: 100%; }
+
 /* Mobile menu */
 .mobile-menu-btn {
   display: none;
@@ -1367,6 +1374,7 @@ input, textarea, select, button {
 @media (max-width: 768px) {
   .mobile-menu-btn { display: flex; }
   .header__search { display: none; }
+  .header__inner { justify-content: space-between; gap: var(--space-2); }
   .sidebar {
     position: fixed;
     right: 0;
@@ -1410,7 +1418,7 @@ input, textarea, select, button {
 .dropdown__menu {
   position: absolute;
   top: calc(100% + var(--space-2));
-  left: 0;
+  inset-inline-end: 0;
   min-width: 200px;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);

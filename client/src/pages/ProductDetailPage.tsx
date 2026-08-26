@@ -59,7 +59,7 @@ export default function ProductDetailPage() {
     return (
       <div className="container page-content">
         <div className="flex gap-6" style={{ flexWrap: 'wrap' }}>
-          <div className="skeleton" style={{ width: 500, height: 400 }} />
+          <div className="skeleton" style={{ width: '100%', maxWidth: 500, height: 400 }} />
           <div style={{ flex: 1 }}>
             <div className="skeleton skeleton-title" style={{ width: '80%' }} />
             <div className="skeleton skeleton-text" style={{ width: '40%' }} />
@@ -131,7 +131,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Info */}
-        <div className="flex-1" style={{ minWidth: 300 }}>
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold mb-3">
             {product.name}
           </h1>

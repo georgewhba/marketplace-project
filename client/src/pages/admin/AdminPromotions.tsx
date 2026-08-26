@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useToast } from '../../toast';
-import { Tag, Plus, Edit, Power, PowerOff } from 'lucide-react';
+import { Tag, Plus, PowerOff } from 'lucide-react';
 
 export default function AdminPromotions() {
   const queryClient = useQueryClient();
@@ -62,10 +62,6 @@ export default function AdminPromotions() {
       discountPercentage: '',
       durationDays: '30'
     });
-  };
-
-  const handleEdit = (promo: any) => {
-    // Only used for viewing now, backend doesn't support full edit
   };
 
   if (isLoading) return <div className="p-6">جاري التحميل...</div>;

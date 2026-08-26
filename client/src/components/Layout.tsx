@@ -141,11 +141,11 @@ export function Header() {
                   <span style={{ 
                     background: 'linear-gradient(to right, var(--brand-400), var(--brand-600))',
                     color: 'white',
-                    fontSize: '0.65rem',
+                    fontSize: 'var(--font-size-xs, 0.65rem)',
                     padding: '2px 6px',
                     borderRadius: '12px',
                     fontWeight: 'bold',
-                    marginRight: '4px'
+                    marginInlineStart: '4px'
                   }}>
                     بلس
                   </span>
@@ -153,13 +153,13 @@ export function Header() {
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'pro' && (
                   <span style={{ 
                     background: 'linear-gradient(45deg, #1f2937, #111827)',
-                    color: '#fbbf24',
+                    color: 'var(--warning-500, #fbbf24)',
                     border: '1px solid #374151',
-                    fontSize: '0.65rem',
+                    fontSize: 'var(--font-size-xs, 0.65rem)',
                     padding: '2px 6px',
                     borderRadius: '12px',
                     fontWeight: 'bold',
-                    marginRight: '4px'
+                    marginInlineStart: '4px'
                   }}>
                     برو
                   </span>
