@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { useAuth } from '../../auth';
 
@@ -54,9 +54,14 @@ export function AdminLayout() {
 
           <span className="text-primary" style={{ fontWeight: 600, fontSize: 'var(--font-size-lg)' }}>لوحة الإدارة</span>
         </div>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--brand-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
-          العودة للمتجر
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/notifications" style={{ color: 'var(--text-secondary)' }}>
+            <Bell size={20} />
+          </Link>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--brand-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
+            العودة للمتجر
+          </Link>
+        </div>
       </div>
       
       {isSidebarOpen && (
