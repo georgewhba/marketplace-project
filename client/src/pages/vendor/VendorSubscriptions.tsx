@@ -16,6 +16,7 @@ export default function VendorSubscriptions() {
   const [isYearly, setIsYearly] = useState<boolean>(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; plan: any; price: number; isYearly: boolean }>({ isOpen: false, plan: null, price: 0, isYearly: false });
 
   const { data: plansData, isLoading: loadingPlans } = useQuery({
     queryKey: ['store-subscription-plans'],
@@ -30,9 +31,10 @@ export default function VendorSubscriptions() {
   const subscribeMutation = useMutation({
     mutationFn: (planId: number) => api.post('/vendor/subscription/subscribe', { planId }),
     onSuccess: (res: any) => {
-      addToast(res.message || 'تم بدء عملية الاشتراك بنجاح', 'success');
-      if (res.iframeUrl) {
-        window.location.href = res.iframeUrl;
+      addToast(res.message || res.data?.message || 'تم بدء عملية الاشتراك بنجاح', 'success');
+      setConfirmModal({ ...confirmModal, isOpen: false });
+      if (res.data?.iframeUrl) {
+        window.location.href = res.data.iframeUrl;
       } else {
         queryClient.invalidateQueries({ queryKey: ['vendor-current-subscription'] });
       }
@@ -256,9 +258,7 @@ export default function VendorSubscriptions() {
                 className={`btn subs-card-btn ${isCurrent ? 'btn-ghost' : plan.slug === 'pro' ? 'btn-primary' : 'btn-secondary'}`}
                 disabled={isCurrent || subscribeMutation.isPending}
                 onClick={() => {
-                  if (window.confirm(`هل أنت متأكد من الاشتراك في باقة ${plan.name} بـ ${displayedPrice} ج.م ${isYearly ? 'سنوياً' : 'شهرياً'}؟`)) {
-                    subscribeMutation.mutate(plan.id);
-                  }
+                  setConfirmModal({ isOpen: true, plan, price: displayedPrice, isYearly });
                 }}
               >
                 {subscribeMutation.isPending ? 'جاري التحويل...' : isCurrent ? 'باقتك الحالية' : (originalPrice === 0 ? 'ابدأ مجاناً' : 'اشترك الآن')}
@@ -367,6 +367,41 @@ export default function VendorSubscriptions() {
           ))}
         </div>
       </div>
+      {/* Custom Confirm Modal */}
+      <AnimatePresence>
+        {confirmModal.isOpen && (
+          <div className="subs-modal-overlay" onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>
+            <motion.div 
+              className="subs-modal-content"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3>تأكيد الاشتراك</h3>
+              <p>
+                هل أنت متأكد من الاشتراك في باقة <strong>{confirmModal.plan?.name}</strong> بـ <strong>{confirmModal.price} ج.م</strong> {confirmModal.isYearly ? 'سنوياً' : 'شهرياً'}؟
+              </p>
+              <div className="subs-modal-actions">
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                  disabled={subscribeMutation.isPending}
+                >
+                  إلغاء
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => subscribeMutation.mutate(confirmModal.plan?.id)}
+                  disabled={subscribeMutation.isPending}
+                >
+                  {subscribeMutation.isPending ? 'جاري التحويل...' : 'تأكيد ودفع'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
