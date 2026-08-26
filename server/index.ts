@@ -139,6 +139,66 @@ app.get('/api/health', async (c) => {
   }, isHealthy ? 200 : 503);
 });
 
+// Debug endpoint for R2 configuration and TLS testing
+app.get('/api/debug/r2', async (c) => {
+  const accountId = env.R2_ACCOUNT_ID?.trim() || 'NOT_SET';
+  
+  const previewId = accountId !== 'NOT_SET' 
+    ? `${accountId.slice(0, 4)}...${accountId.slice(-4)}` 
+    : 'NOT_SET';
+  
+  const hasAccessKey = !!env.R2_ACCESS_KEY_ID;
+  const hasSecretKey = !!env.R2_SECRET_ACCESS_KEY;
+  const bucketName = env.R2_BUCKET_NAME || 'NOT_SET';
+  const publicUrl = env.R2_PUBLIC_URL || 'NOT_SET';
+
+  let tlsTestResult = 'Not tested';
+  let tlsError = null;
+
+  if (accountId !== 'NOT_SET') {
+    const https = await import('node:https');
+    
+    try {
+      const endpoint = `${accountId}.r2.cloudflarestorage.com`;
+      tlsTestResult = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: endpoint,
+          port: 443,
+          method: 'GET',
+          path: '/'
+        }, (res) => {
+          resolve(`Success, status: ${res.statusCode}`);
+        });
+
+        req.on('error', (e) => {
+          reject(e);
+        });
+
+        req.end();
+      });
+    } catch (e: any) {
+      tlsTestResult = 'Failed';
+      tlsError = e.message;
+    }
+  }
+
+  return c.json({
+    config: {
+      accountIdLength: accountId.length,
+      accountIdPreview: previewId,
+      hasAccessKey,
+      hasSecretKey,
+      bucketName,
+      publicUrl
+    },
+    tlsTest: {
+      result: tlsTestResult,
+      error: tlsError
+    }
+  });
+});
+
+
 // Basic Metrics endpoint (Prometheus format)
 app.get('/api/metrics', async (c) => {
   // In a real-world scenario with high scale, you'd use a library like prom-client.
