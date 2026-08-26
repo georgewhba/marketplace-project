@@ -2,7 +2,8 @@ import { db } from '../db/index.js';
 import { notificationPreferences } from '../db/schema/notifications-config.js';
 import { notifications } from '../db/schema/notifications.js';
 import { and, eq } from 'drizzle-orm';
-import { sendEmail, EmailTemplateKey, EmailOptions } from './email.service.js';
+import { emailQueue } from '../jobs/email.queue.js';
+import type { EmailTemplateKey } from './email.service.js';
 import { sendSms, SmsOptions } from './sms.service.js';
 import { users } from '../db/schema/users.js';
 
@@ -60,8 +61,8 @@ export async function dispatchNotification(options: DispatchOptions): Promise<vo
 
   // 4. Dispatch Email
   if (email && user.email && isEnabled('email')) {
-    // Fire and forget (errors logged inside sendEmail)
-    sendEmail({
+    // Fire and forget via BullMQ
+    emailQueue.add('dispatch-notification', {
       to: user.email,
       subject: title,
       templateKey: email.templateKey,

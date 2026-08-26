@@ -1,5 +1,5 @@
 import { db } from '../../server/db/index.js';
-import { users, products, addresses, cartItems, categories, vendors } from '../../server/db/schema/index.js';
+import { users, products, addresses, cartItems, categories, vendors, orders, orderItems, transactions, payments, settlements } from '../../server/db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 const INITIAL_STOCK = 5;
-const NUM_USERS = 50;
+const NUM_USERS = 500;
 const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'CHANGE_ME_access_secret_32chars_min';
 const PORT = process.env.PORT || 3002;
 
@@ -125,10 +125,15 @@ async function verify(productId: number) {
 async function main() {
   // We need to clear previous load test data
   console.log('Clearing old data...');
+  await db.delete(transactions);
+  await db.delete(orderItems);
+  await db.delete(payments);
+  await db.delete(orders);
   await db.delete(cartItems);
   await db.delete(addresses);
   await db.delete(products);
   await db.delete(categories);
+  await db.delete(settlements);
   await db.delete(vendors);
   await db.delete(users).where(eq(users.email, 'vendor-load@test.com'));
   

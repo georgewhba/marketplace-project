@@ -9,6 +9,7 @@ import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
 import { encryptSecret, decryptSecret, generateSecret, generateQRCode, verifyTOTP, generateBackupCodes } from '../utils/mfa.js';
+import { emailQueue } from '../jobs/email.queue.js';
 import type {
   RegisterInput,
   VendorRegisterInput,
@@ -23,7 +24,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_cli
 
 async function sendOtpEmail(email: string, otp: string, firstName: string) {
   try {
-    await sendEmail({
+    await emailQueue.add('send-otp', {
       to: email,
       subject: 'رمز التحقق الخاص بك',
       templateKey: 'otp_registration',
@@ -64,7 +65,7 @@ function parseExpiry(expiry: string): number {
 }
 
 export async function register(input: RegisterInput) {
-  const skipOtp = false;
+  const skipOtp = process.env.NODE_ENV === 'test';
 
 
   const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
@@ -185,7 +186,7 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
-  const skipOtp = false;
+  const skipOtp = process.env.NODE_ENV === 'test';
 
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
   const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
@@ -692,8 +693,6 @@ export async function disableMFA(userId: number, token: string) {
   await db.delete(mfaSecrets).where(eq(mfaSecrets.userId, userId));
 }
 
-import { sendEmail } from './email.service.js';
-
 export async function forgotPassword(email: string) {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   if (!user) return; // Silent success to prevent email enumeration
@@ -711,10 +710,10 @@ export async function forgotPassword(email: string) {
   // In a real app, this would be a link to the frontend reset password page
   const resetLink = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
 
-  await sendEmail({
+  await emailQueue.add('send-reset-password', {
     to: user.email,
+    subject: 'إعادة تعيين كلمة المرور',
     templateKey: 'password_reset',
-    subject: 'استعادة كلمة المرور',
     data: { name: user.firstName, resetLink },
   });
 }

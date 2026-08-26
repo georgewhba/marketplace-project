@@ -88,6 +88,8 @@ function GuestRoute({ children }: { children: ReactNode }) {
   return <PageWrapper>{children}</PageWrapper>;
 }
 
+import { AIChatWidget } from './components/chat/AIChatWidget';
+
 function StoreLayout({ children }: { children: ReactNode }) {
   return (
     <>
@@ -95,6 +97,7 @@ function StoreLayout({ children }: { children: ReactNode }) {
       <PageWrapper>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </PageWrapper>
+      <AIChatWidget />
       <Footer />
     </>
   );

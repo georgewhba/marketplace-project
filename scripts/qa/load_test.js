@@ -12,8 +12,8 @@ export const options = {
   scenarios: { 
     concurrent_checkout: { 
       executor: 'shared-iterations', 
-      vus: 50, 
-      iterations: 50 
+      vus: 500, 
+      iterations: 500 
     } 
   },
 };

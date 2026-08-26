@@ -22,7 +22,12 @@ authRoutes.post('/register', authRateLimit, validate('body', registerSchema), as
   const input = getValidated<RegisterInput>(c, 'body');
   const result = await authService.register(input);
   
-  return sendSuccess(c, result);
+  if (result.accessToken && result.refreshToken) {
+    setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+    setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  }
+  
+  return sendCreated(c, result);
 });
 
 // POST /api/auth/verify-otp

@@ -32,6 +32,7 @@ import paymentsRoutes from './routes/payments.routes.js';
 import refundsRoutes from './routes/refunds.routes.js';
 import webhooksRoutes from './routes/webhooks.routes.js';
 import roleRoutes from './routes/roles.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 
 // Initialize Sentry before anything else
 if (env.SENTRY_DSN) {
@@ -241,6 +242,7 @@ app.route('/api/payments', paymentsRoutes);
 app.route('/api/refunds', refundsRoutes);
 app.route('/api/webhooks', webhooksRoutes);
 app.route('/api/roles', roleRoutes);
+app.route('/api/chat', chatRoutes);
 
 // Serve uploaded files
 app.use('/uploads/*', serveStatic({ root: './' }));
@@ -307,6 +309,8 @@ if (isCronRunner) {
   console.log('[Cron] Background jobs initialized on this instance.');
 }
 
+import { closeQueues } from './jobs/index.js';
+
 // Start server only if not in test environment
 if (env.NODE_ENV !== 'test') {
   
@@ -352,6 +356,7 @@ if (env.NODE_ENV !== 'test') {
       });
 
       try {
+        await closeQueues();
         // Close database connections safely
         await queryClient.end({ timeout: 5 });
         console.log('Database connections closed.');

@@ -314,7 +314,7 @@ const contactSchema = z.object({
 });
 
 // POST /api/store/contact
-import { sendEmail } from '../services/email.service.js';
+import { emailQueue } from '../jobs/email.queue.js';
 
 storeRoutes.post('/contact', validate('body', contactSchema), async (c) => {
   const input = getValidated<z.infer<typeof contactSchema>>(c, 'body');
@@ -322,7 +322,7 @@ storeRoutes.post('/contact', validate('body', contactSchema), async (c) => {
   // In a real application, you might want to save this to a database
   // and send it to the admin's email.
   // Here we just send an email to a predefined admin address.
-  await sendEmail({
+  await emailQueue.add('contact-form', {
     to: 'admin@example.com', // Admin email
     templateKey: 'order_confirmation', // Fallback since we don't have a contact template, or create one
     subject: `رسالة جديدة من نموذج اتصل بنا: ${input.subject}`,

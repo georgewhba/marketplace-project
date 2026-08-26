@@ -1,13 +1,9 @@
 import type { Context, Next } from 'hono';
 import { AppError } from '../utils/errors.js';
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
+import { redis } from '../lib/redis.js';
 
 /**
- * In-memory sliding window rate limiter.
+ * Redis-backed fixed window rate limiter.
  * Key function determines the scope (per IP, per user, etc.)
  */
 export function rateLimit(options: {
@@ -16,47 +12,53 @@ export function rateLimit(options: {
   keyFn?: (c: Context) => string;
   message?: string;
 }) {
-  const store = new Map<string, RateLimitEntry>();
-
-  // Cleanup expired entries every minute
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store.entries()) {
-      if (entry.resetAt <= now) {
-        store.delete(key);
-      }
-    }
-  }, 60_000);
-
   return async (c: Context, next: Next) => {
-    const key = options.keyFn
+    // Generate base key
+    const rawKey = options.keyFn
       ? options.keyFn(c)
       : c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    
+    const key = `ratelimit:${rawKey}`;
 
-    const now = Date.now();
-    const entry = store.get(key);
+    try {
+      // Use pipeline for atomic increment and optional expire
+      const pipeline = redis.pipeline();
+      pipeline.incr(key);
+      pipeline.pttl(key);
+      
+      const results = await pipeline.exec();
+      if (!results) {
+        await next();
+        return;
+      }
 
-    if (!entry || entry.resetAt <= now) {
-      store.set(key, { count: 1, resetAt: now + options.windowMs });
+      const count = results[0][1] as number;
+      let ttl = results[1][1] as number;
+
+      // If key has no expiration (ttl === -1), set one
+      if (ttl === -1) {
+        await redis.pexpire(key, options.windowMs);
+        ttl = options.windowMs;
+      }
+
+      if (count > options.maxRequests) {
+        const retryAfter = Math.ceil(ttl / 1000);
+        c.header('Retry-After', String(retryAfter));
+        c.header('X-RateLimit-Limit', String(options.maxRequests));
+        c.header('X-RateLimit-Remaining', '0');
+        throw AppError.tooManyRequests(options.message);
+      }
+
       c.header('X-RateLimit-Limit', String(options.maxRequests));
-      c.header('X-RateLimit-Remaining', String(options.maxRequests - 1));
+      c.header('X-RateLimit-Remaining', String(options.maxRequests - count));
       await next();
-      return;
+    } catch (err: any) {
+      if (err instanceof AppError) throw err;
+      
+      // If Redis fails, log it but don't block the request (fail open)
+      console.error('Rate Limiter Redis Error:', err);
+      await next();
     }
-
-    entry.count++;
-
-    if (entry.count > options.maxRequests) {
-      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-      c.header('Retry-After', String(retryAfter));
-      c.header('X-RateLimit-Limit', String(options.maxRequests));
-      c.header('X-RateLimit-Remaining', '0');
-      throw AppError.tooManyRequests(options.message);
-    }
-
-    c.header('X-RateLimit-Limit', String(options.maxRequests));
-    c.header('X-RateLimit-Remaining', String(options.maxRequests - entry.count));
-    await next();
   };
 }
 

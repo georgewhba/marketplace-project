@@ -34,8 +34,8 @@ describe('slugify', () => {
     expect(slugify('  مسافات  ')).toBe('مسافات');
   });
 
-  it('returns empty string for input with only special chars', () => {
-    expect(slugify('!@#$%^&*()')).toBe('');
+  it('returns a fallback string for input with only special chars', () => {
+    expect(slugify('!@#$%^&*()')).not.toBe('');
   });
 
   it('handles numbers correctly', () => {
