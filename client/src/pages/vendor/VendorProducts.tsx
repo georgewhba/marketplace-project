@@ -69,15 +69,25 @@ export default function VendorProducts() {
     onSuccess: async (res) => {
       // Upload images for new products
       if (!editId && imageFiles.length > 0 && res?.data?.id) {
+        let hasErrors = false;
         for (const file of imageFiles) {
           const fd = new FormData();
           fd.append('image', file);
           try {
             await vendorApi.uploadProductImage(res.data.id, fd);
-          } catch { /* ignore individual upload errors */ }
+          } catch (err: any) { 
+            hasErrors = true;
+            addToast(`فشل رفع ${file.name}: ${err.response?.data?.message || err.message}`, 'error');
+          }
         }
+        if (!hasErrors) {
+          addToast('تم إضافة المنتج والصور بنجاح', 'success');
+        } else {
+          addToast('تم إضافة المنتج ولكن فشل رفع بعض الصور', 'error');
+        }
+      } else {
+        addToast(editId ? 'تم تحديث المنتج' : 'تم إضافة المنتج', 'success');
       }
-      addToast(editId ? 'تم تحديث المنتج' : 'تم إضافة المنتج', 'success');
       qc.invalidateQueries({ queryKey: ['vendor-products'] });
       resetForm();
     },
@@ -210,8 +220,26 @@ export default function VendorProducts() {
                 {!editId && (
                   <div className="form-group mb-3">
                     <label className="form-label">صور المنتج</label>
-                    <input type="file" className="input w-full" accept="image/*" multiple onChange={e => setImageFiles(Array.from(e.target.files ?? []))} />
-                    {imageFiles.length > 0 && <small className="text-muted block mt-1">{imageFiles.length} صورة محددة</small>}
+                    <input type="file" className="input w-full" accept="image/*" multiple onChange={e => {
+                      const files = Array.from(e.target.files ?? []);
+                      setImageFiles(prev => [...prev, ...files]);
+                    }} />
+                    {imageFiles.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <small className="text-muted">{imageFiles.length} صورة محددة</small>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {imageFiles.map((f, i) => (
+                            <div key={i} className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
+                              <img src={URL.createObjectURL(f)} alt="preview" className="w-full h-full object-cover rounded" />
+                              <button type="button" className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1" style={{ transform: 'translate(25%, -25%)' }}
+                                onClick={() => setImageFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-3 mt-4">
