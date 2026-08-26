@@ -18,10 +18,10 @@ async function run() {
   }
 
   try {
-    await sql`ALTER TABLE subscription_promotions ALTER COLUMN duration_days TYPE integer USING (CASE WHEN duration_days='day' THEN 1 WHEN duration_days='week' THEN 7 WHEN duration_days='month' THEN 30 ELSE 30 END)`;
-    console.log('Altered duration_days to integer');
+    await sql`ALTER TABLE subscription_promotions ADD COLUMN IF NOT EXISTS created_by integer REFERENCES users(id) DEFAULT 1`;
+    console.log('Added created_by column to subscription_promotions');
   } catch (e) {
-    console.error('Error altering duration_days type:', e.message);
+    console.error('Error adding created_by:', e.message);
   }
   
   process.exit(0);
