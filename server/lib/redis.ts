@@ -26,7 +26,7 @@ if (env.NODE_ENV === 'test') {
   }
 }
 
-export const redis = new RedisClient(redisConfig);
+export const redis = env.REDIS_URL ? new RedisClient(env.REDIS_URL) : new RedisClient(redisConfig);
 
 redis.on('error', (err: any) => {
   console.error('Redis connection error:', err);
