@@ -1,4 +1,7 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
+import https from 'node:https';
+import crypto from 'node:crypto';
 import { env } from '../env.js';
 
 let s3Client: S3Client | null = null;
@@ -8,6 +11,13 @@ const accessKeyId = env.R2_ACCESS_KEY_ID?.trim();
 const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim();
 
 if (accountId && accessKeyId && secretAccessKey) {
+  // Use a custom HTTPS agent to allow legacy server connections.
+  // This resolves the EPROTO / SSL alert number 40 issue some Node 18/20 environments
+  // experience during the TLS handshake with Cloudflare R2 on Railway.
+  const agent = new https.Agent({
+    secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+  });
+
   s3Client = new S3Client({
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -16,6 +26,9 @@ if (accountId && accessKeyId && secretAccessKey) {
       secretAccessKey,
     },
     forcePathStyle: true,
+    requestHandler: new NodeHttpHandler({
+      httpsAgent: agent,
+    }),
     // Disable automatic checksums as they can cause AccessDenied in Cloudflare R2 with newer AWS SDKs
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',

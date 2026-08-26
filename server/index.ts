@@ -72,7 +72,7 @@ app.use('*', secureHeaders({
   crossOriginOpenerPolicy: 'same-origin-allow-popups',
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
-    imgSrc: ["'self'", "data:", "blob:", "https://picsum.photos", "https://fastly.picsum.photos", "https://*"],
+    imgSrc: ["'self'", "data:", "blob:", "https://picsum.photos", "https://fastly.picsum.photos", "https:"],
     scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
     fontSrc: ["'self'", "https://fonts.gstatic.com"],
