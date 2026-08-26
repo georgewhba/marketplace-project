@@ -7,7 +7,7 @@ import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { StarRating } from '../components/ProductCard';
-import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store } from 'lucide-react';
+import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store, Gem, Sparkles } from 'lucide-react';
 
 export default function ProductDetailPage() {
   const shouldReduceMotion = useReducedMotion();
@@ -97,7 +97,7 @@ export default function ProductDetailPage() {
 
       <div className="flex gap-8 flex-wrap">
         {/* Images */}
-        <div style={{ flex: '0 0 480px', maxWidth: '100%' }}>
+        <div className="w-full md:w-[480px] shrink-0" style={{ maxWidth: '100%' }}>
           <div className="card mb-3">
             <div className="relative overflow-hidden" style={{ aspectRatio: '1' }}>
               <AnimatePresence mode="wait">
@@ -207,12 +207,12 @@ export default function ProductDetailPage() {
                     <div className="font-semibold text-primary-dark">{product.vendor.storeName}</div>
                     {product.vendor.subscriptionPlanSlug === 'pro' && (
                       <span className="badge badge-pro flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
-                        برو <span style={{ fontSize: '0.8rem' }}>💎</span>
+                        برو <Gem size={12} />
                       </span>
                     )}
                     {product.vendor.subscriptionPlanSlug === 'plus' && (
                       <span className="badge badge-plus flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
-                        بلس <span style={{ fontSize: '0.8rem' }}>✨</span>
+                        بلس <Sparkles size={12} />
                       </span>
                     )}
                   </div>

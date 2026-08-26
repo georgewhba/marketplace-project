@@ -88,7 +88,7 @@ export function Header() {
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: -5, right: -5, background: 'var(--brand-500)', color: 'white',
+                    position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--brand-500)', color: 'white',
                     fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
                     boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
                   }}>
@@ -117,7 +117,7 @@ export function Header() {
                 </motion.div>
                 {cartItemCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: -5, right: -5, background: 'var(--brand-500)', color: 'white',
+                    position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--brand-500)', color: 'white',
                     fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
                     boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
                   }}>
@@ -136,7 +136,7 @@ export function Header() {
             <div className="dropdown" ref={menuRef}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <User size={18} />
-                <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{user.firstName}</span>
+                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'plus' && (
                   <span style={{ 
                     background: 'linear-gradient(to right, var(--brand-400), var(--brand-600))',

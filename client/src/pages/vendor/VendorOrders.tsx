@@ -95,10 +95,10 @@ export default function VendorOrders() {
             {s === 'all' ? 'الكل' : statusLabels[s]?.label ?? s}
           </button>
         ))}
-        <div className="relative mr-auto">
-          <Search size={16} className="absolute text-muted" style={{ right: 10, top: '50%', transform: 'translateY(-50%)' }} />
-          <input className="input" placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ paddingRight: 34, height: 36, maxWidth: 200 }} />
+        <div className="relative ms-auto mt-3 md:mt-0 w-full md:w-auto">
+          <Search size={16} className="absolute text-muted" style={{ insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)' }} />
+          <input className="input w-full md:w-auto" placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)}
+            style={{ paddingInlineStart: 34, height: 36, maxWidth: '100%' }} />
         </div>
       </div>
 

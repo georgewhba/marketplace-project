@@ -83,10 +83,10 @@ export default function CartPage() {
         transition={{ duration: motionTokens.duration.slow, ...motionTokens.easing.spring }}
       >
         {/* Items */}
-        <div style={{ flex: '1 1 500px' }}>
+        <div className="w-full lg:flex-1 shrink-0 lg:min-w-[500px]">
           {items.map((item: any) => (
             <div key={item.id} className="card mb-4 p-4">
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                 <img
                   src={item.productImage || 'https://picsum.photos/seed/fallback/100/100'}
                   alt={item.productName}
@@ -104,7 +104,7 @@ export default function CartPage() {
                     <span className="badge badge-error mt-2">المنتج غير متاح</span>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start mt-3 sm:mt-0">
                   <div className="quantity-control">
                     <button className="quantity-control__btn" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}>
                       <Minus size={14} />
@@ -124,7 +124,7 @@ export default function CartPage() {
         </div>
 
         {/* Summary */}
-        <div style={{ flex: '0 0 320px' }}>
+        <div className="w-full lg:w-[320px] shrink-0">
           <div className="card card-body">
             <h3 className="text-lg font-semibold mb-4">ملخص الطلب</h3>
             <div className="flex justify-between mb-2">

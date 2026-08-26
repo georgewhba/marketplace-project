@@ -102,7 +102,7 @@ export default function CheckoutPage() {
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
       >
-        <div style={{ flex: '1 1 500px' }}>
+        <div className="w-full lg:flex-1 shrink-0 lg:min-w-[500px]">
           {/* Addresses */}
           <motion.div 
             className="card card-body mb-6"
@@ -112,7 +112,7 @@ export default function CheckoutPage() {
             }}
           >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>
-              <MapPin size={18} style={{ display: 'inline', marginLeft: 'var(--space-2)' }} />
+              <MapPin size={18} style={{ display: 'inline', marginInlineEnd: 'var(--space-2)' }} />
               عنوان التوصيل
             </h3>
 
@@ -272,7 +272,7 @@ export default function CheckoutPage() {
 
         {/* Summary */}
         <motion.div 
-          style={{ flex: '0 0 320px' }}
+          className="w-full lg:w-[320px] shrink-0"
           variants={{
             hidden: { opacity: 0, x: shouldReduceMotion ? 0 : -20 },
             visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
