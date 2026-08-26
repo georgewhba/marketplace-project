@@ -69,6 +69,7 @@ app.use('*', secureHeaders({
   xContentTypeOptions: 'nosniff',
   xXssProtection: '1; mode=block',
   strictTransportSecurity: 'max-age=31536000; includeSubDomains; preload',
+  crossOriginOpenerPolicy: 'same-origin-allow-popups',
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
     imgSrc: ["'self'", "data:", "https://picsum.photos", "https://fastly.picsum.photos", "https://*"],
