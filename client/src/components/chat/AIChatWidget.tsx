@@ -43,7 +43,7 @@ export const AIChatWidget = () => {
     } catch (err: any) {
       setMessages(prev => [...prev, { 
         role: 'model', 
-        text: err.response?.data?.error || 'عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى التأكد من إعداد مفتاح API في الخادم.' 
+        text: err.message || 'عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى التأكد من إعداد مفتاح API في الخادم.' 
       }]);
     } finally {
       setIsLoading(false);

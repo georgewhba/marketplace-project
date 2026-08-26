@@ -47,9 +47,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const details = (err as any)?.error?.details;
-    const msg = (Array.isArray(details) && details.length > 0 && details[0].message) 
-      ? details[0].message 
-      : ((err as any)?.error?.message || 'حدث خطأ');
+    
+    let msg = 'حدث خطأ';
+    if (Array.isArray(details) && details.length > 0 && details[0].message) {
+      msg = details[0].message;
+    } else if (typeof (err as any)?.error === 'string') {
+      msg = (err as any).error;
+    } else if ((err as any)?.error?.message) {
+      msg = (err as any).error.message;
+    } else if ((err as any)?.message) {
+      msg = (err as any).message;
+    }
       
     throw new ApiError(res.status, msg);
   }
