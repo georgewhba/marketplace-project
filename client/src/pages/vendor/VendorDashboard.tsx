@@ -22,7 +22,7 @@ export function VendorLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header flex items-center justify-between p-3 px-4 sticky top-0 z-40 border-b" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
+      <div className="dashboard-mobile-header flex items-center justify-between p-3 px-4 sticky z-40 border-b" style={{ top: 'var(--header-height)', background: 'var(--bg-surface)', borderColor: 'var(--border-color)' }}>
         <div className="flex items-center gap-3">
           <button className="sidebar-toggle bg-transparent border-0 cursor-pointer p-1 flex items-center text-muted" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             <Menu size={24} />

@@ -141,13 +141,13 @@ export default function VendorProducts() {
 
       {/* Search */}
       <div className="relative mb-4" style={{ maxWidth: 360 }}>
-        <Search size={18} className="absolute text-muted" style={{ right: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <Search size={18} className="absolute text-muted" style={{ insetInlineEnd: , top: '50%', transform: 'translateY(-50%)' }} />
         <input
           className="input"
           placeholder="بحث في المنتجات..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ paddingRight: 40 }}
+          style={{ paddingInlineStart:  }}
         />
       </div>
 

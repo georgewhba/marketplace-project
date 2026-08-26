@@ -43,8 +43,8 @@ export default function AdminOrders() {
       </div>
 
       <div className="relative mb-4" style={{ maxWidth: 360 }}>
-        <Search size={18} className="text-muted" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }} />
-        <input className="input" placeholder="بحث برقم الطلب..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingRight: 40 }} />
+        <Search size={18} className="text-muted" style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <input className="input" placeholder="بحث برقم الطلب..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingInlineStart: 40 }} />
       </div>
 
       {isLoading ? (

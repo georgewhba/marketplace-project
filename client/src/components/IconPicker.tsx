@@ -47,7 +47,7 @@ export function IconPicker({ value, onChange }: { value: string, onChange: (val:
           style={{ 
             position: 'absolute', 
             top: '100%', 
-            right: 0, 
+            insetInlineEnd: , 
             width: '100%', 
             minWidth: '280px',
             marginTop: '4px', 

@@ -36,7 +36,7 @@ export function AdminLayout() {
 
   return (
     <div className="dashboard-layout">
-      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 40 }}>
+      <div className="dashboard-mobile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3) var(--space-4)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 'var(--header-height)', zIndex: 40 }}>
         <div className="flex items-center gap-3">
           <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 'var(--space-1)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
             <Menu size={24} />

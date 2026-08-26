@@ -211,7 +211,7 @@ export default function OrdersPage() {
           <div className="card card-body" style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
             <button
               className="icon-btn"
-              style={{ position: 'absolute', top: 12, left: 12 }}
+              style={{ position: 'absolute', top: 12, insetInlineEnd: 12 }}
               onClick={() => setTrackingOrderId(null)}
             >
               <X size={20} />
@@ -239,15 +239,15 @@ export default function OrdersPage() {
                       </div>
                     </div>
                     
-                    <div style={{ position: 'relative', paddingRight: 'var(--space-4)' }}>
+                    <div style={{ position: 'relative', paddingInlineStart: 'var(--space-4)' }}>
                       {/* Timeline line */}
-                      <div style={{ position: 'absolute', right: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--neutral-200)' }} />
+                      <div style={{ position: 'absolute', insetInlineStart: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--neutral-200)' }} />
                       
                       {shipment.events?.map((event: any, eIdx: number) => {
                         const isLast = eIdx === shipment.events.length - 1;
                         return (
                           <div key={event.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 'var(--space-4)' }}>
-                            <div style={{ position: 'absolute', right: -16, top: 4, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-500)', zIndex: 1 }} />
+                            <div style={{ position: 'absolute', insetInlineStart: -16, top: 4, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-500)', zIndex: 1 }} />
                             <div>
                               <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{event.description || statusMap[event.status]?.label || event.status}</div>
                               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-500)' }}>

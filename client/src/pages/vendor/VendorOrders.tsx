@@ -119,18 +119,18 @@ export default function VendorOrders() {
             return (
               <div key={item.id} className="card p-4">
                 <div className="flex justify-between items-start flex-wrap gap-3">
-                  <div className="flex-1" style={{ minWidth: 200 }}>
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 min-w-0" style={{ minWidth: 200 }}>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <Icon size={18} color={st.color} />
                       <span className="font-semibold" style={{ color: st.color, fontSize: 'var(--font-size-sm)' }}>{st.label}</span>
                       <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>•</span>
                       <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>طلب #{item.orderNumber || item.orderId}</span>
                     </div>
-                    <div className="font-semibold mb-1">{item.productName}</div>
-                    <div className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
-                      الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م
-                      <span className="mx-2" style={{ color: 'var(--neutral-300)' }}>|</span>
-                      العميل: {item.customerName || '—'}
+                    <div className="font-semibold mb-1 break-words whitespace-normal">{item.productName}</div>
+                    <div className="text-muted flex flex-wrap items-center gap-1" style={{ fontSize: 'var(--font-size-sm)' }}>
+                      <span>الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م</span>
+                      <span className="hidden sm:inline" style={{ color: 'var(--neutral-300)' }}>|</span>
+                      <span>العميل: {item.customerName || '—'}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
@@ -181,7 +181,7 @@ export default function VendorOrders() {
           <div className="card p-5 relative" style={{ width: '100%', maxWidth: 400 }}>
             <button
               className="absolute bg-transparent border-0 cursor-pointer"
-              style={{ top: 15, right: 15 }}
+              style={{ top: 15, insetInlineEnd: 15 }}
               onClick={() => setShipmentModal(null)}
             >
               <X size={20} className="text-muted" />
