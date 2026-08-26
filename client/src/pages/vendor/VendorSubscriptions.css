@@ -337,6 +337,10 @@
   box-shadow: var(--shadow-xl);
   transform: translateY(-8px);
 }
+[data-theme="dark"] .subs-card-pro {
+  background: var(--brand-100);
+  border-color: var(--brand-500);
+}
 .subs-card-pro .subs-card-title,
 .subs-card-pro .subs-card-desc,
 .subs-card-pro .subs-card-price {
@@ -346,8 +350,15 @@
 .subs-card-pro .subs-card-feature {
   color: var(--brand-200);
 }
+[data-theme="dark"] .subs-card-pro .subs-card-price-period,
+[data-theme="dark"] .subs-card-pro .subs-card-feature {
+  color: var(--brand-900);
+}
 .subs-card-pro .subs-card-feature svg {
   color: var(--brand-300);
+}
+[data-theme="dark"] .subs-card-pro .subs-card-feature svg {
+  color: var(--brand-500);
 }
 .subs-card-pro .subs-card-commission {
   background: rgba(255, 255, 255, 0.1);
@@ -361,8 +372,14 @@
   background: white;
   color: var(--brand-900);
 }
+[data-theme="dark"] .subs-card-pro .btn-primary {
+  color: var(--brand-100);
+}
 .subs-card-pro .btn-primary:hover {
   background: var(--brand-50);
+}
+[data-theme="dark"] .subs-card-pro .btn-primary:hover {
+  background: var(--brand-900);
 }
 
 @media (max-width: 768px) {
