@@ -16,11 +16,17 @@ const redisConfig = {
 
 // Use mock in test environment to avoid requiring a real Redis server
 let RedisClient = Redis as any;
-if (env.NODE_ENV === 'test') {
+// Check if real Redis credentials exist
+const hasRedisCredentials = !!(env.REDIS_URL || env.REDIS_HOST || env.REDISHOST);
+
+if (env.NODE_ENV === 'test' || !hasRedisCredentials) {
   try {
     const require = createRequire(import.meta.url);
     const RedisMock = require('ioredis-mock');
     RedisClient = RedisMock;
+    if (!hasRedisCredentials && env.NODE_ENV !== 'test') {
+      console.warn('⚠️ No Redis configuration found. Using in-memory ioredis-mock as fallback. This is fine for single-instance, but add a Redis service in Railway for persistent queues.');
+    }
   } catch (e) {
     console.warn('ioredis-mock not found, using real Redis');
   }
