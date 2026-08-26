@@ -137,7 +137,7 @@ export default function ProductDetailPage() {
           </h1>
 
           {/* Rating */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center flex-wrap gap-3 mb-4">
             <StarRating rating={parseFloat(product.rating || '0')} />
             <span className="text-sm text-muted">
               ({product.reviewCount || 0} تقييم)
@@ -148,7 +148,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Price */}
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center flex-wrap gap-3 mb-6">
             <span className="text-3xl font-bold text-primary">
               {price.toLocaleString('ar-EG')} ج.م
             </span>
@@ -175,7 +175,7 @@ export default function ProductDetailPage() {
 
           {/* Quantity & Add to cart */}
           {!isOutOfStock && (
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center flex-wrap gap-4 mb-6">
               <div className="quantity-control">
                 <button className="quantity-control__btn" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
                   <Minus size={16} />

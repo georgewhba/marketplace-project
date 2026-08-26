@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 /* ══════════════════════════════════════════════
    DESIGN TOKENS — Terracotta + Gold Identity
@@ -175,6 +175,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-wrap: break-word;
+  overflow-x: hidden;
 }
 
 body {
@@ -185,6 +186,7 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 a { color: var(--brand-600); text-decoration: none; }
@@ -563,6 +565,7 @@ input, textarea, select, button {
 
 .product-card__price-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
@@ -1342,31 +1345,7 @@ input, textarea, select, button {
   margin: var(--space-6) 0;
 }
 
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-muted { color: var(--text-muted); }
-.text-success { color: var(--success-500); }
-.text-error { color: var(--error-500); }
-.text-brand { color: var(--brand-500); }
-
-.mb-2 { margin-bottom: var(--space-2); }
-.mb-4 { margin-bottom: var(--space-4); }
-.mb-6 { margin-bottom: var(--space-6); }
-.mb-8 { margin-bottom: var(--space-8); }
-
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.gap-2 { gap: var(--space-2); }
-.gap-3 { gap: var(--space-3); }
-.gap-4 { gap: var(--space-4); }
-.gap-6 { gap: var(--space-6); }
-
-/* Flex min-width utility for truncation and overflow prevention */
-.min-w-0 { min-width: 0; }
-.flex-1 { flex: 1; }
-.w-full { width: 100%; }
+/* Redundant utilities removed as Tailwind handles them now */
 
 /* Mobile menu */
 .mobile-menu-btn {

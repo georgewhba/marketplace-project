@@ -96,8 +96,7 @@ export default function CheckoutPage() {
       </div>
 
       <motion.div 
-        className="flex gap-8" 
-        style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}
+        className="flex flex-wrap gap-8 items-start"
         initial="hidden"
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
@@ -161,7 +160,7 @@ export default function CheckoutPage() {
 
             {showAddAddress && (
               <form onSubmit={handleAddAddress} style={{ marginTop: 'var(--space-4)' }}>
-                <div className="flex gap-4 mb-4">
+                <div className="flex flex-col md:flex-row gap-4 mb-4">
                   <div className="form-group" style={{ flex: 1 }}>
                     <label className="form-label">الاسم الكامل</label>
                     <input className="form-input" value={newAddress.fullName} onChange={e => setNewAddress(p => ({ ...p, fullName: e.target.value }))} required />
