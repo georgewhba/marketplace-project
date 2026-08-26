@@ -18,9 +18,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "cd client && npx playwright test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1118.0",
     "@hono/node-server": "^1.13.8",
     "@sentry/node": "^10.70.0",
     "bcryptjs": "^3.0.3",
