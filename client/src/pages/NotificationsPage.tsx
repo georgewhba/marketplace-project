@@ -59,7 +59,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const unreadCount = notifications?.filter((n: any) => !n.readAt)?.length || 0;
+  const unreadCount = notifications?.filter((n: any) => !n.isRead)?.length || 0;
 
   return (
     <div className="container" style={{ padding: 'var(--space-6) 0', maxWidth: 800 }}>
@@ -99,20 +99,20 @@ export default function NotificationsPage() {
                 padding: 'var(--space-4)', 
                 display: 'flex', 
                 gap: 'var(--space-4)',
-                opacity: notification.readAt ? 0.7 : 1,
-                borderLeft: !notification.readAt ? '4px solid var(--primary-500)' : '4px solid transparent',
-                cursor: !notification.readAt ? 'pointer' : 'default',
+                opacity: notification.isRead ? 0.7 : 1,
+                borderLeft: !notification.isRead ? '4px solid var(--primary-500)' : '4px solid transparent',
+                cursor: !notification.isRead ? 'pointer' : 'default',
                 transition: 'all 0.2s ease',
               }}
               onClick={() => {
-                if (!notification.readAt && !markAsReadMutation.isPending) {
+                if (!notification.isRead && !markAsReadMutation.isPending) {
                   markAsReadMutation.mutate(notification.id);
                 }
               }}
             >
               <div style={{ 
-                background: getBackground(notification.category), 
-                color: getColor(notification.category),
+                background: getBackground(notification.type), 
+                color: getColor(notification.type),
                 width: 48,
                 height: 48,
                 borderRadius: '50%',
@@ -121,11 +121,11 @@ export default function NotificationsPage() {
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                {getIcon(notification.category)}
+                {getIcon(notification.type)}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-1)' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: !notification.readAt ? 700 : 500 }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: !notification.isRead ? 700 : 500 }}>
                     {notification.title}
                   </h3>
                   <span style={{ fontSize: '0.75rem', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
@@ -133,7 +133,7 @@ export default function NotificationsPage() {
                   </span>
                 </div>
                 <p style={{ margin: 0, color: 'var(--neutral-600)', fontSize: '0.875rem' }}>
-                  {notification.content}
+                  {notification.message}
                 </p>
               </div>
             </div>

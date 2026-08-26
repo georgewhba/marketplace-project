@@ -162,7 +162,7 @@ authRoutes.post('/mfa/disable', authenticate, validate('body', mfaTokenSchema), 
 import { db } from '../db/index.js';
 import { notificationPreferences } from '../db/schema/notifications-config.js';
 import { notifications } from '../db/schema/notifications.js';
-import { and, eq, count } from 'drizzle-orm';
+import { and, eq, count, desc } from 'drizzle-orm';
 
 // GET /api/auth/me/notification-preferences
 authRoutes.get('/me/notification-preferences', authenticate, async (c) => {
@@ -190,6 +190,33 @@ authRoutes.put('/me/notification-preferences', authenticate, async (c) => {
     });
 
   return sendSuccess(c, { success: true });
+});
+
+// GET /api/auth/me/notifications
+authRoutes.get('/me/notifications', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  const list = await db.select().from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(50);
+  return sendSuccess(c, list);
+});
+
+// PUT /api/auth/me/notifications/:id/read
+authRoutes.put('/me/notifications/:id/read', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  const notifId = parseInt(c.req.param('id')!, 10);
+  await db.update(notifications).set({ isRead: true })
+    .where(and(eq(notifications.id, notifId), eq(notifications.userId, userId)));
+  return sendSuccess(c, { message: 'تم القراءة' });
+});
+
+// PUT /api/auth/me/notifications/read-all
+authRoutes.put('/me/notifications/read-all', authenticate, async (c) => {
+  const userId = c.get('user')!.id;
+  await db.update(notifications).set({ isRead: true })
+    .where(and(eq(notifications.isRead, false), eq(notifications.userId, userId)));
+  return sendSuccess(c, { message: 'تم قراءة الجميع' });
 });
 
 // GET /api/auth/me/notifications/unread-count
