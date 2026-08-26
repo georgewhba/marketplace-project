@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingCart, Heart, User, LogOut, Store, LayoutDashboard, Bell, Sun, Moon, MoreVertical } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../auth';
@@ -84,7 +84,7 @@ export function Header({ className }: { className?: string }) {
 
           {user && (
             <>
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn" title="الإشعارات" style={{ position: 'relative' }}>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn hidden md:flex" title="الإشعارات" style={{ position: 'relative' }}>
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span style={{
@@ -103,7 +103,7 @@ export function Header({ className }: { className?: string }) {
                 whileHover={{ scale: 1.05 }} 
                 whileTap={{ scale: 0.95 }} 
                 to="/cart" 
-                className="header__icon-btn" 
+                className="header__icon-btn hidden md:flex" 
                 title="السلة" 
                 style={{ position: 'relative' }}
               >
@@ -134,8 +134,15 @@ export function Header({ className }: { className?: string }) {
             </MotionLink>
           ) : (
             <div className="dropdown" ref={menuRef}>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)}>
-                <User size={18} />
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="header__user-menu" onClick={() => setMenuOpen(!menuOpen)} style={{ position: 'relative' }}>
+                <div className="hidden md:flex items-center"><User size={18} /></div>
+                <div className="md:hidden flex items-center"><MoreVertical size={20} /></div>
+                {(unreadCount > 0 || cartItemCount > 0) && (
+                  <span className="md:hidden" style={{
+                    position: 'absolute', top: -2, insetInlineEnd: -2, width: 8, height: 8, background: 'var(--brand-500)',
+                    borderRadius: '50%', border: '2px solid var(--bg-surface)'
+                  }}></span>
+                )}
                 <span className="hidden md:inline" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'plus' && (
                   <span className="hidden md:inline" style={{ 
@@ -174,8 +181,16 @@ export function Header({ className }: { className?: string }) {
                       {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                     </button>
                   </div>
+                  <Link to="/notifications" className="dropdown__item md:hidden flex justify-between" onClick={() => setMenuOpen(false)}>
+                    <div className="flex items-center gap-2"><Bell size={16} /> الإشعارات</div>
+                    {unreadCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{unreadCount}</span>}
+                  </Link>
                   <Link to="/wishlist" className="dropdown__item md:hidden" onClick={() => setMenuOpen(false)}>
                     <Heart size={16} /> المفضلة
+                  </Link>
+                  <Link to="/cart" className="dropdown__item md:hidden flex justify-between" onClick={() => setMenuOpen(false)}>
+                    <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
+                    {cartItemCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{cartItemCount}</span>}
                   </Link>
                   <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}>
                     <User size={16} /> حسابي
