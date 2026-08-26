@@ -56,8 +56,8 @@ export default function AdminProducts() {
       </div>
 
       <div className="relative mb-4" style={{ maxWidth: 360 }}>
-        <Search size={18} className="text-muted" style={{ position: 'absolute', insetInlineEnd: , top: '50%', transform: 'translateY(-50%)' }} />
-        <input className="input" placeholder="بحث في المنتجات..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingInlineStart:  }} />
+        <Search size={18} className="text-muted" style={{ position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <input className="input" placeholder="بحث في المنتجات..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingInlineStart: 40 }} />
       </div>
 
       {isLoading ? (

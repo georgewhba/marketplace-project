@@ -81,9 +81,9 @@ export default function AdminVendors() {
           </button>
         ))}
         <div className="relative" style={{ marginRight: 'auto' }}>
-          <Search size={16} className="text-muted" style={{ position: 'absolute', insetInlineEnd: , top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={16} className="text-muted" style={{ position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input className="input" placeholder="بحث بالاسم..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ paddingInlineStart: , fontSize: 'var(--font-size-sm)', height: 36, maxWidth: 200 }} />
+            style={{ paddingInlineStart: 40, fontSize: 'var(--font-size-sm)', height: 36, maxWidth: 200 }} />
         </div>
       </div>
 
