@@ -848,7 +848,8 @@ vendorRoutes.post('/subscription/subscribe', validate('body', z.object({ planId:
 
   let finalPrice = parseFloat(plan.priceMonthly);
   if (promo) {
-    finalPrice = Math.max(0, finalPrice - parseFloat(promo.discountAmount));
+    const discountPct = parseFloat(promo.discountPercentage);
+    finalPrice = Math.max(0, finalPrice * (1 - discountPct / 100));
   }
 
   const [existingSub] = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendor.id));

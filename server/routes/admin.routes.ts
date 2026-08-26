@@ -773,8 +773,8 @@ adminRoutes.put('/subscription-plans/:id', requirePermission('settings.edit'), v
 
 const createPromotionSchema = z.object({
   planId: z.number().int().positive(),
-  discountAmount: z.number().positive().max(100, 'الحد الأقصى للخصم 100 جنيه'),
-  durationType: z.enum(['day', 'week', 'month']),
+  discountPercentage: z.number().min(1).max(100, 'الحد الأقصى للخصم 100%'),
+  durationDays: z.number().int().min(1, 'المدة يجب أن تكون يوماً واحداً على الأقل'),
 }).strict();
 
 adminRoutes.get('/subscription-promotions', requirePermission('settings.view'), async (c) => {
@@ -782,8 +782,8 @@ adminRoutes.get('/subscription-promotions', requirePermission('settings.view'), 
     id: subscriptionPromotions.id,
     planId: subscriptionPromotions.planId,
     planName: subscriptionPlans.name,
-    discountAmount: subscriptionPromotions.discountAmount,
-    durationType: subscriptionPromotions.durationType,
+    discountPercentage: subscriptionPromotions.discountPercentage,
+    durationDays: subscriptionPromotions.durationDays,
     startsAt: subscriptionPromotions.startsAt,
     endsAt: subscriptionPromotions.endsAt,
     isActive: subscriptionPromotions.isActive,
@@ -803,14 +803,12 @@ adminRoutes.post('/subscription-promotions', requirePermission('settings.edit'),
 
   const startsAt = new Date();
   const endsAt = new Date(startsAt);
-  if (input.durationType === 'day') endsAt.setDate(endsAt.getDate() + 1);
-  else if (input.durationType === 'week') endsAt.setDate(endsAt.getDate() + 7);
-  else if (input.durationType === 'month') endsAt.setDate(endsAt.getDate() + 30);
+  endsAt.setDate(endsAt.getDate() + input.durationDays);
 
   const [promotion] = await db.insert(subscriptionPromotions).values({
     planId: input.planId,
-    discountAmount: input.discountAmount.toString(),
-    durationType: input.durationType,
+    discountPercentage: input.discountPercentage.toString(),
+    durationDays: input.durationDays,
     startsAt,
     endsAt,
     createdBy: admin.id,

@@ -13,8 +13,8 @@ export default function AdminPromotions() {
   
   const [form, setForm] = useState({
     planId: '',
-    discountAmount: '',
-    durationType: 'month'
+    discountPercentage: '',
+    durationDays: '30'
   });
   
   const { data: promotions, isLoading } = useQuery({
@@ -31,8 +31,8 @@ export default function AdminPromotions() {
     mutationFn: (data: any) => {
       const payload = {
         planId: parseInt(data.planId, 10),
-        discountAmount: parseFloat(data.discountAmount),
-        durationType: data.durationType
+        discountPercentage: parseFloat(data.discountPercentage),
+        durationDays: parseInt(data.durationDays, 10)
       };
       
       return api.post('/admin/subscription-promotions', payload);
@@ -59,8 +59,8 @@ export default function AdminPromotions() {
   const resetForm = () => {
     setForm({
       planId: plans?.data?.[0]?.id?.toString() || '',
-      discountAmount: '',
-      durationType: 'month'
+      discountPercentage: '',
+      durationDays: '30'
     });
   };
 
@@ -104,12 +104,12 @@ export default function AdminPromotions() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">قيمة الخصم (ج.م) - بحد أقصى 100</label>
+                <label className="form-label">نسبة الخصم (%) - بحد أقصى 100</label>
                 <input 
                   type="number"
                   className="input" 
-                  value={form.discountAmount} 
-                  onChange={e => setForm({ ...form, discountAmount: e.target.value })} 
+                  value={form.discountPercentage} 
+                  onChange={e => setForm({ ...form, discountPercentage: e.target.value })} 
                   required 
                   max="100"
                   min="1"
@@ -117,17 +117,15 @@ export default function AdminPromotions() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">مدة العرض</label>
-                <select 
+                <label className="form-label">مدة العرض (بالأيام)</label>
+                <input 
+                  type="number"
                   className="input" 
-                  value={form.durationType} 
-                  onChange={e => setForm({ ...form, durationType: e.target.value })} 
+                  value={form.durationDays} 
+                  onChange={e => setForm({ ...form, durationDays: e.target.value })} 
                   required 
-                >
-                  <option value="day">يوم</option>
-                  <option value="week">أسبوع</option>
-                  <option value="month">شهر</option>
-                </select>
+                  min="1"
+                />
               </div>
             </div>
             
@@ -159,7 +157,7 @@ export default function AdminPromotions() {
               return (
                 <tr key={p.id}>
                   <td className="font-semibold">{p.planName}</td>
-                  <td><span className="text-success font-semibold">{p.discountAmount} ج.م</span></td>
+                  <td><span className="text-success font-semibold">%{p.discountPercentage}</span></td>
                   <td>
                     <div className="text-sm">من: {validFrom.toLocaleDateString('ar-EG')}</div>
                     <div className="text-sm">إلى: {validTo.toLocaleDateString('ar-EG')}</div>

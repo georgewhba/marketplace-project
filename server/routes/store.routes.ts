@@ -352,7 +352,8 @@ storeRoutes.get('/subscription-plans', async (c) => {
     const promo = promotions.find(p => p.planId === plan.id);
     let finalPrice = plan.priceMonthly;
     if (promo) {
-      finalPrice = (parseFloat(plan.priceMonthly) - parseFloat(promo.discountAmount)).toString();
+      const discountPct = parseFloat(promo.discountPercentage);
+      finalPrice = (parseFloat(plan.priceMonthly) * (1 - discountPct / 100)).toFixed(2);
       if (parseFloat(finalPrice) < 0) finalPrice = '0.00';
     }
     return {
@@ -360,7 +361,7 @@ storeRoutes.get('/subscription-plans', async (c) => {
       originalPrice: plan.priceMonthly,
       priceMonthly: finalPrice,
       hasActivePromotion: !!promo,
-      promotionAmount: promo?.discountAmount,
+      promotionPercentage: promo?.discountPercentage,
       promotionEndsAt: promo?.endsAt,
     };
   });

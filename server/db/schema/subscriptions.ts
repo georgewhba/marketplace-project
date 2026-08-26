@@ -35,8 +35,8 @@ export const vendorSubscriptions = pgTable('vendor_subscriptions', {
 export const subscriptionPromotions = pgTable('subscription_promotions', {
   id: serial('id').primaryKey(),
   planId: integer('plan_id').notNull().references(() => subscriptionPlans.id),
-  discountAmount: decimal('discount_amount', { precision: 6, scale: 2 }).notNull(), // max 100 enforced in logic
-  durationType: varchar('duration_type', { length: 10 }).notNull(), // day | week | month
+  discountPercentage: decimal('discount_percentage', { precision: 5, scale: 2 }).notNull(), // max 100
+  durationDays: integer('duration_days').notNull(),
   startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
   endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
   isActive: boolean('is_active').notNull().default(true),
