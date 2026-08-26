@@ -77,7 +77,7 @@ export default function VendorSubscriptions() {
   const plans = plansData?.data || [];
   
   const maxCommission = plans.length > 0 ? Math.max(...plans.map((p: any) => p.commissionRate)) : 0;
-  const hasPromo = plans.some((p: any) => parseFloat(p.discountAmount || '0') > 0);
+  const hasPromo = plans.some((p: any) => p.hasActivePromotion);
 
   const faqs = [
     { q: "هل أقدر ألغي الاشتراك في أي وقت؟", a: "أكيد. الإلغاء بيوقف التجديد التلقائي فوراً، وهتفضل مستفيد بكل مميزات باقتك لحد آخر يوم في فترة اشتراكك الحالية." },
@@ -173,8 +173,9 @@ export default function VendorSubscriptions() {
       >
         {plans?.map((plan: any) => {
           const isCurrent = activePlanId === plan.id;
-          const originalPrice = parseFloat(plan.priceMonthly);
-          const currentMonthly = hasPromo ? Math.max(0, originalPrice - parseFloat(plan.discountAmount || '0')) : originalPrice;
+          const originalPrice = parseFloat(plan.originalPrice || plan.priceMonthly);
+          const hasPromo = plan.hasActivePromotion;
+          const currentMonthly = parseFloat(plan.priceMonthly);
           
           const getPlanDescription = (slug: string) => {
             switch (slug) {

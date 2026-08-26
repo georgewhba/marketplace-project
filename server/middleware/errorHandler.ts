@@ -87,7 +87,7 @@ export function handleError(err: unknown, c: Context): Response {
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'حدث خطأ غير متوقع في الخادم',
+      message: 'حدث خطأ غير متوقع في الخادم: ' + (error.message || 'Unknown error'),
     },
   }, 500) as Response;
 }
