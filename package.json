@@ -26,6 +26,7 @@
     "@aws-sdk/middleware-flexible-checksums": "^3.974.54",
     "@hono/node-server": "^1.13.8",
     "@sentry/node": "^10.70.0",
+    "@smithy/node-http-handler": "^4.11.3",
     "bcryptjs": "^3.0.3",
     "cookie": "^2.0.1",
     "dompurify": "^3.4.14",

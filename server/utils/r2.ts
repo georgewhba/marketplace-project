@@ -1,4 +1,6 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
+import https from 'https';
 import { env } from '../env.js';
 
 let s3Client: S3Client | null = null;
@@ -8,6 +10,9 @@ const accessKeyId = env.R2_ACCESS_KEY_ID?.trim();
 const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim();
 
 if (accountId && accessKeyId && secretAccessKey) {
+  // Force IPv4 to bypass Cloudflare R2 TLS handshake failures (alert 40) on certain cloud networks
+  const agent = new https.Agent({ family: 4 });
+
   s3Client = new S3Client({
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
@@ -15,6 +20,9 @@ if (accountId && accessKeyId && secretAccessKey) {
       accessKeyId,
       secretAccessKey,
     },
+    requestHandler: new NodeHttpHandler({
+      httpsAgent: agent,
+    }),
     forcePathStyle: true,
     // Disable automatic checksums as they can cause AccessDenied in Cloudflare R2 with newer AWS SDKs
     requestChecksumCalculation: 'WHEN_REQUIRED',
