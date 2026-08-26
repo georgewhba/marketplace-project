@@ -61,9 +61,10 @@ chatRoutes.post('/', aiRateLimit, async (c) => {
     const reply = response.text || 'عفواً، لم أتمكن من معالجة طلبك الآن.';
     
     return c.json({ reply });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[AI Chat] Error:', error);
-    return c.json({ error: 'حدث خطأ أثناء الاتصال بالدعم الذكي.' }, 500);
+    const errorMessage = error?.message || 'حدث خطأ أثناء الاتصال بالدعم الذكي.';
+    return c.json({ error: `حدث خطأ: ${errorMessage}` }, 500);
   }
 });
 
