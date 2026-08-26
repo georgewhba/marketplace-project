@@ -32,6 +32,7 @@ if (env.NODE_ENV === 'test' || !hasRedisCredentials) {
   }
 }
 
+export const isRedisMock = !hasRedisCredentials && env.NODE_ENV !== 'test';
 export const redis = env.REDIS_URL ? new RedisClient(env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false }) : new RedisClient(redisConfig);
 
 redis.on('error', (err: any) => {
