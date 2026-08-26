@@ -7,9 +7,9 @@ import { createRequire } from 'module';
  * Re-uses connection across the app.
  */
 const redisConfig = {
-  host: env.REDIS_HOST || 'localhost',
-  port: env.REDIS_PORT ? parseInt(String(env.REDIS_PORT), 10) : 6379,
-  password: env.REDIS_PASSWORD || undefined,
+  host: env.REDIS_HOST || env.REDISHOST || 'localhost',
+  port: env.REDIS_PORT ? parseInt(String(env.REDIS_PORT), 10) : (env.REDISPORT ? parseInt(String(env.REDISPORT), 10) : 6379),
+  password: env.REDIS_PASSWORD || env.REDISPASSWORD || undefined,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
 };
@@ -26,7 +26,7 @@ if (env.NODE_ENV === 'test') {
   }
 }
 
-export const redis = env.REDIS_URL ? new RedisClient(env.REDIS_URL) : new RedisClient(redisConfig);
+export const redis = env.REDIS_URL ? new RedisClient(env.REDIS_URL, { maxRetriesPerRequest: null, enableReadyCheck: false }) : new RedisClient(redisConfig);
 
 redis.on('error', (err: any) => {
   console.error('Redis connection error:', err);
