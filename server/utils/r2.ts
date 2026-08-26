@@ -16,6 +16,9 @@ if (accountId && accessKeyId && secretAccessKey) {
       secretAccessKey,
     },
     forcePathStyle: true,
+    // Disable automatic checksums as they can cause AccessDenied in Cloudflare R2 with newer AWS SDKs
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
 }
 

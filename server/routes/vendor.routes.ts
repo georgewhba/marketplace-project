@@ -306,7 +306,13 @@ vendorRoutes.post('/products/:id/images', async (c) => {
     throw AppError.badRequest('نوع الملف غير مسموح');
   }
 
-  const imageUrl = await processImage(buffer);
+  let imageUrl: string;
+  try {
+    imageUrl = await processImage(buffer);
+  } catch (err: any) {
+    console.error('Image processing/upload failed:', err);
+    throw AppError.internal(`فشل رفع الصورة: ${err.message}`);
+  }
 
   const [image] = await db.insert(productImages).values({
     productId,
