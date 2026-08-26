@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install root dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Install client dependencies
 COPY client/package*.json ./client/
@@ -28,7 +28,7 @@ ENV PORT=3000
 
 # Install production dependencies only
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --legacy-peer-deps
 
 # Copy built artifacts from the builder stage
 COPY --from=builder /app/dist ./dist
