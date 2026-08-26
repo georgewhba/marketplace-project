@@ -70,7 +70,7 @@
 .subs-timer-num {
   font-size: var(--font-size-xl);
   font-weight: bold;
-  font-family: monospace;
+  font-family: var(--font-sans);
   background: rgba(0,0,0,0.3);
   padding: 4px 12px;
   border-radius: var(--radius-md);
