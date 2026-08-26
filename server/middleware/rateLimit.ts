@@ -62,22 +62,23 @@ export function rateLimit(options: {
 
 // Pre-configured rate limiters
 export const authRateLimit = rateLimit({
-  windowMs: 60_000,
-  maxRequests: 5,
-  message: 'عدد محاولات تسجيل الدخول كثيرة، حاول بعد دقيقة',
+  windowMs: 15 * 60_000, // 15 minutes
+  maxRequests: 5, // Strict limit for auth endpoints
+  message: 'عدد محاولات تسجيل الدخول كثيرة جداً، يرجى المحاولة بعد 15 دقيقة',
 });
 
 export const uploadRateLimit = rateLimit({
   windowMs: 60_000,
-  maxRequests: 10,
+  maxRequests: 5, // Maximum 5 uploads per minute
   keyFn: (c) => {
     const user = c.get('user') as { id: number } | undefined;
     return user ? `user:${user.id}` : c.req.header('x-forwarded-for') ?? 'unknown';
   },
-  message: 'عدد عمليات الرفع كثيرة، حاول بعد دقيقة',
+  message: 'عدد عمليات الرفع كثيرة جداً، يرجى المحاولة بعد دقيقة',
 });
 
 export const generalRateLimit = rateLimit({
   windowMs: 60_000,
-  maxRequests: 100,
+  maxRequests: 100, // 100 requests per minute
+  message: 'تم تجاوز الحد الأقصى للطلبات المسموحة، يرجى المحاولة بعد قليل',
 });

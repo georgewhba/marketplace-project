@@ -24,6 +24,7 @@ import {
 } from '../services/analytics.service.js';
 import { calculateOrderStatus, shouldAdvanceOrderStatus } from '../utils/calculateOrderStatus.js';
 import { ShippingFactory } from '../services/shipping/shipping.factory.js';
+import xss from 'xss';
 
 const vendorRoutes = new Hono<AppEnv>();
 vendorRoutes.use('*', authenticate, loadVendor);
@@ -46,8 +47,8 @@ vendorRoutes.get('/analytics/products', async (c) => {
 
 const productSchema = z.object({
   categoryId: z.number().int().positive(),
-  name: z.string().min(3).max(255).trim(),
-  description: z.string().max(5000).optional(),
+  name: z.string().min(3).max(255).trim().transform(val => xss(val)),
+  description: z.string().max(5000).optional().transform(val => val ? xss(val) : val),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, 'سعر غير صالح'),
   comparePrice: z.string().regex(/^\d+(\.\d{1,2})?$/).optional().nullable(),
   sku: z.string().max(100).optional().nullable(),
@@ -66,10 +67,10 @@ const createShipmentSchema = z.object({
 }).strict();
 
 const updateSettingsSchema = z.object({
-  storeName: z.string().min(3).max(255).trim().optional(),
-  storeDescription: z.string().max(2000).optional().nullable(),
-  shippingPolicy: z.string().max(2000).optional().nullable(),
-  returnPolicy: z.string().max(2000).optional().nullable(),
+  storeName: z.string().min(3).max(255).trim().optional().transform(val => val ? xss(val) : val),
+  storeDescription: z.string().max(2000).optional().nullable().transform(val => val ? xss(val) : val),
+  shippingPolicy: z.string().max(2000).optional().nullable().transform(val => val ? xss(val) : val),
+  returnPolicy: z.string().max(2000).optional().nullable().transform(val => val ? xss(val) : val),
   logo: z.string().url().max(500).optional().nullable().or(z.literal('')),
   banner: z.string().url().max(500).optional().nullable().or(z.literal('')),
 }).strict();

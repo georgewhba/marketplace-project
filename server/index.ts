@@ -1,6 +1,8 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
+import { csrf } from 'hono/csrf';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { env } from './env.js';
 import { errorHandler, handleError } from './middleware/errorHandler.js';
@@ -61,16 +63,35 @@ app.use('/api/*', cors({
   maxAge: 86400,
 }));
 
-// Security headers on every response
-app.use('*', async (c, next) => {
-  await next();
-  c.header('X-Content-Type-Options', 'nosniff');
-  c.header('X-Frame-Options', 'DENY'); // Note: This might conflict with our own iframes if we had any, but Paymob is framed BY us, so DENY is fine for others framing US.
-  c.header('Content-Security-Policy', "default-src 'self'; img-src 'self' data: https://picsum.photos https://fastly.picsum.photos; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://accounts.google.com; frame-src 'self' https://accept.paymob.com https://accept.paymobsolutions.com https://accounts.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests;");
-  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-});
+// Global secure headers
+app.use('*', secureHeaders({
+  xFrameOptions: 'DENY',
+  xContentTypeOptions: 'nosniff',
+  xXssProtection: '1; mode=block',
+  strictTransportSecurity: 'max-age=31536000; includeSubDomains; preload',
+  contentSecurityPolicy: {
+    defaultSrc: ["'self'"],
+    imgSrc: ["'self'", "data:", "https://picsum.photos", "https://fastly.picsum.photos", "https://*"],
+    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
+    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+    fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    connectSrc: ["'self'", "https://accounts.google.com"],
+    frameSrc: ["'self'", "https://accept.paymob.com", "https://accept.paymobsolutions.com", "https://accounts.google.com"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    upgradeInsecureRequests: [],
+  },
+  referrerPolicy: 'strict-origin-when-cross-origin',
+  permissionsPolicy: {
+    camera: [],
+    microphone: [],
+    geolocation: [],
+  }
+}));
+
+// CSRF Protection
+// By default, checks if Origin matches the host, but here we can whitelist the frontend origin
+app.use('*', csrf({ origin: typeof env.CORS_ORIGIN === 'string' ? env.CORS_ORIGIN : undefined }));
 
 // General rate limit on all API routes
 app.use('/api/*', generalRateLimit);
