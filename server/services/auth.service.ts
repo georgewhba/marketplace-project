@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../db/index.js';
-import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings, vendorSubscriptions, subscriptionPlans } from '../db/schema/index.js';
+import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings, vendorSubscriptions, subscriptionPlans, auditLog } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
@@ -356,7 +356,37 @@ export async function login(input: LoginInput) {
 
   const valid = await bcrypt.compare(input.password, user.passwordHash);
   if (!valid) {
+    if (user.role === 'admin' || user.role === 'super_admin') {
+      console.warn(`[SECURITY ALERT] Failed login attempt for ADMIN account: ${user.email}`);
+      // Record failed admin login
+      try {
+        await db.insert(auditLog).values({
+          adminId: user.id,
+          action: 'admin_login_failed',
+          targetType: 'auth',
+          targetId: user.id,
+          details: { ip: input.email }, // Simplification
+        });
+      } catch (e) {
+        console.error('Failed to write audit log', e);
+      }
+    }
     throw AppError.unauthorized('بريد إلكتروني أو كلمة مرور غير صحيحة');
+  }
+
+  // Record successful admin login
+  if (user.role === 'admin' || user.role === 'super_admin') {
+    try {
+      await db.insert(auditLog).values({
+        adminId: user.id,
+        action: 'admin_login_success',
+        targetType: 'auth',
+        targetId: user.id,
+        details: { email: user.email },
+      });
+    } catch (e) {
+      console.error('Failed to write audit log', e);
+    }
   }
 
   // Check MFA

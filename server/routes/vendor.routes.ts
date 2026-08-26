@@ -275,6 +275,15 @@ vendorRoutes.delete('/products/:id', async (c) => {
 });
 
 // POST /api/vendor/products/:id/images
+vendorRoutes.get('/test-r2-ssl', async (c) => {
+  try {
+    const fetchRes = await fetch(`https://${env.R2_ACCOUNT_ID?.trim()}.r2.cloudflarestorage.com`);
+    return c.json({ success: true, status: fetchRes.status });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message, stack: err.stack });
+  }
+});
+
 vendorRoutes.post('/products/:id/images', async (c) => {
   const vendor = c.get('vendor');
   const productId = parseInt(c.req.param('id')!, 10);
