@@ -6,7 +6,7 @@ import { csrf } from 'hono/csrf';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { env } from './env.js';
 import { errorHandler, handleError } from './middleware/errorHandler.js';
-import { generalRateLimit } from './middleware/rateLimit.js';
+import { generalRateLimit, spamProtectionRateLimit } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/logger.js';
 import * as Sentry from '@sentry/node';
 import { db, queryClient } from './db/index.js';
@@ -94,8 +94,16 @@ app.use('*', secureHeaders({
 // By default, checks if Origin matches the host, but here we can whitelist the frontend origin
 app.use('*', csrf({ origin: typeof env.CORS_ORIGIN === 'string' ? env.CORS_ORIGIN : undefined }));
 
-// General rate limit on all API routes
+// General rate limit on all API routes (100 req/min for GET/etc)
 app.use('/api/*', generalRateLimit);
+
+// Spam protection (DDoS / Rapid Clicks) on all mutation endpoints
+app.use('/api/*', async (c, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+    return spamProtectionRateLimit(c, next);
+  }
+  return next();
+});
 
 // Health check (enhanced)
 app.get('/api/health', async (c) => {

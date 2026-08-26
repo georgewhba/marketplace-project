@@ -82,3 +82,16 @@ export const generalRateLimit = rateLimit({
   maxRequests: 100, // 100 requests per minute
   message: 'تم تجاوز الحد الأقصى للطلبات المسموحة، يرجى المحاولة بعد قليل',
 });
+
+// حماية ضد الضغط المتكرر (Spam / DDoS) على نفس الزر/الرابط
+export const spamProtectionRateLimit = rateLimit({
+  windowMs: 15_000, // 15 seconds
+  maxRequests: 5, // Max 5 requests per 15 seconds for the exact same action
+  keyFn: (c) => {
+    const user = c.get('user') as { id: number } | undefined;
+    const identifier = user ? `user:${user.id}` : `ip:${c.req.header('x-forwarded-for') ?? 'unknown'}`;
+    // Limit based on the user/IP + the exact path and method
+    return `spam:${identifier}:${c.req.method}:${c.req.path}`;
+  },
+  message: 'لقد قمت بالضغط مرات كثيرة جداً متتالية! يرجى الانتظار ثوانٍ قليلة والمحاولة مجدداً.',
+});
