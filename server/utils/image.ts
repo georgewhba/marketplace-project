@@ -30,31 +30,38 @@ export function validateImageMagicBytes(buffer: Buffer): boolean {
   return false;
 }
 
+import { uploadToR2, deleteFromR2 } from './r2.js';
+
 /**
  * Process uploaded image:
  * - Resize to max 1200×1200 (preserving aspect ratio)
  * - Convert to WebP
  * - Strip all EXIF metadata (GPS, device info)
- * - Save with UUID filename
- * Returns the relative URL path to the saved file.
+ * - Uploads to R2 if configured, else saves to local disk.
+ * Returns the URL path to the saved file.
  */
 export async function processImage(buffer: Buffer): Promise<string> {
   const filename = `${uuidv4()}.webp`;
-  const uploadDir = path.resolve(env.UPLOAD_DIR);
   
-  // Ensure upload directory exists
-  await fs.mkdir(uploadDir, { recursive: true });
-  
-  const outputPath = path.join(uploadDir, filename);
-
-  await sharp(buffer)
+  const processedBuffer = await sharp(buffer)
     .resize(MAX_DIMENSION, MAX_DIMENSION, {
       fit: 'inside',
       withoutEnlargement: true,
     })
     .webp({ quality: 82 })
     .rotate() // Auto-rotate based on EXIF orientation, then strip
-    .toFile(outputPath);
+    .toBuffer();
+
+  if (env.R2_BUCKET_NAME && env.R2_PUBLIC_URL) {
+    // Upload to Cloudflare R2
+    return await uploadToR2(processedBuffer, filename, 'image/webp');
+  }
+
+  // Fallback to local disk
+  const uploadDir = path.resolve(env.UPLOAD_DIR);
+  await fs.mkdir(uploadDir, { recursive: true });
+  const outputPath = path.join(uploadDir, filename);
+  await fs.writeFile(outputPath, processedBuffer);
 
   return `/uploads/${filename}`;
 }
@@ -63,6 +70,13 @@ export async function processImage(buffer: Buffer): Promise<string> {
  * Delete an uploaded image by its URL path.
  */
 export async function deleteImage(imageUrl: string): Promise<void> {
+  if (env.R2_BUCKET_NAME && env.R2_PUBLIC_URL && imageUrl.startsWith(env.R2_PUBLIC_URL)) {
+    // Delete from Cloudflare R2
+    await deleteFromR2(imageUrl);
+    return;
+  }
+
+  // Fallback to local disk
   if (!imageUrl.startsWith('/uploads/')) return;
   
   const filename = path.basename(imageUrl);
@@ -74,3 +88,4 @@ export async function deleteImage(imageUrl: string): Promise<void> {
     // File might already be deleted, ignore
   }
 }
+
