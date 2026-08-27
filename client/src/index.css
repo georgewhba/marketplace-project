@@ -244,11 +244,9 @@ input, textarea, select, button {
   .grid-4 { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 768px) {
-  .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
-  .grid-2 { grid-template-columns: 1fr; }
+  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-  .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .container { padding: 0 var(--space-4); }
 }
 
@@ -268,6 +266,7 @@ input, textarea, select, button {
   white-space: nowrap;
   text-decoration: none;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .btn:disabled {
@@ -1311,6 +1310,11 @@ input, textarea, select, button {
    ══════════════════════════════════════════════ */
 .page-header {
   margin-bottom: var(--space-8);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .page-header__title {

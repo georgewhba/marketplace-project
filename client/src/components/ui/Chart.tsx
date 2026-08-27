@@ -11,11 +11,11 @@ export function BarChart({ data, maxValue, height = 200, formatValue }: ChartPro
   const max = maxValue || Math.max(...data.map(d => d.value), 1);
 
   return (
-    <div className="bar-chart" style={{ height: `${height}px`, display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+    <div className="bar-chart" style={{ height: `${height}px`, display: 'flex', alignItems: 'flex-end', gap: '8px', overflowX: 'auto', paddingBottom: 'var(--space-6)' }}>
       {data.map((item, index) => {
         const percentage = (item.value / max) * 100;
         return (
-          <div key={index} className="bar-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+          <div key={index} className="bar-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', minWidth: '40px' }}>
             <div className="bar-value" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>
               {formatValue ? formatValue(item.value) : item.value}
             </div>

@@ -126,9 +126,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerVendor = async (formData: any) => {
     const res = await authApi.registerVendor(formData) as any;
     const data = res.data || res;
+    
+    if (data.requiresOtp) {
+      return data;
+    }
+    
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     setUser(data.user);
+    return data;
   };
 
   const logout = async () => {
