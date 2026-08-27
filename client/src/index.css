@@ -1792,6 +1792,13 @@ input, textarea, select, button {
   }
   .sidebar__section-title { display: none; }
   .sidebar__link { white-space: nowrap; }
+
+  .data-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media (min-width: 769px) { .dashboard-mobile-header { display: none !important; } }
