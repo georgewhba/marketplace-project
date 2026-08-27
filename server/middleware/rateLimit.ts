@@ -69,9 +69,9 @@ export function rateLimit(options: {
 
 // Pre-configured rate limiters
 export const authRateLimit = rateLimit({
-  windowMs: 15 * 60_000, // 15 minutes
-  maxRequests: 5, // Strict limit for auth endpoints
-  message: 'عدد محاولات تسجيل الدخول كثيرة جداً، يرجى المحاولة بعد 15 دقيقة',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxRequests: 50,
+  message: 'محاولات تسجيل دخول كثيرة جداً. يرجى المحاولة بعد 15 دقيقة.',
 });
 
 export const uploadRateLimit = rateLimit({
