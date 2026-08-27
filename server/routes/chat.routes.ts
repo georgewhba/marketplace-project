@@ -5,10 +5,10 @@ import { rateLimit } from '../middleware/rateLimit.js';
 
 const chatRoutes = new Hono();
 
-// Rate limit AI chat to prevent abuse (e.g., max 10 messages per minute per IP)
+// Rate limit AI chat to prevent abuse
 const aiRateLimit = rateLimit({
   windowMs: 60_000,
-  maxRequests: 10,
+  maxRequests: 50,
   message: 'عفواً، لقد تجاوزت الحد المسموح به من الرسائل. يرجى المحاولة بعد قليل.',
 });
 
