@@ -56,6 +56,7 @@ const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
 const AdminPromotions = lazy(() => import('./pages/admin/AdminPromotions'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminAISettings = lazy(() => import('./pages/admin/AdminAISettings').then(m => ({ default: m.AdminAISettings })));
 
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
@@ -175,6 +176,7 @@ function AnimatedRoutes() {
           <Route path="coupons" element={<Suspense fallback={<Loading />}><AdminCoupons /></Suspense>} />
           <Route path="promotions" element={<Suspense fallback={<Loading />}><AdminPromotions /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<Loading />}><AdminSettings /></Suspense>} />
+          <Route path="ai-settings" element={<Suspense fallback={<Loading />}><AdminAISettings /></Suspense>} />
         </Route>
 
         {/* Fallbacks */}

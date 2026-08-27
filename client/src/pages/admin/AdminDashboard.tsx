@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell, Bot } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { useAuth } from '../../auth';
 
@@ -22,6 +22,7 @@ const sidebarLinks = [
   { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات', permission: 'coupons.manage' },
   { to: '/admin/promotions', icon: Tag, label: 'عروض الباقات', permission: 'coupons.manage' },
   { to: '/admin/settings', icon: Settings, label: 'الإعدادات', permission: 'settings.edit' },
+  { to: '/admin/ai-settings', icon: Bot, label: 'المساعد الذكي', permission: 'settings.edit' },
 ];
 
 export function AdminLayout() {

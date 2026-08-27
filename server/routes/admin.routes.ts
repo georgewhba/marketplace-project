@@ -467,6 +467,13 @@ const updateSiteSettingsSchema = z.object({
   default_shipping_fee: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
   currency: z.string().max(10).optional(),
   min_order_amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+  
+  // AI Settings
+  ai_enabled: z.string().regex(/^(true|false)$/).optional(),
+  ai_model: z.string().min(1).max(100).optional(),
+  ai_temperature: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+  ai_system_prompt: z.string().max(5000).optional(),
+  ai_api_key: z.string().max(500).optional().nullable(),
 }).strict();
 
 adminRoutes.put('/settings', requirePermission('settings.edit'), validate('body', updateSiteSettingsSchema), async (c) => {
