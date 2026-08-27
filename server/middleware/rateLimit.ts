@@ -18,7 +18,12 @@ export function rateLimit(options: {
       ? options.keyFn(c)
       : c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
     
-    const key = `ratelimit:${rawKey}`;
+    // Add a unique prefix based on maxRequests and windowMs to differentiate limiters
+    const limiterPrefix = options.message?.includes('تسجيل الدخول') ? 'auth' : 
+                          options.message?.includes('عمليات الرفع') ? 'upload' : 
+                          options.maxRequests === 100 ? 'general' : 'default';
+    
+    const key = `ratelimit:${limiterPrefix}:${rawKey}`;
 
     try {
       // Use pipeline for atomic increment and optional expire
