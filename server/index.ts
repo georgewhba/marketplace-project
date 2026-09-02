@@ -115,11 +115,14 @@ app.use('/api/*', async (c, next) => {
   return next();
 });
 
-// AI Agent Discovery Headers Middleware
-app.use('/api/*', async (c, next) => {
+// Global AI Agent Discovery Headers (RFC 8288 & RFC 9727) on all responses
+app.use('*', async (c, next) => {
   await next();
   const baseUrl = getRequestBaseUrl(c);
-  c.header('Link', `<${baseUrl}/api/catalog>; rel="service-desc", <${baseUrl}/llms.txt>; rel="alternate"`);
+  c.header(
+    'Link',
+    `<${baseUrl}/.well-known/ai-catalog.json>; rel="service-desc", <${baseUrl}/.well-known/api-catalog>; rel="api-catalog", <${baseUrl}/.well-known/mcp/server-card.json>; rel="service-desc", <${baseUrl}/llms.txt>; rel="alternate", <${baseUrl}/auth.md>; rel="service-doc"`
+  );
 });
 
 // Health check (enhanced)
@@ -274,8 +277,37 @@ if (env.NODE_ENV === 'production') {
   app.use('/favicon.svg', serveStatic({ root: './client/dist' }));
   app.use('/icons.svg', serveStatic({ root: './client/dist' }));
   
-  // SPA fallback for React Router + explicit index.html handling
+  // SPA fallback for React Router + explicit index.html handling & Markdown for Agents
   app.get('*', async (c) => {
+    // 1. Markdown for Agents content negotiation
+    if (c.req.header('Accept')?.includes('text/markdown')) {
+      const baseUrl = getRequestBaseUrl(c);
+      const md = `# سوق مصر — منصة التجارة الإلكترونية الأولى (Marketplace Egypt)
+
+مرحباً بك في سوق مصر، المنصة الرائدة متعددة البائعين للتجارة الإلكترونية والتسوق الآمن عبر الإنترنت.
+
+## موارد الوكلاء والذكاء الاصطناعي (Agent Resources)
+- دليل الوكلاء الذكيين: [llms.txt](${baseUrl}/llms.txt)
+- كتالوج الخدمات (ARD Manifest): [ai-catalog.json](${baseUrl}/.well-known/ai-catalog.json)
+- مواصفات OpenAPI: [api-catalog](${baseUrl}/api/catalog)
+- بطاقة خادم MCP: [server-card.json](${baseUrl}/.well-known/mcp/server-card.json)
+- فهرس مهارات الوكلاء: [agent-skills/index.json](${baseUrl}/.well-known/agent-skills/index.json)
+- إرشادات مصادقة الوكلاء: [auth.md](${baseUrl}/auth.md)
+- خريطة الموقع: [sitemap.xml](${baseUrl}/sitemap.xml)
+
+## الأقسام الرئيسية
+- الإلكترونيات، الأزياء، الكتب، المستلزمات المنزلية
+- منتجات موثقة من بائعين معتمدين مع شحن سريع وضمان جودة.
+
+## بروتوكولات التجارة المؤتمتة
+- يدعم الموقع بروتوكولات ACP (Agentic Commerce Protocol) و UCP و WebMCP و MCP.
+`;
+      c.header('Content-Type', 'text/markdown; charset=utf-8');
+      c.header('x-markdown-tokens', '320');
+      c.header('Vary', 'Accept');
+      return c.text(md, 200);
+    }
+
     try {
       let indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
       
