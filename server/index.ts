@@ -33,6 +33,9 @@ import refundsRoutes from './routes/refunds.routes.js';
 import webhooksRoutes from './routes/webhooks.routes.js';
 import roleRoutes from './routes/roles.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import agentRoutes from './routes/agent.routes.js';
+
+import { enforceHttps, getRequestBaseUrl } from './middleware/httpsRedirect.js';
 
 // Initialize Sentry before anything else
 if (env.SENTRY_DSN) {
@@ -44,6 +47,12 @@ if (env.SENTRY_DSN) {
 }
 
 const app = new Hono();
+
+// Enforce HTTPS in production (redirects HTTP requests behind reverse proxies, keeping ACME challenges open)
+app.use('*', enforceHttps);
+
+// Serve Let's Encrypt / ACME challenges statically before SPA fallback
+app.use('/.well-known/acme-challenge/*', serveStatic({ root: './' }));
 
 // Global request logger and request-id injector
 app.use('*', requestLogger);
@@ -104,6 +113,13 @@ app.use('/api/*', async (c, next) => {
     return spamProtectionRateLimit(c, next);
   }
   return next();
+});
+
+// AI Agent Discovery Headers Middleware
+app.use('/api/*', async (c, next) => {
+  await next();
+  const baseUrl = getRequestBaseUrl(c);
+  c.header('Link', `<${baseUrl}/api/catalog>; rel="service-desc", <${baseUrl}/llms.txt>; rel="alternate"`);
 });
 
 // Health check (enhanced)
@@ -228,6 +244,7 @@ app.get('/api/metrics', async (c) => {
 });
 
 // Mount routes
+app.route('/', agentRoutes); // Root level mounting for robots.txt, sitemap, .well-known
 app.route('/api/auth', authRoutes);
 app.route('/api/store', storeRoutes);
 app.route('/api/cart', cartRoutes);

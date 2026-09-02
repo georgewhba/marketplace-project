@@ -250,13 +250,44 @@ storeRoutes.get('/products/:slug', async (c) => {
     .orderBy(desc(reviews.createdAt))
     .limit(10);
 
-  return sendSuccess(c, {
+  const responseData = {
     ...product,
     images: imgs,
     vendor,
     category,
     reviews: productReviews,
-  });
+  };
+
+  if (c.req.header('Accept')?.includes('text/markdown')) {
+    const md = `# ${product.name}
+**Price:** ${product.price}
+**Stock:** ${product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+**Vendor:** ${vendor?.storeName || 'Unknown'}
+**Category:** ${category?.name || 'Unknown'}
+
+## Description
+${product.description}
+
+## Schema.org
+\`\`\`json
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "${product.name}",
+  "description": "${product.description}",
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "EGP",
+    "price": "${product.price}",
+    "availability": "${product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'}"
+  }
+}
+\`\`\`
+`;
+    return c.text(md, 200, { 'Content-Type': 'text/markdown' });
+  }
+
+  return sendSuccess(c, responseData);
 });
 
 // GET /api/store/vendors/:slug
@@ -293,7 +324,7 @@ storeRoutes.get('/vendors/:slug', async (c) => {
     images: images.filter(img => img.productId === p.id),
   }));
 
-  return sendSuccess(c, {
+  const responseData = {
     id: vendor.id,
     storeName: vendor.storeName,
     storeSlug: vendor.storeSlug,
@@ -304,7 +335,33 @@ storeRoutes.get('/vendors/:slug', async (c) => {
     reviewCount: vendor.reviewCount,
     totalProducts: vendor.totalProducts,
     products: productsWithImages,
-  });
+  };
+
+  if (c.req.header('Accept')?.includes('text/markdown')) {
+    const md = `# ${vendor.storeName}
+**Rating:** ${vendor.rating} (${vendor.reviewCount} reviews)
+**Total Products:** ${vendor.totalProducts}
+
+## About
+${vendor.storeDescription || 'No description available.'}
+
+## Products
+${productsWithImages.map(p => `- ${p.name} - ${p.price}`).join('\n')}
+
+## Schema.org
+\`\`\`json
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "${vendor.storeName}",
+  "description": "${vendor.storeDescription || ''}"
+}
+\`\`\`
+`;
+    return c.text(md, 200, { 'Content-Type': 'text/markdown' });
+  }
+
+  return sendSuccess(c, responseData);
 });
 const contactSchema = z.object({
   name: z.string().min(2, 'الاسم مطلوب'),

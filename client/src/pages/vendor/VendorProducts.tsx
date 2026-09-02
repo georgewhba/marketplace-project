@@ -134,8 +134,8 @@ export default function VendorProducts() {
     <div>
       <div className="page-header mb-5 flex justify-between items-center">
         <h1 className="page-header__title m-0">إدارة المنتجات</h1>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-          <Plus size={18} /> إضافة منتج
+        <button className="btn btn-primary fab-mobile" onClick={() => { resetForm(); setShowForm(true); }}>
+          <Plus size={18} /> <span className="hidden sm:inline">إضافة منتج</span>
         </button>
       </div>
 

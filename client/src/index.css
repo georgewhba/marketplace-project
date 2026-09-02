@@ -1725,7 +1725,7 @@ input, textarea, select, button {
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
-    top: var(--header-height);
+    top: 0;
     z-index: 40;
   }
 
@@ -1755,7 +1755,7 @@ input, textarea, select, button {
 
   .sidebar {
     position: fixed;
-    top: var(--header-height);
+    top: 0;
     bottom: 0;
     inset-inline-start: 0;
     inset-inline-end: auto;
@@ -1798,6 +1798,16 @@ input, textarea, select, button {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .fab-mobile {
+    position: fixed !important;
+    bottom: var(--space-6) !important;
+    inset-inline-end: var(--space-6) !important;
+    z-index: 50 !important;
+    border-radius: 9999px !important;
+    box-shadow: var(--shadow-lg) !important;
+    padding: var(--space-4) !important;
   }
 }
 
