@@ -17,11 +17,25 @@ const sortOptions = [
   { value: 'rating', label: 'الأعلى تقييماً' },
 ];
 
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+
 export default function ProductsPage() {
   const shouldReduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const toast = useToast();
+
+  const search = searchParams.get('search') || '';
+  const category = searchParams.get('category') || '';
+  
+  const pageTitle = search 
+    ? `نتائج البحث عن "${search}"` 
+    : (category ? `منتجات قسم ${category}` : 'تصفّح المنتجات');
+
+  useDocumentTitle(pageTitle, {
+    description: 'تصفّح تشكيلة واسعة من أفضل المنتجات بأسعار تنافسية وشحن سريع لجميع المحافظات.',
+    canonicalPath: '/products',
+  });
 
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,8 +43,6 @@ export default function ProductsPage() {
 
   const page = parseInt(searchParams.get('page') || '1');
   const sort = searchParams.get('sort') || 'newest';
-  const search = searchParams.get('search') || '';
-  const category = searchParams.get('category') || '';
 
   useEffect(() => {
     setLoading(true);

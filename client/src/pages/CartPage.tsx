@@ -5,8 +5,10 @@ import { useToast } from '../toast';
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function CartPage() {
+  useDocumentTitle('سلة المشتريات', { canonicalPath: '/cart' });
   const shouldReduceMotion = useReducedMotion();
   const toast = useToast();
   const navigate = useNavigate();

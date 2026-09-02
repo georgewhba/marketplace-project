@@ -16,4 +16,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // 1. Remove production sourcemaps for security and smaller bundle size
+    sourcemap: false,
+    // 2. Reduce huge JS bundles via intelligent chunk splitting
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['lucide-react', 'framer-motion'],
+          'vendor-query': ['@tanstack/react-query'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 });

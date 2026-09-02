@@ -12,7 +12,13 @@ import * as Icons from 'lucide-react';
 
 import heroImg from '../assets/hero.jpg';
 
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+
 export default function HomePage() {
+  useDocumentTitle('', {
+    description: 'سوق مصر — منصة التجارة الإلكترونية الأولى في مصر. تسوّق إلكترونيات، أزياء، كتب، والمزيد من أفضل البائعين المعتمدين.',
+    canonicalPath: '/',
+  });
   const shouldReduceMotion = useReducedMotion();
   const { user } = useAuth();
   const toast = useToast();
@@ -24,7 +30,6 @@ export default function HomePage() {
       .then(res => {
         const d = (res as any).data || res;
         setData(d);
-        if (d.siteName) document.title = d.siteName;
       })
       .catch(() => toast.error('فشل تحميل الصفحة'))
       .finally(() => setLoading(false));

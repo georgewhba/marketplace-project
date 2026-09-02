@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function NotFoundPage() {
+  useDocumentTitle('404 — الصفحة غير موجودة');
   return (
     <div className="container page-content">
       <div className="empty-state">

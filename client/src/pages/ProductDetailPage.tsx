@@ -8,6 +8,7 @@ import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { StarRating } from '../components/ProductCard';
 import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store, Gem, Sparkles } from 'lucide-react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ProductDetailPage() {
   const shouldReduceMotion = useReducedMotion();
@@ -20,6 +21,11 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
+
+  useDocumentTitle(product?.name, {
+    description: product?.description ? product.description.slice(0, 160) : undefined,
+    canonicalPath: `/products/${slug}`,
+  });
 
   useEffect(() => {
     if (!slug) return;

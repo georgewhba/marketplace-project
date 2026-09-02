@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useSiteName } from '../hooks/useSiteSettings';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useToast } from '../toast';
 import { GoogleLogin } from '@react-oauth/google';
 
 import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
+  useDocumentTitle('تسجيل الدخول', { canonicalPath: '/login' });
   const { login, mfaLogin, googleAuth } = useAuth();
   const siteName = useSiteName();
   const toast = useToast();

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useSiteName } from '../hooks/useSiteSettings';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useToast } from '../toast';
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -10,6 +11,7 @@ import { ArrowRight, Mail } from 'lucide-react';
 export default function RegisterPage() {
   const { pathname } = window.location;
   const isVendor = pathname.includes('/vendor');
+  useDocumentTitle(isVendor ? 'انضم كبائع جديد' : 'إنشاء حساب جديد', { canonicalPath: '/register' });
   const { register, registerVendor, verifyOtp, googleAuth } = useAuth();
   const siteName = useSiteName();
   const toast = useToast();
