@@ -150,15 +150,14 @@ For endpoints requiring authentication (e.g. cart, orders), see:
 // 4. auth.md & /.well-known/auth.md (WorkOS auth.md spec with agent_auth YAML frontmatter)
 const handleAuthMd = (c: any) => {
   const baseUrl = getBaseUrl(c);
-  const authDoc = `# auth.md
+  const authDoc = `# Auth.md
 
-## Overview
-Welcome to the Marketplace Agent Authentication & Registration System. This document outlines how autonomous agents, personal assistants, and bots authenticate and interact with protected marketplace resources.
+You are an agent. This service supports **agentic registration**: discover → register → (claim if needed) → exchange for an access_token → call API → handle revocation. Follow the steps in order; do not skip ahead.
 
 ## Agent Auth Metadata
 \`\`\`yaml
 agent_auth:
-  skill: "https://isitagentready.com/.well-known/agent-skills/auth-md/SKILL.md"
+  skill: "${baseUrl}/auth.md"
   register_uri: "${baseUrl}/api/auth/register"
   authorization_server: "${baseUrl}/.well-known/oauth-authorization-server"
   protected_resource: "${baseUrl}/.well-known/oauth-protected-resource"
@@ -174,6 +173,8 @@ agent_auth:
   claim_uri: "${baseUrl}/api/auth/me"
   revocation_uri: "${baseUrl}/api/auth/logout"
 \`\`\`
+
+# auth.md — Marketplace Agent Registration
 
 ## 1. Supported Authentication Methods
 - **Bearer JWT Tokens:** Standard OAuth 2.0 / Bearer tokens issued at \`${baseUrl}/api/auth/login\` or \`${baseUrl}/api/auth/refresh\`.
