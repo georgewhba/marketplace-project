@@ -150,23 +150,30 @@ For endpoints requiring authentication (e.g. cart, orders), see:
 // 4. auth.md & /.well-known/auth.md (WorkOS auth.md spec with agent_auth YAML frontmatter)
 const handleAuthMd = (c: any) => {
   const baseUrl = getBaseUrl(c);
-  const authDoc = `---
+  const authDoc = `# auth.md
+
+## Overview
+Welcome to the Marketplace Agent Authentication & Registration System. This document outlines how autonomous agents, personal assistants, and bots authenticate and interact with protected marketplace resources.
+
+## Agent Auth Metadata
+\`\`\`yaml
 agent_auth:
+  skill: "https://isitagentready.com/.well-known/agent-skills/auth-md/SKILL.md"
   register_uri: "${baseUrl}/api/auth/register"
   authorization_server: "${baseUrl}/.well-known/oauth-authorization-server"
   protected_resource: "${baseUrl}/.well-known/oauth-protected-resource"
-  supported_identity_types:
-    - "ephemeral_agent"
-    - "delegated_user"
-  credential_types:
-    - "bearer_jwt"
+  identity_types_supported:
+    - "anonymous"
+    - "identity_assertion"
+  anonymous:
+    credential_types_supported: ["bearer_jwt"]
+    claim_uri: "${baseUrl}/api/auth/me"
+  identity_assertion:
+    assertion_types_supported: ["verified_email", "urn:ietf:params:oauth:token-type:id-jag"]
+    credential_types_supported: ["bearer_jwt"]
   claim_uri: "${baseUrl}/api/auth/me"
   revocation_uri: "${baseUrl}/api/auth/logout"
----
-
-# Agent Authentication Guide (auth.md)
-
-Welcome to the Marketplace Agent Authentication System. This document outlines how autonomous agents, personal assistants, and bots authenticate and interact with protected marketplace resources.
+\`\`\`
 
 ## 1. Supported Authentication Methods
 - **Bearer JWT Tokens:** Standard OAuth 2.0 / Bearer tokens issued at \`${baseUrl}/api/auth/login\` or \`${baseUrl}/api/auth/refresh\`.
@@ -216,8 +223,17 @@ agentRoutes.get('/.well-known/oauth-protected-resource', (c) => {
     bearer_methods_supported: ["header", "cookie"],
     resource_documentation: `${baseUrl}/auth.md`,
     agent_auth: {
+      skill: "https://isitagentready.com/.well-known/agent-skills/auth-md/SKILL.md",
       register_uri: `${baseUrl}/api/auth/register`,
-      supported_identity_types: ["ephemeral_agent", "delegated_user"],
+      identity_types_supported: ["anonymous", "identity_assertion"],
+      anonymous: {
+        credential_types_supported: ["bearer_jwt"],
+        claim_uri: `${baseUrl}/api/auth/me`
+      },
+      identity_assertion: {
+        assertion_types_supported: ["verified_email", "urn:ietf:params:oauth:token-type:id-jag"],
+        credential_types_supported: ["bearer_jwt"]
+      },
       credential_types: ["bearer_jwt"],
       revocation_uri: `${baseUrl}/api/auth/logout`
     }
@@ -238,9 +254,20 @@ agentRoutes.get('/.well-known/oauth-authorization-server', (c) => {
     grant_types_supported: ["password", "refresh_token"],
     token_endpoint_auth_methods_supported: ["client_secret_post"],
     agent_auth: {
+      skill: "https://isitagentready.com/.well-known/agent-skills/auth-md/SKILL.md",
       register_uri: `${baseUrl}/api/auth/register`,
-      supported_identity_types: ["ephemeral_agent", "delegated_user"],
+      identity_types_supported: ["anonymous", "identity_assertion"],
+      supported_identity_types: ["anonymous", "ephemeral_agent", "delegated_user"],
       credential_types: ["bearer_jwt"],
+      credential_types_supported: ["bearer_jwt"],
+      anonymous: {
+        credential_types_supported: ["bearer_jwt"],
+        claim_uri: `${baseUrl}/api/auth/me`
+      },
+      identity_assertion: {
+        assertion_types_supported: ["verified_email", "urn:ietf:params:oauth:token-type:id-jag"],
+        credential_types_supported: ["bearer_jwt"]
+      },
       claim_uri: `${baseUrl}/api/auth/me`,
       revocation_uri: `${baseUrl}/api/auth/logout`
     }

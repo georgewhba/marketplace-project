@@ -15,14 +15,14 @@ describe('AI Agent Readiness & Discovery Endpoints', () => {
     expect(text).toContain('ClaudeBot');
   });
 
-  it('serves auth.md with WorkOS YAML frontmatter containing agent_auth', async () => {
+  it('serves auth.md with # auth.md heading and agent_auth metadata', async () => {
     const res = await app.request('/auth.md');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/markdown');
     const text = await res.text();
+    expect(text).toContain('# auth.md');
     expect(text).toContain('agent_auth:');
     expect(text).toContain('register_uri:');
-    expect(text).toContain('# Agent Authentication Guide');
     expect(text).toContain('oauth-protected-resource');
   });
 
