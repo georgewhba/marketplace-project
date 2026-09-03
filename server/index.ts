@@ -54,6 +54,44 @@ app.use('*', enforceHttps);
 // Serve Let's Encrypt / ACME challenges statically before SPA fallback
 app.use('/.well-known/acme-challenge/*', serveStatic({ root: './' }));
 
+// Markdown for Agents (Content Negotiation per RFC / Cloudflare standards)
+app.use('*', async (c, next) => {
+  const accept = c.req.header('Accept') || '';
+  if (accept.includes('text/markdown') && !c.req.path.startsWith('/api/') && !c.req.path.startsWith('/uploads/')) {
+    const baseUrl = getRequestBaseUrl(c);
+    const md = `# سوق مصر — منصة التجارة الإلكترونية الأولى (Marketplace Egypt)
+
+مرحباً بك في سوق مصر، المنصة الرائدة متعددة البائعين للتجارة الإلكترونية والتسوق الآمن عبر الإنترنت.
+
+## موارد الوكلاء والذكاء الاصطناعي (Agent Resources)
+- دليل الوكلاء الذكيين: [llms.txt](${baseUrl}/llms.txt)
+- كتالوج الخدمات (ARD Manifest): [ai-catalog.json](${baseUrl}/.well-known/ai-catalog.json)
+- كتالوج الروابط (RFC 9727): [api-catalog](${baseUrl}/.well-known/api-catalog)
+- مواصفات OpenAPI: [api-catalog](${baseUrl}/api/catalog)
+- بطاقة خادم MCP: [server-card.json](${baseUrl}/.well-known/mcp/server-card.json)
+- فهرس مهارات الوكلاء: [agent-skills/index.json](${baseUrl}/.well-known/agent-skills/index.json)
+- إرشادات مصادقة الوكلاء: [auth.md](${baseUrl}/auth.md)
+- خريطة الموقع: [sitemap.xml](${baseUrl}/sitemap.xml)
+
+## الأقسام والمنتجات الرئيسية
+- الإلكترونيات، الأزياء، الكتب، المستلزمات المنزلية
+- منتجات موثقة من بائعين معتمدين مع شحن سريع وضمان جودة.
+
+## بروتوكولات التجارة المؤتمتة
+- يدعم الموقع بروتوكولات ACP (Agentic Commerce Protocol) و UCP و WebMCP و MCP و MPP للتسوق المؤتمت.
+`;
+    return new Response(md, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'x-markdown-tokens': '320',
+        'Vary': 'Accept'
+      }
+    });
+  }
+  await next();
+});
+
 // Global request logger and request-id injector
 app.use('*', requestLogger);
 
@@ -121,7 +159,7 @@ app.use('*', async (c, next) => {
   const baseUrl = getRequestBaseUrl(c);
   c.header(
     'Link',
-    `<${baseUrl}/.well-known/ai-catalog.json>; rel="service-desc", <${baseUrl}/.well-known/api-catalog>; rel="api-catalog", <${baseUrl}/.well-known/mcp/server-card.json>; rel="service-desc", <${baseUrl}/llms.txt>; rel="alternate", <${baseUrl}/auth.md>; rel="service-doc"`
+    `<${baseUrl}/.well-known/api-catalog>; rel="api-catalog", <${baseUrl}/.well-known/ai-catalog.json>; rel="service-desc", <${baseUrl}/.well-known/mcp/server-card.json>; rel="service-desc", <${baseUrl}/llms.txt>; rel="alternate", <${baseUrl}/auth.md>; rel="service-doc"`
   );
 });
 

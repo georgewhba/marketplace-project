@@ -15,13 +15,27 @@ describe('AI Agent Readiness & Discovery Endpoints', () => {
     expect(text).toContain('ClaudeBot');
   });
 
-  it('serves auth.md for agent registration instructions', async () => {
+  it('serves auth.md with WorkOS YAML frontmatter containing agent_auth', async () => {
     const res = await app.request('/auth.md');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/markdown');
     const text = await res.text();
+    expect(text).toContain('agent_auth:');
+    expect(text).toContain('register_uri:');
     expect(text).toContain('# Agent Authentication Guide');
     expect(text).toContain('oauth-protected-resource');
+  });
+
+  it('serves RFC 9727 & RFC 9264 API Catalog with linkset array', async () => {
+    const res = await app.request('/.well-known/api-catalog');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/linkset+json');
+    const json = await res.json() as any;
+    expect(json.linkset).toBeInstanceOf(Array);
+    expect(json.linkset[0].anchor).toBeDefined();
+    expect(json.linkset[0]['service-desc']).toBeInstanceOf(Array);
+    expect(json.linkset[0]['service-doc']).toBeInstanceOf(Array);
+    expect(json.linkset[0].status).toBeInstanceOf(Array);
   });
 
   it('serves RFC 9728 OAuth Protected Resource Metadata', async () => {
@@ -31,6 +45,7 @@ describe('AI Agent Readiness & Discovery Endpoints', () => {
     expect(json.resource).toBeDefined();
     expect(json.authorization_servers).toBeInstanceOf(Array);
     expect(json.scopes_supported).toContain('customer:read');
+    expect(json.agent_auth?.register_uri).toBeDefined();
   });
 
   it('serves SEP-1649 MCP Server Card', async () => {
@@ -57,16 +72,18 @@ describe('AI Agent Readiness & Discovery Endpoints', () => {
     expect(json.keys[0].kty).toBe('OKP');
   });
 
-  it('serves ARD ai-catalog.json manifest with CORS', async () => {
+  it('serves ARD ai-catalog.json manifest with valid identifiers and CORS', async () => {
     const res = await app.request('/.well-known/ai-catalog.json');
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     const json = await res.json() as any;
     expect(json.specVersion).toBe('1.0');
     expect(json.entries).toBeInstanceOf(Array);
+    expect(json.entries[0].identifier).toBeDefined();
+    expect(json.entries[0].identifier).toContain('urn:air:');
   });
 
-  it('serves ACP and UCP commerce metadata', async () => {
+  it('serves ACP and UCP commerce metadata with ucp field', async () => {
     const acpRes = await app.request('/.well-known/acp.json');
     expect(acpRes.status).toBe(200);
     const acpJson = await acpRes.json() as any;
@@ -75,7 +92,9 @@ describe('AI Agent Readiness & Discovery Endpoints', () => {
     const ucpRes = await app.request('/.well-known/ucp');
     expect(ucpRes.status).toBe(200);
     const ucpJson = await ucpRes.json() as any;
-    expect(ucpJson.services).toBeInstanceOf(Array);
+    expect(ucpJson.ucp).toBeDefined();
+    expect(ucpJson.ucp.version).toBe('1.0');
+    expect(ucpJson.ucp.services).toBeInstanceOf(Array);
   });
 
   it('serves openapi.json for MPP payment discovery', async () => {

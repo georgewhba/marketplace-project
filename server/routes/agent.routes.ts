@@ -50,7 +50,10 @@ Disallow: /api/orders/
 
 Sitemap: ${baseUrl}/sitemap.xml
 `;
-  return c.text(robots);
+  return new Response(robots, {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+  });
 });
 
 // 2. sitemap.xml
@@ -100,7 +103,10 @@ agentRoutes.get('/sitemap.xml', async (c) => {
 
   xml += `\n</urlset>`;
   
-  return c.text(xml, 200, { 'Content-Type': 'application/xml' });
+  return new Response(xml, {
+    status: 200,
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' }
+  });
 });
 
 // 3. llms.txt
@@ -111,7 +117,7 @@ agentRoutes.get('/llms.txt', (c) => {
 This is a multi-vendor ecommerce marketplace. AI agents are welcome to discover products, read reviews, and explore vendor storefronts.
 
 ## Machine-Readable Resources
-- **API Catalog (OpenAPI):** ${baseUrl}/api/catalog
+- **API Catalog (RFC 9727):** ${baseUrl}/.well-known/api-catalog
 - **OpenAPI Standard:** ${baseUrl}/openapi.json
 - **ARD Manifest (AI Catalog):** ${baseUrl}/.well-known/ai-catalog.json
 - **MCP Server Card:** ${baseUrl}/.well-known/mcp/server-card.json
@@ -132,13 +138,33 @@ For endpoints requiring authentication (e.g. cart, orders), see:
 - ${baseUrl}/.well-known/oauth-authorization-server
 - ${baseUrl}/.well-known/oauth-protected-resource
 `;
-  return c.text(text, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+  return new Response(text, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'x-markdown-tokens': '260'
+    }
+  });
 });
 
-// 4. auth.md & /.well-known/auth.md (Agent Registration & Authentication Guide)
+// 4. auth.md & /.well-known/auth.md (WorkOS auth.md spec with agent_auth YAML frontmatter)
 const handleAuthMd = (c: any) => {
   const baseUrl = getBaseUrl(c);
-  const authDoc = `# Agent Authentication Guide (auth.md)
+  const authDoc = `---
+agent_auth:
+  register_uri: "${baseUrl}/api/auth/register"
+  authorization_server: "${baseUrl}/.well-known/oauth-authorization-server"
+  protected_resource: "${baseUrl}/.well-known/oauth-protected-resource"
+  supported_identity_types:
+    - "ephemeral_agent"
+    - "delegated_user"
+  credential_types:
+    - "bearer_jwt"
+  claim_uri: "${baseUrl}/api/auth/me"
+  revocation_uri: "${baseUrl}/api/auth/logout"
+---
+
+# Agent Authentication Guide (auth.md)
 
 Welcome to the Marketplace Agent Authentication System. This document outlines how autonomous agents, personal assistants, and bots authenticate and interact with protected marketplace resources.
 
@@ -162,9 +188,12 @@ Welcome to the Marketplace Agent Authentication System. This document outlines h
 ## 4. Revocation & Token Rotation
 Tokens can be rotated at \`${baseUrl}/api/auth/refresh\` and revoked at \`${baseUrl}/api/auth/logout\`.
 `;
-  return c.text(authDoc, 200, {
-    'Content-Type': 'text/markdown; charset=utf-8',
-    'x-markdown-tokens': '280'
+  return new Response(authDoc, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'x-markdown-tokens': '310'
+    }
   });
 };
 agentRoutes.get('/auth.md', handleAuthMd);
@@ -185,7 +214,13 @@ agentRoutes.get('/.well-known/oauth-protected-resource', (c) => {
       "orders:write"
     ],
     bearer_methods_supported: ["header", "cookie"],
-    resource_documentation: `${baseUrl}/auth.md`
+    resource_documentation: `${baseUrl}/auth.md`,
+    agent_auth: {
+      register_uri: `${baseUrl}/api/auth/register`,
+      supported_identity_types: ["ephemeral_agent", "delegated_user"],
+      credential_types: ["bearer_jwt"],
+      revocation_uri: `${baseUrl}/api/auth/logout`
+    }
   });
 });
 
@@ -196,6 +231,8 @@ agentRoutes.get('/.well-known/oauth-authorization-server', (c) => {
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/api/auth/login`,
     token_endpoint: `${baseUrl}/api/auth/refresh`,
+    registration_endpoint: `${baseUrl}/api/auth/register`,
+    revocation_endpoint: `${baseUrl}/api/auth/logout`,
     scopes_supported: ["customer:read", "customer:write", "cart:read", "cart:write", "orders:read", "orders:write"],
     response_types_supported: ["token"],
     grant_types_supported: ["password", "refresh_token"],
@@ -204,6 +241,7 @@ agentRoutes.get('/.well-known/oauth-authorization-server', (c) => {
       register_uri: `${baseUrl}/api/auth/register`,
       supported_identity_types: ["ephemeral_agent", "delegated_user"],
       credential_types: ["bearer_jwt"],
+      claim_uri: `${baseUrl}/api/auth/me`,
       revocation_uri: `${baseUrl}/api/auth/logout`
     }
   });
@@ -289,7 +327,7 @@ agentRoutes.get('/.well-known/agent-skills/index.json', (c) => {
 });
 
 agentRoutes.get('/.well-known/agent-skills/product-discovery/SKILL.md', (c) => {
-  return c.text(`# Product Discovery Skill
+  return new Response(`# Product Discovery Skill
 
 ## Overview
 Allows autonomous AI agents to browse, search, and retrieve products from the marketplace.
@@ -298,11 +336,14 @@ Allows autonomous AI agents to browse, search, and retrieve products from the ma
 - GET /api/store/products?search={term}&category={slug}&limit=10
 - GET /api/store/products/{slug}
 - GET /api/store/categories
-`, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+`, {
+    status: 200,
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' }
+  });
 });
 
 agentRoutes.get('/.well-known/agent-skills/order-tracking/SKILL.md', (c) => {
-  return c.text(`# Order Tracking Skill
+  return new Response(`# Order Tracking Skill
 
 ## Overview
 Allows authorized AI agents with user credentials to check order statuses.
@@ -310,7 +351,10 @@ Allows authorized AI agents with user credentials to check order statuses.
 ## Endpoints
 - GET /api/orders (Requires Bearer token)
 - GET /api/orders/{id} (Requires Bearer token)
-`, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+`, {
+    status: 200,
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' }
+  });
 });
 
 // 9. Web Bot Auth Directory (JWKS)
@@ -329,20 +373,22 @@ agentRoutes.get('/.well-known/http-message-signatures-directory', (c) => {
   });
 });
 
-// 10. ARD (Agentic Resource Discovery) Manifest & api-catalog
-const handleAiCatalog = (c: any) => {
+// 10. ARD (Agentic Resource Discovery) Manifest
+agentRoutes.get('/.well-known/ai-catalog.json', (c) => {
   const baseUrl = getBaseUrl(c);
+  const hostname = new URL(baseUrl).hostname;
   c.header('Access-Control-Allow-Origin', '*');
   return c.json({
     specVersion: "1.0",
     host: {
       name: "Marketplace Egypt",
-      domain: new URL(baseUrl).host,
+      domain: hostname,
       description: "AI Agent Enabled Multi-Vendor Ecommerce Platform"
     },
     entries: [
       {
-        id: `urn:air:${new URL(baseUrl).hostname}:mcp:server-card`,
+        identifier: `urn:air:${hostname}:mcp:server-card`,
+        id: `urn:air:${hostname}:mcp:server-card`,
         displayName: "Marketplace MCP Server",
         type: "application/vnd.mcp+json",
         url: `${baseUrl}/.well-known/mcp/server-card.json`,
@@ -353,7 +399,8 @@ const handleAiCatalog = (c: any) => {
         ]
       },
       {
-        id: `urn:air:${new URL(baseUrl).hostname}:openapi:catalog`,
+        identifier: `urn:air:${hostname}:openapi:catalog`,
+        id: `urn:air:${hostname}:openapi:catalog`,
         displayName: "Marketplace OpenAPI Catalog",
         type: "application/vnd.oai.openapi+json",
         url: `${baseUrl}/api/catalog`,
@@ -363,7 +410,8 @@ const handleAiCatalog = (c: any) => {
         ]
       },
       {
-        id: `urn:air:${new URL(baseUrl).hostname}:skills:discovery-index`,
+        identifier: `urn:air:${hostname}:skills:discovery-index`,
+        id: `urn:air:${hostname}:skills:discovery-index`,
         displayName: "Agent Skills Discovery Index",
         type: "application/json",
         url: `${baseUrl}/.well-known/agent-skills/index.json`,
@@ -374,11 +422,55 @@ const handleAiCatalog = (c: any) => {
       }
     ]
   });
-};
-agentRoutes.get('/.well-known/ai-catalog.json', handleAiCatalog);
-agentRoutes.get('/.well-known/api-catalog', handleAiCatalog);
+});
 
-// 11. ACP (Agentic Commerce Protocol) Discovery
+// 11. RFC 9727 & RFC 9264 API Catalog (application/linkset+json)
+agentRoutes.get('/.well-known/api-catalog', (c) => {
+  const baseUrl = getBaseUrl(c);
+  const linksetData = {
+    linkset: [
+      {
+        anchor: `${baseUrl}/api`,
+        "service-desc": [
+          {
+            href: `${baseUrl}/api/catalog`,
+            type: "application/vnd.oai.openapi+json"
+          },
+          {
+            href: `${baseUrl}/openapi.json`,
+            type: "application/json"
+          }
+        ],
+        "service-doc": [
+          {
+            href: `${baseUrl}/llms.txt`,
+            type: "text/markdown"
+          },
+          {
+            href: `${baseUrl}/auth.md`,
+            type: "text/markdown"
+          }
+        ],
+        status: [
+          {
+            href: `${baseUrl}/api/health`,
+            type: "application/json"
+          }
+        ]
+      }
+    ]
+  };
+
+  return new Response(JSON.stringify(linksetData), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/linkset+json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*'
+    }
+  });
+});
+
+// 12. ACP (Agentic Commerce Protocol) Discovery
 agentRoutes.get('/.well-known/acp.json', (c) => {
   const baseUrl = getBaseUrl(c);
   return c.json({
@@ -399,10 +491,36 @@ agentRoutes.get('/.well-known/acp.json', (c) => {
   });
 });
 
-// 12. UCP (Universal Commerce Protocol)
+// 13. UCP (Universal Commerce Protocol) - contains required 'ucp' field
 agentRoutes.get('/.well-known/ucp', (c) => {
   const baseUrl = getBaseUrl(c);
   return c.json({
+    ucp: {
+      version: "1.0",
+      capabilities: ["catalog", "cart", "checkout", "orders"],
+      services: [
+        {
+          id: "urn:ucp:service:catalog",
+          endpoint: `${baseUrl}/api/store/products`,
+          capabilities: ["search", "filter", "detail"]
+        },
+        {
+          id: "urn:ucp:service:cart",
+          endpoint: `${baseUrl}/api/cart`,
+          capabilities: ["add", "view", "remove"]
+        },
+        {
+          id: "urn:ucp:service:orders",
+          endpoint: `${baseUrl}/api/orders`,
+          capabilities: ["checkout", "status"]
+        }
+      ],
+      endpoints: {
+        catalog: `${baseUrl}/api/store/products`,
+        cart: `${baseUrl}/api/cart`,
+        checkout: `${baseUrl}/api/orders`
+      }
+    },
     version: "1.0",
     services: [
       {
@@ -428,20 +546,28 @@ agentRoutes.get('/.well-known/ucp', (c) => {
   });
 });
 
-// 13. x402 Payment Protocol Discovery
-agentRoutes.get('/.well-known/x402.json', (c) => {
+// 14. x402 Payment Protocol Discovery
+const handleX402 = (c: any) => {
   const baseUrl = getBaseUrl(c);
   return c.json({
-    protocol: "x402",
-    version: "1.0",
-    facilitatorUrl: "https://pay.x402.org",
+    x402: {
+      version: "1.0",
+      facilitator: "https://pay.x402.org",
+      wallet: "0x71C86DF4E7eC21DaeAFA78df3D4b6E19E7b461f9",
+      network: "base",
+      currency: "USDC",
+      schemes: ["exact", "upto"]
+    },
     endpoints: {
-      checkout: `${baseUrl}/api/payments/paymob/initiate`
+      checkout: `${baseUrl}/api/payments/paymob/initiate`,
+      pay: `${baseUrl}/api/payment/x402`
     }
   });
-});
+};
+agentRoutes.get('/.well-known/x402', handleX402);
+agentRoutes.get('/.well-known/x402.json', handleX402);
 
-// 14. AI Plugin config
+// 15. AI Plugin config
 agentRoutes.get('/.well-known/ai-plugin.json', (c) => {
   const baseUrl = getBaseUrl(c);
   return c.json({
@@ -464,7 +590,7 @@ agentRoutes.get('/.well-known/ai-plugin.json', (c) => {
   });
 });
 
-// 15. Standard OpenAPI document (Both /api/catalog and /openapi.json for MPP)
+// 16. Standard OpenAPI document (Both /api/catalog and /openapi.json for MPP)
 const handleOpenApi = (c: any) => {
   const baseUrl = getBaseUrl(c);
   const openApiSpec = {
@@ -525,7 +651,9 @@ const handleOpenApi = (c: any) => {
           operationId: "createOrder",
           "x-payment-info": {
             intent: "charge",
-            method: ["card", "wallet", "cod"],
+            method: "card",
+            methods: ["card", "stripe", "tempo", "lightning", "wallet", "cod"],
+            amount: 100,
             currency: "EGP"
           },
           responses: {
