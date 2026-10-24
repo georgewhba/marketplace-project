@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
+import { LanguageProvider } from './i18n';
 import { Header, Footer } from './components/Layout';
 import { PageWrapper } from './components/PageWrapper';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
@@ -274,13 +275,15 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <AnimatedRoutes />
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
+      <LanguageProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <AnimatedRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

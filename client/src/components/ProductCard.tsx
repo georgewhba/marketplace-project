@@ -1,8 +1,10 @@
-import { Star, ShoppingCart, Heart } from 'lucide-react';
+import { Star, ShoppingCart, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 import { useState } from 'react';
+import { useLanguage } from '../i18n';
+
 interface ProductCardProps {
   product: {
     id: number;
@@ -13,6 +15,7 @@ interface ProductCardProps {
     rating?: string;
     reviewCount?: number;
     stock?: number;
+    isFeatured?: boolean;
     images?: { imageUrl: string; altText?: string }[];
     productImage?: string | null;
   };
@@ -21,9 +24,10 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductCardProps) {
+  const { t, formatPrice } = useLanguage();
   const price = parseFloat(product.price);
   const comparePrice = product.comparePrice ? parseFloat(product.comparePrice) : null;
-  const discount = comparePrice ? Math.round((1 - price / comparePrice) * 100) : null;
+  const discount = comparePrice && comparePrice > price ? Math.round((1 - price / comparePrice) * 100) : null;
   const imageUrl = product.images?.[0]?.imageUrl || product.productImage || 'https://picsum.photos/seed/fallback/400/300';
   const rating = product.rating ? parseFloat(product.rating) : 0;
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
@@ -36,14 +40,13 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    
-    // Subtle tilt: max 2 degrees
-    const rotateX = ((y - centerY) / centerY) * -2;
-    const rotateY = ((x - centerX) / centerX) * 2;
-    
+
+    const rotateX = ((y - centerY) / centerY) * -1.8;
+    const rotateY = ((x - centerX) / centerX) * 1.8;
+
     setTiltStyle({ rotateX, rotateY });
   };
 
@@ -53,90 +56,109 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
 
   const itemVariants = {
     hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        duration: motionTokens.duration.fast, 
-        ease: motionTokens.easing.decelerate 
-      } 
-    }
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: motionTokens.duration.fast,
+        ease: motionTokens.easing.decelerate,
+      },
+    },
   };
 
   return (
-    <motion.div 
-      className="product-card" 
+    <motion.div
+      className="product-card"
       variants={itemVariants}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      animate={{ 
-        rotateX: tiltStyle.rotateX, 
-        rotateY: tiltStyle.rotateY 
+      animate={{
+        rotateX: tiltStyle.rotateX,
+        rotateY: tiltStyle.rotateY,
       }}
-      transition={{ 
-        type: 'spring', 
-        stiffness: 400, 
-        damping: 30, 
-        mass: 0.5 
+      transition={{
+        type: 'spring',
+        stiffness: 400,
+        damping: 30,
+        mass: 0.5,
       }}
       style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
     >
-      <Link to={`/products/${product.slug}`}>
-        <motion.div 
-          className="product-card__image-wrap"
-          whileHover={{ scale: shouldReduceMotion ? 1 : 1.02 }}
-          transition={{ duration: motionTokens.duration.fast, ease: motionTokens.easing.standard }}
-        >
+      <div className="product-card__image-wrap">
+        <Link to={`/products/${product.slug}`} style={{ display: 'block', width: '100%', height: '100%' }}>
           <img src={imageUrl} alt={product.name} className="product-card__image" loading="lazy" />
-          {discount && <span className="product-card__discount">-{discount}%</span>}
-          {isOutOfStock && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'rgba(34, 28, 22, 0.65)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'white', fontSize: '1rem', fontWeight: 700,
-              letterSpacing: '0.05em'
-            }}>
-              نفذ من المخزون
-            </div>
+        </Link>
+
+        <div className="product-card__badges">
+          {discount && <span className="product-card__discount ltr">-{discount}%</span>}
+          {product.isFeatured && !discount && (
+            <span className="product-card__featured-badge">
+              <Sparkles size={11} /> {t('product.featured')}
+            </span>
           )}
-        </motion.div>
-      </Link>
+        </div>
 
-      {onToggleWishlist && (
-        <button className="product-card__wishlist" onClick={() => onToggleWishlist(product.id)}>
-          <Heart size={16} />
-        </button>
-      )}
+        {onToggleWishlist && (
+          <button
+            type="button"
+            className="product-card__wishlist"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleWishlist(product.id);
+            }}
+            aria-label={t('nav.wishlist')}
+          >
+            <Heart size={16} />
+          </button>
+        )}
 
-      {onAddToCart && !isOutOfStock && (
-        <button className="product-card__add-btn" onClick={() => onAddToCart(product.id)}>
-          <ShoppingCart size={16} />
-          أضف للسلة
-        </button>
-      )}
-
-      <Link to={`/products/${product.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-        <div className="product-card__body">
-          <div className="product-card__name">{product.name}</div>
-          <div className="product-card__price-row">
-            <span className="product-card__price">{price.toLocaleString('ar-EG')} ج.م</span>
-            {comparePrice && (
-              <span className="product-card__compare-price">{comparePrice.toLocaleString('ar-EG')}</span>
-            )}
+        {isOutOfStock && (
+          <div className="product-card__out-of-stock">
+            <span>{t('product.outOfStock')}</span>
           </div>
+        )}
+
+        {onAddToCart && !isOutOfStock && (
+          <button
+            type="button"
+            className="product-card__add-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddToCart(product.id);
+            }}
+          >
+            <ShoppingCart size={16} />
+            <span>{t('product.addToCart')}</span>
+          </button>
+        )}
+      </div>
+
+      <Link to={`/products/${product.slug}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="product-card__body">
           {rating > 0 && (
             <div className="product-card__rating">
               <div className="product-card__stars">
                 {[1, 2, 3, 4, 5].map(i => (
-                  <Star key={i} size={14} fill={i <= Math.round(rating) ? 'currentColor' : 'none'} />
+                  <Star key={i} size={13} fill={i <= Math.round(rating) ? 'currentColor' : 'none'} />
                 ))}
               </div>
-              <span>({product.reviewCount || 0})</span>
+              <span className="product-card__rating-num ltr">{rating.toFixed(1)}</span>
+              <span className="product-card__review-count">({product.reviewCount || 0})</span>
             </div>
           )}
+
+          <div className="product-card__name">{product.name}</div>
+
+          <div className="product-card__footer">
+            <div className="product-card__price-row">
+              <span className="product-card__price">{formatPrice(price)}</span>
+              {comparePrice && comparePrice > price && (
+                <span className="product-card__compare-price">{formatPrice(comparePrice)}</span>
+              )}
+            </div>
+          </div>
         </div>
       </Link>
     </motion.div>
@@ -147,10 +169,10 @@ export function ProductCardSkeleton() {
   return (
     <div className="product-card">
       <div className="skeleton skeleton-image" />
-      <div style={{ padding: '1rem' }}>
+      <div style={{ padding: '1.25rem' }}>
+        <div className="skeleton skeleton-text" style={{ width: '35%', marginBottom: 10 }} />
         <div className="skeleton skeleton-title" />
-        <div className="skeleton skeleton-text" style={{ width: '40%' }} />
-        <div className="skeleton skeleton-text" style={{ width: '30%' }} />
+        <div className="skeleton skeleton-text" style={{ width: '50%' }} />
       </div>
     </div>
   );
