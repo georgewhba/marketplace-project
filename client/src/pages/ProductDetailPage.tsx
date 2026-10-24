@@ -12,7 +12,7 @@ import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Store, Gem
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ProductDetailPage() {
-  const { t, isRTL, formatPrice, translateCategory } = useLanguage();
+  const { t, isRTL, formatPrice, translateCategory, translateProductName, translateStoreName } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const { slug } = useParams();
   const { user } = useAuth();
@@ -138,6 +138,7 @@ export default function ProductDetailPage() {
   const discount = comparePrice && comparePrice > price ? Math.round((1 - price / comparePrice) * 100) : null;
   const images = product.images || [];
   const isOutOfStock = product.stock <= 0;
+  const displayProductName = translateProductName(product.name);
 
   return (
     <div className="container page-content">
@@ -155,7 +156,7 @@ export default function ProductDetailPage() {
           </>
         )}
         <BreadcrumbChevron size={14} className="breadcrumb__separator" />
-        <span>{product.name}</span>
+        <span>{displayProductName}</span>
       </div>
 
       <div className="flex gap-8 flex-wrap">
@@ -198,7 +199,7 @@ export default function ProductDetailPage() {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold mb-3">{product.name}</h1>
+          <h1 className="text-2xl font-bold mb-3">{displayProductName}</h1>
 
           {/* Rating */}
           <div className="flex items-center flex-wrap gap-3 mb-4">
@@ -263,7 +264,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="font-semibold text-[var(--text-primary)]">{product.vendor.storeName}</div>
+                    <div className="font-semibold text-[var(--text-primary)]">{translateStoreName(product.vendor.storeName)}</div>
                     {product.vendor.subscriptionPlanSlug === 'pro' && (
                       <span className="badge badge-brand flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
                         {t('nav.proBadge')} <Gem size={12} />

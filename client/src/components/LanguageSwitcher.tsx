@@ -34,7 +34,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       >
         <Globe size={15} className="lang-switcher-btn__globe" />
         <span className="lang-switcher-btn__badge">{langInfo.code.toUpperCase()}</span>
-        {!compact && <span className="lang-switcher-btn__label max-sm:!hidden">{langInfo.nativeName}</span>}
+        {!compact && <span className="lang-switcher-btn__label desktop-only">{langInfo.nativeName}</span>}
         <ChevronDown
           size={13}
           style={{

@@ -23,7 +23,8 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductCardProps) {
-  const { t, formatPrice } = useLanguage();
+  const { t, formatPrice, translateProductName } = useLanguage();
+  const displayName = translateProductName(product.name);
   const price = parseFloat(product.price);
   const comparePrice = product.comparePrice ? parseFloat(product.comparePrice) : null;
   const discount = comparePrice && comparePrice > price ? Math.round((1 - price / comparePrice) * 100) : null;
@@ -49,7 +50,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
     <motion.article className="product-card" variants={itemVariants}>
       <div className="product-card__image-wrap">
         <Link to={`/products/${product.slug}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-          <img src={imageUrl} alt={product.name} className="product-card__image" loading="lazy" />
+          <img src={imageUrl} alt={displayName} className="product-card__image" loading="lazy" />
         </Link>
 
         <div className="product-card__badges">
@@ -93,7 +94,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
         )}
 
         <Link to={`/products/${product.slug}`} className="product-card__name-link">
-          <h3 className="product-card__name">{product.name}</h3>
+          <h3 className="product-card__name">{displayName}</h3>
         </Link>
 
         <div className="product-card__footer">

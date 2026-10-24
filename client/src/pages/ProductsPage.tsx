@@ -13,7 +13,7 @@ import { SlidersHorizontal, ArrowLeft, ArrowRight, Store, X } from 'lucide-react
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ProductsPage() {
-  const { t, isRTL, translateCategory, formatNumber } = useLanguage();
+  const { t, isRTL, translateCategory, translateStoreName, formatNumber } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const { slug: vendorRouteSlug } = useParams<{ slug?: string }>();
@@ -40,7 +40,7 @@ export default function ProductsPage() {
   ];
 
   const pageTitle = vendorInfo?.storeName
-    ? vendorInfo.storeName
+    ? translateStoreName(vendorInfo.storeName)
     : search
       ? `"${search}"`
       : category
@@ -131,7 +131,7 @@ export default function ProductsPage() {
             <Store size={30} className="text-[var(--brand-500)]" />
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold m-0">{vendorInfo.storeName}</h1>
+            <h1 className="text-2xl font-bold m-0">{translateStoreName(vendorInfo.storeName)}</h1>
             {vendorInfo.storeDescription && (
               <p className="text-muted text-sm mt-1 mb-0">{vendorInfo.storeDescription}</p>
             )}
