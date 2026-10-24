@@ -587,8 +587,8 @@ const handleX402 = (c: any) => {
       schemes: ["exact", "upto"]
     },
     endpoints: {
-      checkout: `${baseUrl}/api/payments/paymob/initiate`,
-      pay: `${baseUrl}/api/payment/x402`
+      checkout: `${baseUrl}/api/payments/initiate`,
+      pay: `${baseUrl}/api/payments/initiate`
     }
   });
 };

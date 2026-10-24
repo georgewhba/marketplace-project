@@ -14,5 +14,6 @@ export const shipments = pgTable('shipments', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({ 
-  orderIdx: index('shipments_order_idx').on(t.orderId) 
+  orderIdx: index('shipments_order_idx').on(t.orderId),
+  trackingIdx: index('shipments_tracking_idx').on(t.trackingNumber),
 }));

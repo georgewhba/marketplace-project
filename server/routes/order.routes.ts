@@ -1,13 +1,14 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { orders, orderItems, cartItems, products, vendors, productImages, coupons, addresses, notifications, shipments, shipmentEvents } from '../db/schema/index.js';
-import { eq, and, sql, desc, asc } from 'drizzle-orm';
+import { orders, orderItems, cartItems, products, vendors, productImages, coupons, addresses, notifications, shipments, shipmentEvents, siteSettings } from '../db/schema/index.js';
+import { eq, and, inArray, sql, desc, asc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
 import { generateOrderNumber } from '../utils/order-number.js';
+import { resolveCommissionRate } from '../services/commission.service.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import type { AppEnv } from '../types/env.js';
 
@@ -33,30 +34,33 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
     .limit(1);
   if (!address) throw AppError.notFound('العنوان');
 
-  // Load cart with product details
+  // Load cart with product and vendor details
   const cartItemsList = await db
     .select({
       cartId: cartItems.id,
       productId: products.id,
       vendorId: products.vendorId,
+      categoryId: products.categoryId,
       productName: products.name,
       productPrice: products.price,
       productSku: products.sku,
       productStock: products.stock,
       productIsActive: products.isActive,
+      vendorStatus: vendors.status,
       quantity: cartItems.quantity,
     })
     .from(cartItems)
     .innerJoin(products, eq(cartItems.productId, products.id))
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
     .where(eq(cartItems.userId, user.id));
 
   if (cartItemsList.length === 0) {
     throw AppError.badRequest('السلة فارغة');
   }
 
-  // Early stock/active check (optimistic, pre-flight — not the authoritative gate)
+  // Early stock/active/vendor status check (optimistic, pre-flight)
   for (const item of cartItemsList) {
-    if (!item.productIsActive) {
+    if (!item.productIsActive || item.vendorStatus !== 'approved') {
       throw AppError.badRequest(`المنتج "${item.productName}" غير متاح حالياً`);
     }
     if (item.productStock < item.quantity) {
@@ -64,15 +68,30 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
     }
   }
 
+  // Read shipping fee and min order amount from siteSettings
+  const settingsRows = await db.select().from(siteSettings)
+    .where(inArray(siteSettings.key, ['default_shipping_fee', 'shipping_fee_per_vendor', 'min_order_amount']));
+  const settingsMap = Object.fromEntries(settingsRows.map(s => [s.key, s.value]));
+
+  const rawShippingFee = settingsMap['default_shipping_fee'] ?? settingsMap['shipping_fee_per_vendor'] ?? '30';
+  const parsedShippingFee = parseFloat(rawShippingFee);
+  const shippingPerVendor = Number.isNaN(parsedShippingFee) || parsedShippingFee < 0 ? 30 : parsedShippingFee;
+
+  const parsedMinOrderAmount = parseFloat(settingsMap['min_order_amount'] ?? '0');
+  const minOrderSetting = Number.isNaN(parsedMinOrderAmount) ? 0 : parsedMinOrderAmount;
+
   // Calculate subtotal
   let subtotal = 0;
   for (const item of cartItemsList) {
     subtotal += parseFloat(item.productPrice) * item.quantity;
   }
 
-  // Shipping fee per vendor group (flat 30 EGP per vendor)
+  if (minOrderSetting > 0 && subtotal < minOrderSetting) {
+    throw AppError.badRequest(`الحد الأدنى للطلب هو ${minOrderSetting} جنيه`);
+  }
+
+  // Shipping fee per vendor group
   const vendorIds = [...new Set(cartItemsList.map(i => i.vendorId))];
-  const shippingPerVendor = 30;
   const totalShipping = vendorIds.length * shippingPerVendor;
 
   // Validate coupon (pre-flight read for early error — authoritative gate is inside tx)
@@ -93,22 +112,25 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
     if (subtotal < minOrder) throw AppError.badRequest(`الحد الأدنى لاستخدام الكود ${minOrder} جنيه`);
 
     if (coupon.type === 'percentage') {
-      discount = subtotal * (parseFloat(coupon.value) / 100);
+      discount = Math.min(subtotal * (parseFloat(coupon.value) / 100), subtotal);
     } else {
       discount = Math.min(parseFloat(coupon.value), subtotal);
     }
+    discount = Math.max(0, discount);
 
     couponId = coupon.id;
     couponCode = coupon.code;
   }
 
-  const total = subtotal + totalShipping - discount;
+  const total = Math.max(0, subtotal + totalShipping - discount);
   const orderNumber = generateOrderNumber();
 
-  // Load vendor commission rates and product images (read-only, safe outside tx)
-  const vendorList = await db.select({ id: vendors.id, commissionRate: vendors.commissionRate })
-    .from(vendors)
-    .where(sql`${vendors.id} IN ${vendorIds}`);
+  // Resolve commission rate for each item via commission service
+  const itemCommissionRates = new Map<number, number>();
+  for (const item of cartItemsList) {
+    const rate = await resolveCommissionRate(item.vendorId, item.categoryId);
+    itemCommissionRates.set(item.productId, rate);
+  }
 
   const productIds = cartItemsList.map(i => i.productId);
   const imagesResult = productIds.length > 0
@@ -123,8 +145,6 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
 
   await db.transaction(async (tx) => {
     // 1. Atomically deduct stock for every cart item.
-    //    The WHERE stock >= qty clause is the authoritative race-condition guard.
-    //    If it returns no rows, stock was insufficient at execution time → rollback all.
     for (const item of cartItemsList) {
       const deducted = await tx
         .update(products)
@@ -134,12 +154,12 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
         })
         .where(and(
           eq(products.id, item.productId),
+          eq(products.isActive, true),
           sql`${products.stock} >= ${item.quantity}`,
         ))
         .returning({ newStock: products.stock });
 
       if (deducted.length === 0) {
-        // Stock was not sufficient at execution time — rollback entire transaction
         throw AppError.badRequest(`نفد المخزون من المنتج "${item.productName}"، حاول تقليل الكمية أو تحديث السلة`);
       }
     }
@@ -157,7 +177,6 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
         .returning({ usedCount: coupons.usedCount });
 
       if (claimed.length === 0) {
-        // Coupon was exhausted between pre-flight check and now
         throw AppError.badRequest('كود الخصم استُنفد بالكامل، حاول بدونه');
       }
     }
@@ -189,8 +208,7 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
     // 4. Insert order items (snapshot of price/commission at order time)
     const vendorsWithShipping = new Set<number>();
     for (const item of cartItemsList) {
-      const vendor = vendorList.find(v => v.id === item.vendorId);
-      const commissionRate = vendor ? parseFloat(vendor.commissionRate) : 10;
+      const commissionRate = itemCommissionRates.get(item.productId) ?? 10;
       const itemTotal = parseFloat(item.productPrice) * item.quantity;
       const commissionAmount = itemTotal * (commissionRate / 100);
       const vendorAmount = itemTotal - commissionAmount;
@@ -220,8 +238,7 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
   });
   // ── Transaction committed — DB is consistent ──────────────────────────────
 
-  // Fire-and-forget vendor notifications (outside tx; a notification failure
-  // must never roll back a successfully created order)
+  // Fire-and-forget vendor notifications
   const notifyVendors = async () => {
     for (const vendorId of vendorIds) {
       const [vendorRecord] = await db.select({ userId: vendors.userId })
@@ -280,6 +297,7 @@ orderRoutes.get('/', validate('query', paginationSchema), async (c) => {
 orderRoutes.get('/:id', async (c) => {
   const user = c.get('user');
   const orderId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(orderId)) throw AppError.badRequest('معرف غير صالح');
 
   const [order] = await db.select().from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.customerId, user.id)))
@@ -296,6 +314,7 @@ orderRoutes.get('/:id', async (c) => {
 orderRoutes.get('/:id/tracking', async (c) => {
   const user = c.get('user');
   const orderId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(orderId)) throw AppError.badRequest('معرف غير صالح');
 
   const [order] = await db.select({ id: orders.id }).from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.customerId, user.id)))
@@ -329,6 +348,7 @@ orderRoutes.get('/:id/tracking', async (c) => {
 orderRoutes.put('/:id/cancel', async (c) => {
   const user = c.get('user');
   const orderId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(orderId)) throw AppError.badRequest('معرف غير صالح');
 
   // Pre-flight ownership check (outside tx — safe read)
   const [preCheck] = await db.select({ id: orders.id, customerId: orders.customerId })
@@ -341,7 +361,6 @@ orderRoutes.put('/:id/cancel', async (c) => {
 
   await db.transaction(async (tx) => {
     // Re-read order status inside the transaction to prevent TOCTOU race
-    // (another request might have confirmed the order between pre-check and now)
     const [order] = await tx
       .select()
       .from(orders)
@@ -354,8 +373,14 @@ orderRoutes.put('/:id/cancel', async (c) => {
       throw AppError.badRequest('لا يمكن إلغاء الطلب بعد تأكيده');
     }
 
-    // Load order items inside tx
-    const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    // Load and lock order items inside tx
+    const items = await tx.select().from(orderItems)
+      .where(eq(orderItems.orderId, order.id))
+      .for('update');
+
+    if (items.some(i => i.vendorStatus !== 'pending' && i.vendorStatus !== 'confirmed')) {
+      throw AppError.badRequest('لا يمكن إلغاء الطلب بعد شحنه أو تسليمه');
+    }
 
     // Atomically restore stock for each item with a product
     for (const item of items) {

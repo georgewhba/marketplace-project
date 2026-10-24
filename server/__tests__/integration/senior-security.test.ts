@@ -1,8 +1,12 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import {
-  POST, GET, PUT, DEL,
-  seedUser, seedCategory, seedVendor, seedProduct, seedCartItem, seedAddress, seedCoupon, createAccessToken, cleanup, closeDb, db
+  POST, GET,
+  seedUser, seedCategory, seedVendor, seedProduct, seedCartItem, seedAddress, seedCoupon,
+  seedOrder, seedOrderItem, createAccessToken, cleanup, closeDb, db
 } from './helpers.js';
+import { shipments, shipmentEvents, transactions, vendors, orderItems, cartItems } from '../../db/schema/index.js';
+import { eq, inArray } from 'drizzle-orm';
+import { env } from '../../env.js';
 
 const ts = Date.now();
 const cleanupIds = {
@@ -14,9 +18,25 @@ const cleanupIds = {
   addressIds: [] as number[],
   couponIds: [] as number[],
   orderIds: [] as number[],
+  orderItemIds: [] as number[],
+  transactionIds: [] as number[],
 };
 
 afterAll(async () => {
+  if (cleanupIds.orderIds.length > 0) {
+    const shipRows = await db.select().from(shipments).where(inArray(shipments.orderId, cleanupIds.orderIds));
+    if (shipRows.length > 0) {
+      await db.delete(shipmentEvents).where(inArray(shipmentEvents.shipmentId, shipRows.map(s => s.id)));
+      await db.delete(shipments).where(inArray(shipments.orderId, cleanupIds.orderIds));
+    }
+    if (cleanupIds.vendorIds.length > 0) {
+      await db.delete(transactions).where(inArray(transactions.vendorId, cleanupIds.vendorIds));
+    }
+    await db.delete(orderItems).where(inArray(orderItems.orderId, cleanupIds.orderIds));
+  }
+  if (cleanupIds.userIds.length > 0) {
+    await db.delete(cartItems).where(inArray(cartItems.userId, cleanupIds.userIds));
+  }
   await cleanup(cleanupIds);
   await closeDb();
 });
@@ -26,7 +46,7 @@ describe('Senior Security — Business Logic & State Mutation', () => {
     const user = await seedUser(`cartMut-${ts}@test.com`, 'Pass123');
     cleanupIds.userIds.push(user);
     const token = createAccessToken(user, `cartMut-${ts}@test.com`, 'customer');
-    
+
     const category = await seedCategory(`catMut-${ts}`, `catmut-${ts}`);
     cleanupIds.categoryIds.push(category);
 
@@ -40,121 +60,134 @@ describe('Senior Security — Business Logic & State Mutation', () => {
     const address = await seedAddress(user);
     cleanupIds.addressIds.push(address);
 
-    // 1. User adds cheap product to cart
     await seedCartItem(user, cheapProduct, 1);
 
-    // 2. User initiates checkout (creates Order with 10.00 total)
     const checkoutRes = await POST('/api/orders', {
       token,
       body: { addressId: address }
     });
-    
+
     expect(checkoutRes.status).toBe(201);
     const order = checkoutRes.body?.data as any;
-    expect(Number(order.total)).toBe(40); // 10 (product) + 30 (shipping)
+    expect(Number(order.total)).toBe(40);
     cleanupIds.orderIds.push(order.id);
 
-    // 3. User maliciously adds expensive product to cart in another tab
     const mutateRes = await POST('/api/cart', {
       token,
       body: { productId: expensiveProduct, quantity: 1 }
     });
     expect(mutateRes.status).toBe(201);
 
-    // 4. If we fetch the order again, it should STILL be 40.00, not updated by the cart mutation.
     const orderFetchRes = await GET(`/api/orders/${order.id}`, { token });
     const fetchedOrder = orderFetchRes.body?.data as any;
-    
-    // The total amount MUST NOT have changed
     expect(Number(fetchedOrder.total)).toBe(40);
-    
-    // Hack: clean up order_items manually because helper cleanup expects IDs
-    const { sql } = await import('drizzle-orm');
-    await db.execute(sql`DELETE FROM order_items WHERE order_id = ${order.id}`);
   });
 });
 
 describe('Senior Security — Concurrency & Race Conditions', () => {
-  it('prevents using a single-use coupon multiple times via race condition', async () => {
-    const user = await seedUser(`couponRace-${ts}@test.com`, 'Pass123');
-    cleanupIds.userIds.push(user);
-    const token = createAccessToken(user, `couponRace-${ts}@test.com`, 'customer');
-    
-    const address = await seedAddress(user);
-    cleanupIds.addressIds.push(address);
-    
+  it('prevents using a single-use coupon multiple times across concurrent users', async () => {
     const category = await seedCategory(`catCr-${ts}`, `catcr-${ts}`);
     cleanupIds.categoryIds.push(category);
-    const vendor = await seedVendor(user, `venCr-${ts}`, `vencr-${ts}`);
+    const vendorOwner = await seedUser(`venOwnerCr-${ts}@test.com`, 'Pass123', 'vendor');
+    cleanupIds.userIds.push(vendorOwner);
+    const vendor = await seedVendor(vendorOwner, `venCr-${ts}`, `vencr-${ts}`);
     cleanupIds.vendorIds.push(vendor);
     const product = await seedProduct(vendor, category, { price: '100.00', stock: 100 });
     cleanupIds.productIds.push(product);
-    
-    // Create a coupon that can only be used ONCE (usageLimit: 1)
+
     const couponId = await seedCoupon({ code: `ONCE${ts}`, type: 'fixed', value: '10.00', usageLimit: 1 });
     cleanupIds.couponIds.push(couponId);
 
-    // Seed multiple identical cart items to create separate orders? No, the cart gets cleared on checkout.
-    // To test race conditions, we can try to apply the coupon in 5 concurrent cart applications,
-    // OR create 5 concurrent checkouts if we seed the cart just in time.
-    
-    // Let's test concurrent checkout with the coupon string
-    // Assuming coupon code can be passed during checkout
-    
-    // First, let's just make sure coupon application endpoint resists race conditions if there is one.
-    // If not, we skip or adapt. We'll adapt to whatever endpoint handles coupons.
-    // Let's assume there is a POST /api/cart/coupon endpoint or it's passed in checkout.
-    // Let's pass it in checkout.
-
-    // Seed cart for 5 separate checkouts. Wait, cart is tied to user.
-    // If cart is cleared on first successful checkout, the others will fail with "cart empty".
-    // That inherently protects against coupon double-use if it's tied to cart checkout.
-    // Let's test the /api/orders endpoint with 5 concurrent requests.
-    await seedCartItem(user, product, 1);
-
     const promises = [];
     for (let i = 0; i < 5; i++) {
+      const u = await seedUser(`couponRace-${ts}-${i}@test.com`, 'Pass123');
+      cleanupIds.userIds.push(u);
+      const tok = createAccessToken(u, `couponRace-${ts}-${i}@test.com`, 'customer');
+      const addr = await seedAddress(u);
+      cleanupIds.addressIds.push(addr);
+      await seedCartItem(u, product, 1);
+
       promises.push(POST('/api/orders', {
-        token,
-        body: { addressId: address, couponCode: `ONCE${ts}` }
+        token: tok,
+        body: { addressId: addr, couponCode: `ONCE${ts}` }
       }));
     }
 
     const results = await Promise.all(promises);
-    
-    // Only ONE order should succeed. The others should fail either because cart is empty
-    // OR because coupon limit is reached (if transactions are properly isolated).
     const successes = results.filter(r => r.status === 201);
-    expect(successes.length).toBeLessThanOrEqual(1);
-    
-    const success = successes[0];
-    if (successes.length === 1 && success?.body?.data) {
-       cleanupIds.orderIds.push((success.body.data as any).id);
+    expect(successes.length).toBe(1);
+
+    for (const s of successes) {
+      if (s.body?.data) {
+        cleanupIds.orderIds.push((s.body.data as any).id);
+      }
     }
   });
 });
 
 describe('Senior Security — Idempotency (Webhook Double Delivery)', () => {
-  it('processes webhook only once even if received twice simultaneously', async () => {
-    // We would need a valid HMAC to test this properly, but since we don't have the secret here easily,
-    // this test might be tricky unless we mock it or use the mock webhook.
-    // The previous test failed because of invalid HMAC.
-    // Let's skip the exact signature logic and focus on the concept if we can.
-    // Or we can hit a mock webhook endpoint if one exists.
-    expect(true).toBe(true);
+  it('processes Bosta DELIVERED webhook idempotently without double-crediting vendor balance', async () => {
+    const owner = await seedUser(`whOwner-${ts}@test.com`, 'Pass123', 'vendor');
+    const customer = await seedUser(`whCust-${ts}@test.com`, 'Pass123', 'customer');
+    cleanupIds.userIds.push(owner, customer);
+
+    const category = await seedCategory(`catWh-${ts}`, `catwh-${ts}`);
+    cleanupIds.categoryIds.push(category);
+    const vendor = await seedVendor(owner, `venWh-${ts}`, `venwh-${ts}`, '10.00');
+    cleanupIds.vendorIds.push(vendor);
+    const product = await seedProduct(vendor, category, { price: '200.00', stock: 10 });
+    cleanupIds.productIds.push(product);
+
+    const orderId = await seedOrder(customer, { status: 'shipped', subtotal: '200.00', total: '230.00' });
+    cleanupIds.orderIds.push(orderId);
+    const trackNum = `BOSTA-IDEM-${ts}`;
+    const itemId = await seedOrderItem(orderId, product, vendor, {
+      price: '200.00',
+      quantity: 1,
+      total: '200.00',
+      vendorStatus: 'shipped',
+      commissionRate: '10.00',
+      commissionAmount: '20.00',
+      vendorAmount: '180.00',
+    });
+    cleanupIds.orderItemIds.push(itemId);
+
+    await db.update(orderItems).set({ trackingNumber: trackNum }).where(eq(orderItems.id, itemId));
+    await db.insert(shipments).values({
+      orderId,
+      vendorId: vendor,
+      provider: 'bosta',
+      trackingNumber: trackNum,
+      status: 'in_transit',
+    });
+
+    const secret = env.BOSTA_WEBHOOK_SECRET || 'bosta_secret_123';
+    const webhookBody = { trackingNumber: trackNum, state: { value: 'DELIVERED' } };
+    const headers = { Authorization: `Bearer ${secret}` };
+
+    // Send two delivery webhooks back-to-back
+    const res1 = await POST('/api/webhooks/bosta', { body: webhookBody, headers });
+    const res2 = await POST('/api/webhooks/bosta', { body: webhookBody, headers });
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+
+    const txRows = await db.select().from(transactions).where(eq(transactions.vendorId, vendor));
+    expect(txRows.length).toBe(1);
+
+    const [vRow] = await db.select().from(vendors).where(eq(vendors.id, vendor));
+    expect(Number(vRow?.totalSales)).toBe(180);
   });
 });
 
 describe('Senior Security — Prototype Pollution / Type Juggling', () => {
   it('rejects Object injection in string fields', async () => {
     const res = await POST('/api/auth/login', {
-      body: { 
-        email: { "$gt": "" }, // MongoDB style NoSQL injection / Object injection
+      body: {
+        email: { "$gt": "" },
         password: "Pass"
       }
     });
 
-    // Zod must reject this before it hits the DB (400 Bad Request)
     expect(res.status).toBe(400);
   });
 });

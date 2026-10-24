@@ -95,9 +95,9 @@ export default function LoginPage() {
                     theme="outline"
                   />
                 ) : (
-                  <button 
-                    type="button" 
-                    className="btn btn-outline" 
+                  <button
+                    type="button"
+                    className="btn btn-outline"
                     style={{ width: '100%' }}
                     onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
                   >
@@ -126,7 +126,12 @@ export default function LoginPage() {
               </div>
 
               <div className="form-group mb-4">
-                <label className="form-label">كلمة المرور</label>
+                <div className="flex justify-between items-center">
+                  <label className="form-label">كلمة المرور</label>
+                  <Link to="/forgot-password" style={{ fontSize: 'var(--font-size-xs)' }}>
+                    نسيت كلمة المرور؟
+                  </Link>
+                </div>
                 <input
                   type="password"
                   className="form-input"
@@ -155,8 +160,6 @@ export default function LoginPage() {
             <Link to="/register/vendor">سجّل متجرك</Link>
           </p>
         </div>
-
-
       </div>
     </div>
   );

@@ -6,12 +6,12 @@ import { useToast } from '../toast';
 import { User, Mail, Phone, Lock, Save, Shield } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { addToast } = useToast();
 
   const [form, setForm] = useState({ firstName: '', lastName: '', phone: '' });
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  
+
   // MFA state
   const [mfaSetup, setMfaSetup] = useState<any>(null);
   const [mfaToken, setMfaToken] = useState('');
@@ -24,8 +24,9 @@ export default function ProfilePage() {
 
   const updateMutation = useMutation({
     mutationFn: () => authApi.updateProfile(form),
-    onSuccess: () => {
+    onSuccess: async () => {
       addToast('تم تحديث البيانات', 'success');
+      await refreshProfile();
     },
     onError: () => addToast('حدث خطأ', 'error'),
   });
@@ -52,23 +53,21 @@ export default function ProfilePage() {
 
   const verifyMfaMutation = useMutation({
     mutationFn: () => authApi.verifyMfa(mfaToken),
-    onSuccess: () => {
+    onSuccess: async () => {
       addToast('تم تفعيل المصادقة الثنائية بنجاح', 'success');
       setMfaSetup(null);
       setMfaToken('');
-      // Force refresh user to update mfaEnabled flag
-      window.dispatchEvent(new Event('auth:refresh'));
-      window.location.reload();
+      await refreshProfile();
     },
     onError: (err: any) => addToast(err.message || 'رمز التحقق غير صحيح', 'error'),
   });
 
   const disableMfaMutation = useMutation({
     mutationFn: () => authApi.disableMfa(mfaToken),
-    onSuccess: () => {
+    onSuccess: async () => {
       addToast('تم تعطيل المصادقة الثنائية بنجاح', 'success');
       setMfaToken('');
-      window.location.reload();
+      await refreshProfile();
     },
     onError: (err: any) => addToast(err.message || 'رمز التحقق غير صحيح', 'error'),
   });
@@ -144,7 +143,7 @@ export default function ProfilePage() {
         <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-base)', fontWeight: 600 }}>
           <Shield size={18} color="var(--primary-500)" /> المصادقة الثنائية (2FA)
         </h3>
-        
+
         {user?.mfaEnabled ? (
           <div>
             <p style={{ color: 'var(--success-600)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
@@ -152,18 +151,18 @@ export default function ProfilePage() {
             </p>
             <div className="form-group">
               <label className="form-label">رمز التحقق لتعطيل المصادقة</label>
-              <input 
-                className="input" 
-                type="text" 
-                value={mfaToken} 
-                onChange={e => setMfaToken(e.target.value)} 
-                placeholder="123456" 
-                style={{ textAlign: 'center', letterSpacing: '0.2em' }} 
+              <input
+                className="input"
+                type="text"
+                value={mfaToken}
+                onChange={e => setMfaToken(e.target.value)}
+                placeholder="123456"
+                style={{ textAlign: 'center', letterSpacing: '0.2em' }}
               />
             </div>
-            <button 
-              className="btn btn-error" 
-              onClick={() => disableMfaMutation.mutate()} 
+            <button
+              className="btn btn-error"
+              onClick={() => disableMfaMutation.mutate()}
               disabled={disableMfaMutation.isPending || mfaToken.length < 6}
             >
               {disableMfaMutation.isPending ? 'جاري التعطيل...' : 'تعطيل المصادقة الثنائية'}
@@ -174,11 +173,11 @@ export default function ProfilePage() {
             <p style={{ marginBottom: 'var(--space-4)' }}>
               أضف طبقة حماية إضافية لحسابك باستخدام تطبيق مصادقة (مثل Google Authenticator).
             </p>
-            
+
             {!mfaSetup ? (
-              <button 
-                className="btn btn-outline" 
-                onClick={() => setupMfaMutation.mutate()} 
+              <button
+                className="btn btn-outline"
+                onClick={() => setupMfaMutation.mutate()}
                 disabled={setupMfaMutation.isPending}
               >
                 {setupMfaMutation.isPending ? 'جاري الإعداد...' : 'إعداد المصادقة الثنائية'}
@@ -189,7 +188,7 @@ export default function ProfilePage() {
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-4)', background: 'var(--surface-0)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                   <img src={mfaSetup.data?.qrCode} alt="MFA QR Code" style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
                 </div>
-                
+
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>2. أو أدخل الرمز السري يدوياً:</p>
                 <code style={{ display: 'block', padding: 'var(--space-3)', background: 'var(--surface-0)', color: 'var(--text-base, inherit)', borderRadius: 'var(--radius-md)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 'var(--space-4)', wordBreak: 'break-all', border: '1px solid var(--border)' }}>
                   {mfaSetup.data?.secret}
@@ -197,26 +196,26 @@ export default function ProfilePage() {
 
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>3. أدخل الرمز المكون من 6 أرقام للتفعيل:</p>
                 <div className="form-group" style={{ marginBottom: 'var(--space-3)' }}>
-                  <input 
-                    className="input" 
-                    type="text" 
-                    value={mfaToken} 
-                    onChange={e => setMfaToken(e.target.value)} 
-                    placeholder="123456" 
-                    style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: '1.2rem' }} 
+                  <input
+                    className="input"
+                    type="text"
+                    value={mfaToken}
+                    onChange={e => setMfaToken(e.target.value)}
+                    placeholder="123456"
+                    style={{ textAlign: 'center', letterSpacing: '0.2em', fontSize: '1.2rem' }}
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                  <button 
-                    className="btn btn-primary" 
-                    onClick={() => verifyMfaMutation.mutate()} 
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => verifyMfaMutation.mutate()}
                     disabled={verifyMfaMutation.isPending || mfaToken.length < 6}
                     style={{ flex: 1 }}
                   >
                     {verifyMfaMutation.isPending ? 'جاري التفعيل...' : 'تفعيل المصادقة'}
                   </button>
-                  <button 
-                    className="btn btn-outline" 
+                  <button
+                    className="btn btn-outline"
                     onClick={() => setMfaSetup(null)}
                     style={{ flex: 1 }}
                   >
@@ -237,14 +236,14 @@ export default function ProfilePage() {
 
 function NotificationPreferences() {
   const { addToast } = useToast();
-  
+
   const { data: prefs, isLoading, refetch } = useQuery({
     queryKey: ['notificationPreferences'],
-    queryFn: () => authApi.getNotificationPreferences().then(res => res.data)
+    queryFn: () => authApi.getNotificationPreferences().then(res => res.data),
   });
 
   const updatePrefMutation = useMutation({
-    mutationFn: (data: { category: string; channel: string; enabled: boolean }) => 
+    mutationFn: (data: { category: string; channel: string; enabled: boolean }) =>
       authApi.updateNotificationPreference(data),
     onSuccess: () => {
       addToast('تم تحديث التفضيلات', 'success');
@@ -257,23 +256,22 @@ function NotificationPreferences() {
     { id: 'order_updates', label: 'تحديثات الطلبات' },
     { id: 'promotions', label: 'العروض والخصومات' },
     { id: 'stock_alerts', label: 'تنبيهات المخزون' },
-    { id: 'system', label: 'إشعارات النظام' }
+    { id: 'system', label: 'إشعارات النظام' },
   ];
 
   const channels = [
     { id: 'email', label: 'البريد الإلكتروني' },
     { id: 'sms', label: 'الرسائل النصية' },
-    { id: 'in_app', label: 'إشعارات التطبيق' }
+    { id: 'in_app', label: 'إشعارات التطبيق' },
   ];
 
   if (isLoading) return <div>جاري تحميل التفضيلات...</div>;
 
-  // Find if a pref exists and is enabled (or true by default if not set)
   const isEnabled = (cat: string, chan: string) => {
     const pref = prefs?.find((p: any) => p.category === cat && p.channel === chan);
     if (pref) return pref.enabled;
-    if (cat === 'promotions' && chan === 'sms') return false; // Default off for expensive channels
-    return true; 
+    if (cat === 'promotions' && chan === 'sms') return false;
+    return true;
   };
 
   return (
@@ -281,7 +279,7 @@ function NotificationPreferences() {
       <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-base)', fontWeight: 600 }}>
         تفضيلات الإشعارات
       </h3>
-      
+
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 'var(--space-4)' }}>
           <thead>
@@ -300,11 +298,12 @@ function NotificationPreferences() {
                 </td>
                 {channels.map(chan => (
                   <td key={chan.id} style={{ textAlign: 'center', padding: 'var(--space-3) var(--space-2)', borderBottom: '1px solid var(--neutral-100)' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isEnabled(cat.id, chan.id)} 
+                    <input
+                      type="checkbox"
+                      checked={isEnabled(cat.id, chan.id)}
                       onChange={(e) => updatePrefMutation.mutate({ category: cat.id, channel: chan.id, enabled: e.target.checked })}
                       disabled={updatePrefMutation.isPending}
+                      aria-label={`${cat.label} - ${chan.label}`}
                     />
                   </td>
                 ))}

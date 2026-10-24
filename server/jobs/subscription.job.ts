@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
 import { vendorSubscriptions, subscriptionPlans, commissionRules } from '../db/schema/index.js';
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt, or } from 'drizzle-orm';
 
 export async function processExpiredSubscriptions() {
   console.log('[Jobs] Running subscription expiration check...');
@@ -23,29 +23,29 @@ export async function processExpiredSubscriptions() {
 
     console.log(`[Jobs] Found ${expiredSubs.length} expired subscriptions. Processing...`);
 
-    const [freePlan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.slug, 'starter')).limit(1);
+    const [freePlan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(or(eq(subscriptionPlans.slug, 'basic'), eq(subscriptionPlans.slug, 'starter')))
+      .limit(1);
     
     if (!freePlan) {
-      console.error('[Jobs] Free plan (starter) not found!');
+      console.error('[Jobs] Free plan (basic/starter) not found!');
       return;
     }
 
     for (const sub of expiredSubs) {
       await db.transaction(async (tx) => {
-        // Mark old as expired
+        // Downgrade existing subscription in-place (vendor_subscriptions.vendor_id is UNIQUE)
         await tx.update(vendorSubscriptions)
-          .set({ status: 'expired' })
+          .set({
+            planId: freePlan.id,
+            status: 'active',
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: null, // Free plan never expires
+            autoRenew: true,
+          })
           .where(eq(vendorSubscriptions.id, sub.id));
-          
-        // Create new free subscription
-        await tx.insert(vendorSubscriptions).values({
-          vendorId: sub.vendorId,
-          planId: freePlan.id,
-          status: 'active',
-          currentPeriodStart: new Date(),
-          currentPeriodEnd: null, // Free plan never expires
-          autoRenew: true
-        });
 
         // Update commission rules
         await tx.delete(commissionRules)

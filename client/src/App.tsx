@@ -1,11 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
 import { Header, Footer } from './components/Layout';
 import { PageWrapper } from './components/PageWrapper';
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { adminApi } from './api';
 
 // Lazy page imports
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -61,6 +62,7 @@ const AdminAISettings = lazy(() => import('./pages/admin/AdminAISettings').then(
 // Layouts (eager — small shell components)
 import VendorDashboard, { VendorLayout } from './pages/vendor/VendorDashboard';
 import AdminDashboard, { AdminLayout } from './pages/admin/AdminDashboard';
+import { AIChatWidget } from './components/chat/AIChatWidget';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -74,11 +76,14 @@ function Loading() {
   );
 }
 
-function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
+function ProtectedRoute({ children, roles, permission }: { children: ReactNode; roles?: string[]; permission?: string }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return <Loading />;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if (permission && !user.isSuperAdmin && !(user.permissions || []).includes(permission)) {
+    return <Navigate to="/admin" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -89,7 +94,84 @@ function GuestRoute({ children }: { children: ReactNode }) {
   return <PageWrapper>{children}</PageWrapper>;
 }
 
-import { AIChatWidget } from './components/chat/AIChatWidget';
+function VendorStoreRedirect() {
+  const { slug } = useParams<{ slug: string }>();
+  return <Navigate to={`/products?vendor=${encodeURIComponent(slug || '')}`} replace />;
+}
+
+function AdminTransactionsView() {
+  const [page, setPage] = useState(1);
+  const { data: res, isLoading } = useQuery({
+    queryKey: ['admin-transactions', page],
+    queryFn: () => adminApi.getTransactions(page),
+  });
+
+  const transactions = res?.data || [];
+  const meta = (res as any)?.meta;
+
+  return (
+    <div>
+      <h1 className="page-header__title mb-6">المعاملات المالية</h1>
+      {isLoading ? (
+        <Loading />
+      ) : (
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>المتجر</th>
+                <th>النوع</th>
+                <th>المبلغ</th>
+                <th>الرصيد قبل</th>
+                <th>الرصيد بعد</th>
+                <th>الوصف</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center p-4">لا توجد معاملات مالية</td>
+                </tr>
+              ) : (
+                transactions.map((tx: any) => (
+                  <tr key={tx.id}>
+                    <td>{tx.id}</td>
+                    <td>{tx.vendorName}</td>
+                    <td>
+                      <span className={`badge ${tx.type === 'commission' ? 'badge-success' : tx.type === 'payout' ? 'badge-info' : 'badge-warning'}`}>
+                        {tx.type === 'commission' ? 'عمولة مبيعات' : tx.type === 'payout' ? 'سحب أرباح' : tx.type === 'refund' ? 'استرجاع' : tx.type}
+                      </span>
+                    </td>
+                    <td>{Number(tx.amount).toLocaleString('ar-EG')} ج.م</td>
+                    <td>{Number(tx.balanceBefore).toLocaleString('ar-EG')} ج.م</td>
+                    <td>{Number(tx.balanceAfter).toLocaleString('ar-EG')} ج.م</td>
+                    <td>{tx.description || '-'}</td>
+                    <td>{new Date(tx.createdAt).toLocaleDateString('ar-EG')}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          {meta && meta.totalPages > 1 && (
+            <div className="flex justify-center gap-2 p-4">
+              {Array.from({ length: meta.totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  className={`btn btn-sm ${page === i + 1 ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => setPage(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StoreLayout({ children }: { children: ReactNode }) {
   return (
@@ -131,6 +213,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<StoreLayout><HomePage /></StoreLayout>} />
         <Route path="/products" element={<StoreLayout><ProductsPage /></StoreLayout>} />
         <Route path="/products/:slug" element={<StoreLayout><ProductDetailPage /></StoreLayout>} />
+        <Route path="/store/:slug" element={<VendorStoreRedirect />} />
         <Route path="/cart" element={<StoreLayout><ProtectedRoute><CartPage /></ProtectedRoute></StoreLayout>} />
         <Route path="/checkout" element={<StoreLayout><ProtectedRoute><CheckoutPage /></ProtectedRoute></StoreLayout>} />
         <Route path="/payment-callback" element={<StoreLayout><ProtectedRoute><PaymentCallbackPage /></ProtectedRoute></StoreLayout>} />
@@ -146,6 +229,7 @@ function AnimatedRoutes() {
         <Route path="/contact" element={<StoreLayout><Suspense fallback={<Loading />}><ContactPage /></Suspense></StoreLayout>} />
         <Route path="/motion-preview" element={<StoreLayout><Suspense fallback={<Loading />}><MotionPreviewPage /></Suspense></StoreLayout>} />
         <Route path="/mock-paymob" element={<StoreLayout><Suspense fallback={<Loading />}><MockPaymobPage /></Suspense></StoreLayout>} />
+
         {/* Vendor dashboard */}
         <Route path="/vendor" element={<DashboardWrapper><ProtectedRoute roles={['vendor']}><VendorLayout /></ProtectedRoute></DashboardWrapper>}>
           <Route index element={<VendorDashboard />} />
@@ -172,7 +256,7 @@ function AnimatedRoutes() {
           <Route path="roles" element={<Suspense fallback={<Loading />}><AdminRoles /></Suspense>} />
           <Route path="message-logs" element={<Suspense fallback={<Loading />}><AdminMessageLogs /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<Loading />}><AdminAnalytics /></Suspense>} />
-          <Route path="transactions" element={<div style={{ padding: 'var(--space-6)' }}><h2>المعاملات — قريباً</h2></div>} />
+          <Route path="transactions" element={<AdminTransactionsView />} />
           <Route path="coupons" element={<Suspense fallback={<Loading />}><AdminCoupons /></Suspense>} />
           <Route path="promotions" element={<Suspense fallback={<Loading />}><AdminPromotions /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<Loading />}><AdminSettings /></Suspense>} />

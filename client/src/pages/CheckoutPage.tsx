@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { addressApi, orderApi, cartApi, paymentApi } from '../api';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
@@ -10,6 +11,7 @@ export default function CheckoutPage() {
   const shouldReduceMotion = useReducedMotion();
   const toast = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<number | null>(null);
   const [couponCode, setCouponCode] = useState('');
@@ -40,7 +42,7 @@ export default function CheckoutPage() {
   const handleAddAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await addressApi.createAddress(newAddress) as any;
+      const res = (await addressApi.createAddress(newAddress)) as any;
       const addr = res.data || res;
       setAddresses(prev => [...prev, addr]);
       setSelectedAddress(addr.id);
@@ -56,24 +58,26 @@ export default function CheckoutPage() {
     setSubmitting(true);
     try {
       // 1. Create order
-      const res = await orderApi.checkout({
+      const res = (await orderApi.checkout({
         addressId: selectedAddress,
         couponCode: couponCode || undefined,
         notes: notes || undefined,
-      }) as any;
-      
+      })) as any;
+
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+
       const order = res.data || res;
-      const orderId = order.id || order.orderId || order.data?.id; // fallback depending on response format
+      const orderId = order.id || order.orderId || order.data?.id;
 
       // 2. Initiate Payment
-      const paymentData = await paymentApi.initiate({ orderId, method: paymentMethod }) as any;
+      const paymentData = (await paymentApi.initiate({ orderId, method: paymentMethod })) as any;
       const data = paymentData.data || paymentData;
 
       if (paymentMethod === 'card' && data?.iframeUrl) {
         window.location.href = data.iframeUrl;
       } else {
-        toast.success(`تم تأكيد الطلب بنجاح`);
-        navigate(`/orders`);
+        toast.success('تم تأكيد الطلب بنجاح');
+        navigate('/orders');
       }
     } catch (e: any) {
       toast.error(e.message || 'حدث خطأ أثناء الدفع');
@@ -95,7 +99,7 @@ export default function CheckoutPage() {
         <h1 className="page-header__title mb-0">إتمام الشراء</h1>
       </div>
 
-      <motion.div 
+      <motion.div
         className="flex flex-wrap gap-8 items-start"
         initial="hidden"
         animate="visible"
@@ -103,11 +107,11 @@ export default function CheckoutPage() {
       >
         <div className="w-full lg:flex-1 shrink-0 lg:min-w-[500px]">
           {/* Addresses */}
-          <motion.div 
+          <motion.div
             className="card card-body mb-6"
             variants={{
               hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
-              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } },
             }}
           >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>
@@ -184,11 +188,11 @@ export default function CheckoutPage() {
           </motion.div>
 
           {/* Coupon */}
-          <motion.div 
+          <motion.div
             className="card card-body mb-6"
             variants={{
               hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
-              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } },
             }}
           >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-3)' }}>كود خصم</h3>
@@ -204,11 +208,11 @@ export default function CheckoutPage() {
           </motion.div>
 
           {/* Notes */}
-          <motion.div 
+          <motion.div
             className="card card-body mb-6"
             variants={{
               hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
-              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } },
             }}
           >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-3)' }}>ملاحظات (اختياري)</h3>
@@ -216,11 +220,11 @@ export default function CheckoutPage() {
           </motion.div>
 
           {/* Payment Method */}
-          <motion.div 
+          <motion.div
             className="card card-body"
             variants={{
               hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 20 },
-              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+              visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } },
             }}
           >
             <h3 style={{ fontWeight: 600, marginBottom: 'var(--space-4)' }}>طريقة الدفع</h3>
@@ -270,11 +274,11 @@ export default function CheckoutPage() {
         </div>
 
         {/* Summary */}
-        <motion.div 
+        <motion.div
           className="w-full lg:w-[320px] shrink-0"
           variants={{
             hidden: { opacity: 0, x: shouldReduceMotion ? 0 : -20 },
-            visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } }
+            visible: { opacity: 1, x: 0, transition: { duration: motionTokens.duration.base, ease: motionTokens.easing.decelerate } },
           }}
         >
           <div className="card card-body" style={{ position: 'sticky', top: 'calc(var(--header-height) + var(--space-6))' }}>

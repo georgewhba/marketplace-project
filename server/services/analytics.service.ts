@@ -1,16 +1,23 @@
 import { db } from '../db/index.js';
-import { sql, eq, and, desc, gte, sum, count, avg } from 'drizzle-orm';
+import { sql, eq, and, desc, gte, count } from 'drizzle-orm';
 import { 
   orderItems, products, vendors, users, categories, cartItems 
 } from '../db/schema/index.js';
 import { dailySalesSummary } from '../db/schema/analytics.js';
 
+function sanitizeDays(days: unknown): number {
+  const num = Number(days);
+  return Math.max(1, Math.min(365, Number.isFinite(num) ? Math.floor(num) : 30));
+}
+
 /**
  * Helper to calculate percentage change
  */
-function calculateChange(current: number, previous: number) {
-  if (previous === 0) return current > 0 ? 100 : 0;
-  return Number((((current - previous) / previous) * 100).toFixed(2));
+function calculateChange(current: number | string, previous: number | string) {
+  const curr = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  if (prev === 0) return curr > 0 ? 100 : 0;
+  return Number((((curr - prev) / prev) * 100).toFixed(2));
 }
 
 /**
@@ -18,9 +25,10 @@ function calculateChange(current: number, previous: number) {
  */
 
 export async function getAdminOverview(days: number = 30) {
+  const safeDays = sanitizeDays(days);
   // We use PostgreSQL interval to get dates
-  const currentPeriodStart = sql`NOW() - INTERVAL '${sql.raw(days.toString())} days'`;
-  const previousPeriodStart = sql`NOW() - INTERVAL '${sql.raw((days * 2).toString())} days'`;
+  const currentPeriodStart = sql`NOW() - INTERVAL '${sql.raw(safeDays.toString())} days'`;
+  const previousPeriodStart = sql`NOW() - INTERVAL '${sql.raw((safeDays * 2).toString())} days'`;
 
   // Get current metrics using daily_sales_summary if possible, or orderItems
   const currentMetrics = await db
@@ -69,21 +77,29 @@ export async function getAdminOverview(days: number = 30) {
     .groupBy(dailySalesSummary.day)
     .orderBy(dailySalesSummary.day);
 
+  const currSales = Number(currentMetrics[0]?.totalSales ?? 0);
+  const prevSales = Number(previousMetrics[0]?.totalSales ?? 0);
+  const currOrders = Number(currentMetrics[0]?.totalOrders ?? 0);
+  const prevOrders = Number(previousMetrics[0]?.totalOrders ?? 0);
+  const currCustomers = Number(currentCustomers[0]?.count ?? 0);
+  const prevCustomers = Number(previousCustomers[0]?.count ?? 0);
+
   return {
     metrics: {
-      sales: currentMetrics[0]?.totalSales || 0,
-      salesChange: calculateChange(currentMetrics[0]?.totalSales || 0, previousMetrics[0]?.totalSales || 0),
-      orders: currentMetrics[0]?.totalOrders || 0,
-      ordersChange: calculateChange(currentMetrics[0]?.totalOrders || 0, previousMetrics[0]?.totalOrders || 0),
-      newCustomers: currentCustomers[0]?.count || 0,
-      customersChange: calculateChange(currentCustomers[0]?.count || 0, previousCustomers[0]?.count || 0),
+      sales: currSales,
+      salesChange: calculateChange(currSales, prevSales),
+      orders: currOrders,
+      ordersChange: calculateChange(currOrders, prevOrders),
+      newCustomers: currCustomers,
+      customersChange: calculateChange(currCustomers, prevCustomers),
     },
     dailyBreakdown
   };
 }
 
 export async function getTopProducts(days: number = 30) {
-  const periodStart = sql`NOW() - INTERVAL '${sql.raw(days.toString())} days'`;
+  const safeDays = sanitizeDays(days);
+  const periodStart = sql`NOW() - INTERVAL '${sql.raw(safeDays.toString())} days'`;
 
   return await db
     .select({
@@ -102,7 +118,8 @@ export async function getTopProducts(days: number = 30) {
 }
 
 export async function getTopVendors(days: number = 30) {
-  const periodStart = sql`NOW() - INTERVAL '${sql.raw(days.toString())} days'`;
+  const safeDays = sanitizeDays(days);
+  const periodStart = sql`NOW() - INTERVAL '${sql.raw(safeDays.toString())} days'`;
 
   return await db
     .select({
@@ -122,15 +139,15 @@ export async function getTopVendors(days: number = 30) {
 export async function getFunnel() {
   // Total Views across all products
   const viewsResult = await db.select({ totalViews: sql<number>`COALESCE(SUM(${products.viewCount}), 0)::numeric` }).from(products);
-  const totalViews = viewsResult[0]?.totalViews || 0;
+  const totalViews = Number(viewsResult[0]?.totalViews ?? 0);
 
   // Items currently in cart (note: this is a snapshot, not a historical event log, but required by specs without new events table)
   const cartAddsResult = await db.select({ count: count() }).from(cartItems);
-  const totalInCart = cartAddsResult[0]?.count || 0;
+  const totalInCart = Number(cartAddsResult[0]?.count ?? 0);
 
   // Total order items ever created (unique orders)
   const ordersResult = await db.select({ count: sql<number>`COUNT(DISTINCT ${orderItems.orderId})::numeric` }).from(orderItems);
-  const totalOrders = ordersResult[0]?.count || 0;
+  const totalOrders = Number(ordersResult[0]?.count ?? 0);
 
   return {
     views: totalViews,
@@ -164,8 +181,9 @@ export async function getCategoriesAnalytics() {
  */
 
 export async function getVendorOverview(vendorId: number, days: number = 30) {
-  const currentPeriodStart = sql`NOW() - INTERVAL '${sql.raw(days.toString())} days'`;
-  const previousPeriodStart = sql`NOW() - INTERVAL '${sql.raw((days * 2).toString())} days'`;
+  const safeDays = sanitizeDays(days);
+  const currentPeriodStart = sql`NOW() - INTERVAL '${sql.raw(safeDays.toString())} days'`;
+  const previousPeriodStart = sql`NOW() - INTERVAL '${sql.raw((safeDays * 2).toString())} days'`;
 
   const currentMetrics = await db
     .select({
@@ -188,8 +206,10 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
       sql`${orderItems.createdAt} < ${currentPeriodStart}`
     ));
 
-  const sales = currentMetrics[0]?.totalSales || 0;
-  const orders = currentMetrics[0]?.totalOrders || 0;
+  const sales = Number(currentMetrics[0]?.totalSales ?? 0);
+  const prevSales = Number(previousMetrics[0]?.totalSales ?? 0);
+  const orders = Number(currentMetrics[0]?.totalOrders ?? 0);
+  const prevOrders = Number(previousMetrics[0]?.totalOrders ?? 0);
   const aov = orders > 0 ? Number((sales / orders).toFixed(2)) : 0;
 
   // Daily breakdown
@@ -207,9 +227,9 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
   return {
     metrics: {
       sales,
-      salesChange: calculateChange(sales, previousMetrics[0]?.totalSales || 0),
+      salesChange: calculateChange(sales, prevSales),
       orders,
-      ordersChange: calculateChange(orders, previousMetrics[0]?.totalOrders || 0),
+      ordersChange: calculateChange(orders, prevOrders),
       aov
     },
     dailyBreakdown
@@ -217,7 +237,8 @@ export async function getVendorOverview(vendorId: number, days: number = 30) {
 }
 
 export async function getVendorProducts(vendorId: number, days: number = 30) {
-  const periodStart = sql`NOW() - INTERVAL '${sql.raw(days.toString())} days'`;
+  const safeDays = sanitizeDays(days);
+  const periodStart = sql`NOW() - INTERVAL '${sql.raw(safeDays.toString())} days'`;
 
   return await db
     .select({

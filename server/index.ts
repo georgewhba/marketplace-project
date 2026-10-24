@@ -8,6 +8,8 @@ import { env } from './env.js';
 import { errorHandler, handleError } from './middleware/errorHandler.js';
 import { generalRateLimit, spamProtectionRateLimit } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/logger.js';
+import { authenticate } from './middleware/authenticate.js';
+import { authorize } from './middleware/authorize.js';
 import * as Sentry from '@sentry/node';
 import { db, queryClient } from './db/index.js';
 import { sql } from 'drizzle-orm';
@@ -16,6 +18,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import cron from 'node-cron';
 import { generateSettlements } from './services/settlement.service.js';
+import { initAnalyticsJobs } from './jobs/analytics.js';
+import { processExpiredSubscriptions } from './jobs/subscription.job.js';
+import { closeQueues } from './jobs/index.js';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -98,8 +103,7 @@ app.use('*', requestLogger);
 // Global error handler (middleware — catches errors in the middleware chain)
 app.use('*', errorHandler);
 
-// Global error handler (Hono onError — catches errors thrown from subroutes
-// mounted via app.route(); this is Hono's idiomatic way to handle route errors)
+// Global error handler (Hono onError — catches errors thrown from subroutes)
 app.onError((err, c) => handleError(err, c));
 
 // CORS — whitelist only, no wildcard with credentials
@@ -121,7 +125,7 @@ app.use('*', secureHeaders({
   contentSecurityPolicy: {
     defaultSrc: ["'self'"],
     imgSrc: ["'self'", "data:", "blob:", "https://picsum.photos", "https://fastly.picsum.photos", "https:"],
-    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
+    scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
     fontSrc: ["'self'", "https://fonts.gstatic.com"],
     connectSrc: ["'self'", "https://accounts.google.com"],
@@ -138,9 +142,14 @@ app.use('*', secureHeaders({
   }
 }));
 
-// CSRF Protection
-// By default, checks if Origin matches the host, but here we can whitelist the frontend origin
-app.use('*', csrf({ origin: typeof env.CORS_ORIGIN === 'string' ? env.CORS_ORIGIN : undefined }));
+// CSRF Protection (skip external webhook endpoints authenticated via HMAC/Bearer secrets)
+const csrfMiddleware = csrf({ origin: typeof env.CORS_ORIGIN === 'string' ? env.CORS_ORIGIN : undefined });
+app.use('*', async (c, next) => {
+  if (c.req.path.startsWith('/api/webhooks/') || c.req.path === '/api/payments/webhook') {
+    return next();
+  }
+  return csrfMiddleware(c, next);
+});
 
 // General rate limit on all API routes (100 req/min for GET/etc)
 app.use('/api/*', generalRateLimit);
@@ -168,19 +177,18 @@ app.get('/api/health', async (c) => {
   let dbStatus = 'ok';
   try {
     await db.execute(sql`SELECT 1`);
-  } catch (e) {
+  } catch {
     dbStatus = 'error';
   }
 
   let diskStatus = 'ok';
   try {
     const stats = await fs.statfs(path.resolve(env.UPLOAD_DIR));
-    // Check if free space is less than 100MB
     const freeMb = (stats.bavail * stats.bsize) / (1024 * 1024);
     if (freeMb < 100) {
       diskStatus = 'low_space';
     }
-  } catch (e) {
+  } catch {
     diskStatus = 'unknown';
   }
 
@@ -197,79 +205,31 @@ app.get('/api/health', async (c) => {
   }, isHealthy ? 200 : 503);
 });
 
-// Debug endpoint for R2 configuration and TLS testing
-app.get('/api/debug/r2', async (c) => {
-  const accountId = env.R2_ACCOUNT_ID?.trim() || 'NOT_SET';
-  
-  const previewId = accountId !== 'NOT_SET' 
-    ? `${accountId.slice(0, 4)}...${accountId.slice(-4)}` 
-    : 'NOT_SET';
-  
-  const hasAccessKey = !!env.R2_ACCESS_KEY_ID;
-  const hasSecretKey = !!env.R2_SECRET_ACCESS_KEY;
-  const bucketName = env.R2_BUCKET_NAME || 'NOT_SET';
-  const publicUrl = env.R2_PUBLIC_URL || 'NOT_SET';
-  const jurisdiction = env.R2_JURISDICTION?.trim() || '';
-
-  let tlsTestResult = 'Not tested';
-  let tlsError = null;
-  let endpointUsed = 'NOT_SET';
-
-  if (accountId !== 'NOT_SET') {
-    const https = await import('node:https');
-    
-    try {
-      const jurisdictionPart = jurisdiction ? `.${jurisdiction}` : '';
-      const endpoint = `${accountId}${jurisdictionPart}.r2.cloudflarestorage.com`;
-      endpointUsed = endpoint;
-      
-      tlsTestResult = await new Promise((resolve, reject) => {
-        const req = https.request({
-          hostname: endpoint,
-          port: 443,
-          method: 'GET',
-          path: '/'
-        }, (res) => {
-          resolve(`Success, status: ${res.statusCode}`);
-        });
-
-        req.on('error', (e) => {
-          reject(e);
-        });
-
-        req.end();
-      });
-    } catch (e: any) {
-      tlsTestResult = 'Failed';
-      tlsError = e.message;
-    }
+// Debug endpoint for R2 configuration and TLS testing — restricted to authenticated Admins
+app.get('/api/debug/r2', authenticate, authorize('admin'), async (c) => {
+  if (env.NODE_ENV === 'production') {
+    return c.notFound();
   }
+  const accountId = env.R2_ACCOUNT_ID?.trim() || 'NOT_SET';
+  const previewId = accountId !== 'NOT_SET'
+    ? `${accountId.slice(0, 4)}...${accountId.slice(-4)}`
+    : 'NOT_SET';
 
   return c.json({
     config: {
-      accountIdLength: accountId.length,
       accountIdPreview: previewId,
-      hasAccessKey,
-      hasSecretKey,
-      bucketName,
-      publicUrl,
-      jurisdiction,
-      endpointUsed
+      hasAccessKey: !!env.R2_ACCESS_KEY_ID,
+      hasSecretKey: !!env.R2_SECRET_ACCESS_KEY,
+      bucketName: env.R2_BUCKET_NAME || 'NOT_SET',
+      publicUrl: env.R2_PUBLIC_URL || 'NOT_SET',
+      jurisdiction: env.R2_JURISDICTION?.trim() || '',
     },
-    tlsTest: {
-      result: tlsTestResult,
-      error: tlsError
-    }
   });
 });
 
-
-// Basic Metrics endpoint (Prometheus format)
-app.get('/api/metrics', async (c) => {
-  // In a real-world scenario with high scale, you'd use a library like prom-client.
-  // For this simple implementation, we can just return a basic OK or wire up memory stats.
+// Basic Metrics endpoint (Prometheus format) — restricted to authenticated Admins
+app.get('/api/metrics', authenticate, authorize('admin'), async (c) => {
   const memUsage = process.memoryUsage();
-  
   const metrics = [
     `# HELP process_resident_memory_bytes Resident memory size in bytes.`,
     `# TYPE process_resident_memory_bytes gauge`,
@@ -285,7 +245,7 @@ app.get('/api/metrics', async (c) => {
 });
 
 // Mount routes
-app.route('/', agentRoutes); // Root level mounting for robots.txt, sitemap, .well-known
+app.route('/', agentRoutes);
 app.route('/api/auth', authRoutes);
 app.route('/api/store', storeRoutes);
 app.route('/api/cart', cartRoutes);
@@ -307,17 +267,15 @@ app.use('/uploads/*', serveStatic({ root: './' }));
 
 // In production, serve the built client
 if (env.NODE_ENV === 'production') {
-  // Serve static assets, but NOT index.html
-  // We want ALL index.html requests to go through our injection middleware
   app.use('/assets/*', serveStatic({ root: './client/dist' }));
   app.use('/vite.svg', serveStatic({ root: './client/dist' }));
   app.use('/favicon.ico', serveStatic({ root: './client/dist' }));
   app.use('/favicon.svg', serveStatic({ root: './client/dist' }));
   app.use('/icons.svg', serveStatic({ root: './client/dist' }));
-  
-  // SPA fallback for React Router + explicit index.html handling & Markdown for Agents
+
+  let cachedIndexHtml: string | null = null;
+
   app.get('*', async (c) => {
-    // 1. Markdown for Agents content negotiation
     if (c.req.header('Accept')?.includes('text/markdown')) {
       const baseUrl = getRequestBaseUrl(c);
       const md = `# سوق مصر — منصة التجارة الإلكترونية الأولى (Marketplace Egypt)
@@ -332,13 +290,6 @@ if (env.NODE_ENV === 'production') {
 - فهرس مهارات الوكلاء: [agent-skills/index.json](${baseUrl}/.well-known/agent-skills/index.json)
 - إرشادات مصادقة الوكلاء: [auth.md](${baseUrl}/auth.md)
 - خريطة الموقع: [sitemap.xml](${baseUrl}/sitemap.xml)
-
-## الأقسام الرئيسية
-- الإلكترونيات، الأزياء، الكتب، المستلزمات المنزلية
-- منتجات موثقة من بائعين معتمدين مع شحن سريع وضمان جودة.
-
-## بروتوكولات التجارة المؤتمتة
-- يدعم الموقع بروتوكولات ACP (Agentic Commerce Protocol) و UCP و WebMCP و MCP.
 `;
       c.header('Content-Type', 'text/markdown; charset=utf-8');
       c.header('x-markdown-tokens', '320');
@@ -347,61 +298,50 @@ if (env.NODE_ENV === 'production') {
     }
 
     try {
-      let indexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
-      
-      // Inject Runtime Environment Variables
+      if (!cachedIndexHtml) {
+        cachedIndexHtml = await fs.readFile(path.join(process.cwd(), 'client/dist/index.html'), 'utf-8');
+      }
       const runtimeEnv = {
         VITE_GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
       };
       const scriptTag = `<script>window.ENV = ${JSON.stringify(runtimeEnv)};</script></head>`;
-      indexHtml = indexHtml.replace('</head>', scriptTag);
-      
+      const indexHtml = cachedIndexHtml.replace('</head>', () => scriptTag);
+
       return c.html(indexHtml);
-    } catch (err) {
+    } catch {
       return c.notFound();
     }
   });
 }
 
-import { initAnalyticsJobs } from './jobs/analytics.js';
-import { processExpiredSubscriptions } from './jobs/subscription.job.js';
-
-// Determine if this process should run cron jobs (only the primary instance in a PM2 cluster)
-const isCronRunner = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
-
-if (isCronRunner) {
-  // Schedule settlements generation (runs daily at midnight)
-  cron.schedule('0 0 * * *', async () => {
-    try {
-      console.log('[Cron] Running generateSettlements...');
-      const result = await generateSettlements();
-      console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
-    } catch (error) {
-      console.error('[Cron] Error generating settlements:', error);
-    }
-  });
-
-  // Schedule subscription expiration check (runs daily at 1 AM)
-  cron.schedule('0 1 * * *', async () => {
-    try {
-      console.log('[Cron] Running processExpiredSubscriptions...');
-      await processExpiredSubscriptions();
-    } catch (error) {
-      console.error('[Cron] Error processing expired subscriptions:', error);
-    }
-  });
-
-  // Initialize analytics background jobs
-  initAnalyticsJobs();
-  console.log('[Cron] Background jobs initialized on this instance.');
-}
-
-import { closeQueues } from './jobs/index.js';
-
-// Start server only if not in test environment
+// Start server and background cron jobs only if not in test environment
 if (env.NODE_ENV !== 'test') {
-  
-  // Auto-seed subscription plans for production if empty
+  const isCronRunner = process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0';
+
+  if (isCronRunner) {
+    cron.schedule('0 0 * * *', async () => {
+      try {
+        console.log('[Cron] Running generateSettlements...');
+        const result = await generateSettlements();
+        console.log(`[Cron] Generated ${result.createdCount} new settlements.`);
+      } catch (error) {
+        console.error('[Cron] Error generating settlements:', error);
+      }
+    });
+
+    cron.schedule('0 1 * * *', async () => {
+      try {
+        console.log('[Cron] Running processExpiredSubscriptions...');
+        await processExpiredSubscriptions();
+      } catch (error) {
+        console.error('[Cron] Error processing expired subscriptions:', error);
+      }
+    });
+
+    initAnalyticsJobs();
+    console.log('[Cron] Background jobs initialized on this instance.');
+  }
+
   const autoSeedPlans = async () => {
     try {
       const existing = await db.select({ count: sql<number>`count(*)` }).from(subscriptionPlans);
@@ -431,20 +371,23 @@ if (env.NODE_ENV !== 'test') {
       console.log(`  Environment: ${env.NODE_ENV}`);
       console.log(`  CORS origin: ${env.CORS_ORIGIN}`);
       console.log(`  PM2 Instance: ${process.env.NODE_APP_INSTANCE ?? 'none'}\n`);
+      if (typeof process.send === 'function') {
+        process.send('ready');
+      }
     });
 
-    // Graceful shutdown handling
     const shutdown = async (signal: string) => {
       console.log(`\n[${signal}] Received. Shutting down gracefully...`);
-      
-      // Stop accepting new connections
-      server.close(() => {
-        console.log('HTTP server closed.');
+
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          console.log('HTTP server closed.');
+          resolve();
+        });
       });
 
       try {
         await closeQueues();
-        // Close database connections safely
         await queryClient.end({ timeout: 5 });
         console.log('Database connections closed.');
         process.exit(0);

@@ -1,5 +1,8 @@
 import type { Context, Next } from 'hono';
 import { AppError } from '../utils/errors.js';
+import { env } from '../env.js';
+import * as Sentry from '@sentry/node';
+import { logger } from './logger.js';
 
 /**
  * Detects Postgres unique_violation errors (code 23505).
@@ -11,9 +14,6 @@ function isPostgresUniqueViolation(err: unknown): boolean {
   }
   return false;
 }
-
-import * as Sentry from '@sentry/node';
-import { logger } from './logger.js';
 
 /**
  * Core error-to-response mapping.
@@ -41,7 +41,7 @@ export function handleError(err: unknown, c: Context): Response {
 
   // Safety net: catch Postgres unique_violation (23505) as 409 Conflict
   if (isPostgresUniqueViolation(err)) {
-    if (process.env['NODE_ENV'] !== 'test') {
+    if (env.NODE_ENV !== 'test') {
       logger.warn({
         requestId,
         message: (err as Error).message,
@@ -62,7 +62,7 @@ export function handleError(err: unknown, c: Context): Response {
   // Unexpected error — log server-side only, return generic message to client
   const error = err instanceof Error ? err : new Error(String(err));
   
-  if (process.env['NODE_ENV'] === 'test') {
+  if (env.NODE_ENV === 'test') {
     console.error('[TEST ERROR]', error);
   } else {
     // 1. Log with Pino
@@ -87,7 +87,8 @@ export function handleError(err: unknown, c: Context): Response {
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'حدث خطأ غير متوقع في الخادم: ' + (error.message || 'Unknown error') + ' | Cause: ' + (error.cause ? String(error.cause) : '') + ' | Stack: ' + String(error.stack),
+      message: 'حدث خطأ غير متوقع في الخادم',
+      ...(env.NODE_ENV === 'development' ? { details: error.message } : {}),
     },
   }, 500) as Response;
 }
@@ -103,4 +104,3 @@ export async function errorHandler(c: Context, next: Next) {
     return handleError(err, c);
   }
 }
-

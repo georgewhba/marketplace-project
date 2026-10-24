@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Loader2, Sparkles } from 'lucide-react';
-import { api } from '../../api';
+import { useQuery } from '@tanstack/react-query';
+import { api, storeApi } from '../../api';
 
 type ChatMessage = {
   role: 'user' | 'model';
@@ -16,11 +17,23 @@ export const AIChatWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const { data: settingsRes } = useQuery({
+    queryKey: ['store-settings'],
+    queryFn: () => storeApi.getSettings(),
+    staleTime: 60_000,
+  });
+
+  const aiEnabled = (settingsRes?.data as any)?.ai_enabled !== 'false' && (settingsRes?.data as any)?.aiEnabled !== false;
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  if (!aiEnabled) {
+    return null;
+  }
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -31,19 +44,19 @@ export const AIChatWidget = () => {
     setIsLoading(true);
 
     try {
-      // Exclude the last initial message from history for brevity
-      const history = messages.filter((_, i) => i > 0);
+      const history = messages.filter((_, i) => i > 0).slice(-14);
       
       const res = await api.post<{ reply: string }>('/chat', {
         message: userMsg.text,
         history
       });
 
-      setMessages(prev => [...prev, { role: 'model', text: res.reply }]);
+      const replyText = (res as any)?.reply || (res as any)?.data?.reply || 'عفواً، لم أتمكن من معالجة طلبك الآن.';
+      setMessages(prev => [...prev, { role: 'model', text: replyText }]);
     } catch (err: any) {
       setMessages(prev => [...prev, { 
         role: 'model', 
-        text: err.message || 'عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى التأكد من إعداد مفتاح API في الخادم.' 
+        text: err.message || 'عذراً، خدمة المساعد الذكي غير متاحة حالياً. يرجى المحاولة مرة أخرى لاحقاً.' 
       }]);
     } finally {
       setIsLoading(false);
@@ -62,6 +75,8 @@ export const AIChatWidget = () => {
       {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(true)}
+        aria-label="فتح المساعد الذكي"
+        title="المساعد الذكي"
         className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all duration-300 z-50 flex items-center justify-center
           ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'} 
           bg-gradient-to-r from-brand-terracotta to-[#d66c43] text-white hover:shadow-brand-terracotta/30`}
@@ -76,7 +91,6 @@ export const AIChatWidget = () => {
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-terracotta to-[#c95f34] p-4 rounded-t-2xl flex justify-between items-center text-white shrink-0 shadow-sm relative overflow-hidden">
-          {/* Subtle shine effect */}
           <div className="absolute inset-0 bg-white/10 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
           
           <div className="flex items-center gap-3 relative z-10 w-full pr-2">
@@ -132,12 +146,16 @@ export const AIChatWidget = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="اكتب رسالتك هنا..."
+              maxLength={1000}
+              aria-label="رسالة الشات"
               className="flex-1 resize-none bg-brand-light-sand/50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 border border-brand-sand/50 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-terracotta/50 focus:border-transparent max-h-32 min-h-[44px] transition-all"
               rows={1}
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
+              aria-label="إرسال الرسالة"
+              title="إرسال"
               className="p-3 h-[44px] w-[44px] flex items-center justify-center bg-brand-terracotta text-white rounded-xl hover:bg-[#c95f34] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0 shadow-sm"
             >
               <Send size={18} className={document.dir === 'rtl' ? 'rotate-180' : ''} />

@@ -11,16 +11,19 @@ export const paginationSchema = z.object({
 export type PaginationParams = z.infer<typeof paginationSchema>;
 
 export function getPaginationMeta(page: number, limit: number, total: number) {
-  const clampedLimit = Math.min(limit, MAX_LIMIT);
+  const safePage = Math.max(1, Number.isFinite(page) ? Math.floor(page) : 1);
+  const clampedLimit = Math.max(1, Math.min(Number.isFinite(limit) ? Math.floor(limit) : DEFAULT_LIMIT, MAX_LIMIT));
+  const safeTotal = Math.max(0, Number.isFinite(total) ? Math.floor(total) : 0);
   return {
-    page,
+    page: safePage,
     limit: clampedLimit,
-    total,
-    totalPages: Math.ceil(total / clampedLimit),
+    total: safeTotal,
+    totalPages: Math.ceil(safeTotal / clampedLimit),
   };
 }
 
 export function getOffset(page: number, limit: number): number {
-  const clampedLimit = Math.min(limit, MAX_LIMIT);
-  return (page - 1) * clampedLimit;
+  const safePage = Math.max(1, Number.isFinite(page) ? Math.floor(page) : 1);
+  const clampedLimit = Math.max(1, Math.min(Number.isFinite(limit) ? Math.floor(limit) : DEFAULT_LIMIT, MAX_LIMIT));
+  return (safePage - 1) * clampedLimit;
 }

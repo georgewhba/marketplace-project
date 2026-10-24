@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useSiteName } from '../hooks/useSiteSettings';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -9,7 +9,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { ArrowRight, Mail } from 'lucide-react';
 
 export default function RegisterPage() {
-  const { pathname } = window.location;
+  const { pathname } = useLocation();
   const isVendor = pathname.includes('/vendor');
   useDocumentTitle(isVendor ? 'انضم كبائع جديد' : 'إنشاء حساب جديد', { canonicalPath: '/register' });
   const { register, registerVendor, verifyOtp, googleAuth } = useAuth();
@@ -21,7 +21,7 @@ export default function RegisterPage() {
     firstName: '', lastName: '', email: '', password: '',
     phone: '', storeName: '', storeDescription: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'details' | 'otp'>('details');
   const [otp, setOtp] = useState('');
@@ -47,7 +47,7 @@ export default function RegisterPage() {
           }
           await googleAuth(credentialResponse.credential, {
             storeName: form.storeName,
-            storeDescription: form.storeDescription
+            storeDescription: form.storeDescription,
           });
           toast.success('تم تسجيل متجرك بواسطة Google — في انتظار الموافقة');
           navigate('/');
@@ -62,13 +62,35 @@ export default function RegisterPage() {
     }
   };
 
+  const handleResendOtp = async () => {
+    setLoading(true);
+    try {
+      if (isVendor) {
+        const result = (await registerVendor(form)) as any;
+        setStep('otp');
+        setCountdown(120);
+        toast.success(result?.message || 'تم إعادة إرسال رمز التحقق');
+      } else {
+        const { storeName, storeDescription, ...userData } = form;
+        const result = await register(userData);
+        setStep('otp');
+        setCountdown(120);
+        toast.success(result?.message || 'تم إعادة إرسال رمز التحقق');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'فشل إعادة الإرسال');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (step === 'details') {
         if (isVendor) {
-          const result = await registerVendor(form) as any;
+          const result = (await registerVendor(form)) as any;
           if (result?.requiresOtp) {
             setStep('otp');
             setCountdown(120);
@@ -119,7 +141,7 @@ export default function RegisterPage() {
           {step === 'otp' ? 'تحقق من بريدك الإلكتروني' : (isVendor ? `ابدأ البيع على ${siteName}` : `انضم إلى ${siteName}`)}
         </h1>
         <p className="auth-card__subtitle">
-          {step === 'otp' 
+          {step === 'otp'
             ? `لقد أرسلنا رمز تحقق إلى ${form.email}`
             : (isVendor ? 'ابدأ البيع على ' + siteName : 'انضم إلى ' + siteName)}
         </p>
@@ -136,9 +158,9 @@ export default function RegisterPage() {
                     theme="outline"
                   />
                 ) : (
-                  <button 
-                    type="button" 
-                    className="btn btn-outline" 
+                  <button
+                    type="button"
+                    className="btn btn-outline"
                     style={{ width: '100%' }}
                     onClick={() => toast.error('زر جوجل معطّل: الرجاء إضافة VITE_GOOGLE_CLIENT_ID في إعدادات Railway')}
                   >
@@ -146,7 +168,7 @@ export default function RegisterPage() {
                   </button>
                 )}
               </div>
-              
+
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)', gap: 'var(--space-4)' }}>
                 <hr style={{ flex: 1, borderColor: 'var(--border-color)', margin: 0 }} />
                 <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>أو</span>
@@ -198,14 +220,14 @@ export default function RegisterPage() {
             <div className="form-group mb-6" style={{ textAlign: 'center' }}>
               <Mail size={48} style={{ color: 'var(--primary)', margin: '0 auto var(--space-4)' }} />
               <label className="form-label" style={{ textAlign: 'center' }}>أدخل الرمز المكون من 6 أرقام</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                dir="ltr" 
+              <input
+                type="text"
+                className="form-input"
+                dir="ltr"
                 style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.25rem', padding: 'var(--space-3)' }}
-                value={otp} 
-                onChange={(e) => setOtp(e.target.value)} 
-                required 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                required
                 maxLength={6}
                 placeholder="000000"
               />
@@ -213,7 +235,17 @@ export default function RegisterPage() {
                 {countdown > 0 ? (
                   <span>صلاحية الرمز تنتهي خلال: {formatTime(countdown)}</span>
                 ) : (
-                  <span>انتهت صلاحية الرمز. <button type="button" onClick={() => { setStep('details'); handleSubmit(new Event('submit') as any); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}>إعادة إرسال</button></span>
+                  <span>
+                    انتهت صلاحية الرمز.{' '}
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={loading}
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      إعادة إرسال
+                    </button>
+                  </span>
                 )}
               </div>
             </div>
@@ -222,7 +254,7 @@ export default function RegisterPage() {
           <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', marginBottom: 'var(--space-4)' }} disabled={loading || (step === 'otp' && countdown === 0)}>
             {loading ? 'الرجاء الانتظار...' : (step === 'otp' ? 'تحقق' : (isVendor ? 'سجّل متجرك' : 'إنشاء حساب'))}
           </button>
-          
+
           {step === 'details' && (
             <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', textAlign: 'center' }}>
               بإنشائك للحساب، أنت توافق على <Link to="/terms" style={{ textDecoration: 'underline' }}>شروط الاستخدام</Link> و <Link to="/privacy" style={{ textDecoration: 'underline' }}>سياسة الخصوصية</Link> الخاصة بنا.

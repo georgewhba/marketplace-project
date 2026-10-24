@@ -28,6 +28,7 @@ export const orderItems = pgTable('order_items', {
   index('order_items_order_idx').on(t.orderId),
   index('order_items_vendor_idx').on(t.vendorId),
   index('order_items_product_idx').on(t.productId),
+  index('order_items_tracking_idx').on(t.trackingNumber),
 ]);
 
 export type OrderItem = typeof orderItems.$inferSelect;

@@ -7,8 +7,9 @@ import {
   transactions, notifications, users, shipments, shipmentEvents, settlements, payoutRequests,
   subscriptionPlans, vendorSubscriptions, subscriptionPromotions, commissionRules
 } from '../db/schema/index.js';
-import { eq, and, sql, desc, asc, lte, gte } from 'drizzle-orm';
+import { eq, and, or, ne, sql, desc, asc, lte, gte } from 'drizzle-orm';
 import { authenticate, loadVendor } from '../middleware/authenticate.js';
+import { uploadRateLimit } from '../middleware/rateLimit.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
@@ -58,12 +59,13 @@ const productSchema = z.object({
 }).strict();
 
 const updateStatusSchema = z.object({
-  status: z.enum(['confirmed', 'shipped', 'delivered']),
+  status: z.enum(['confirmed', 'processing', 'shipped', 'delivered']).transform(val => val === 'processing' ? 'confirmed' : val),
   trackingNumber: z.string().max(100).optional(),
 }).strict();
 
 const createShipmentSchema = z.object({
   provider: z.enum(['bosta', 'manual']),
+  trackingNumber: z.string().max(100).optional(),
 }).strict();
 
 const updateSettingsSchema = z.object({
@@ -75,7 +77,7 @@ const updateSettingsSchema = z.object({
   banner: z.string().url().max(500).optional().nullable().or(z.literal('')),
 }).strict();
 
-// Helper to get active vendor limits
+// Helper to get active vendor limits (auto-provisions free plan if missing)
 async function getVendorLimits(vendorId: number) {
   const [subscription] = await db
     .select({
@@ -85,7 +87,7 @@ async function getVendorLimits(vendorId: number) {
       advancedAnalytics: subscriptionPlans.advancedAnalytics,
       bulkActionsEnabled: subscriptionPlans.bulkActionsEnabled,
       payoutCycleDays: subscriptionPlans.payoutCycleDays,
-      planName: subscriptionPlans.name
+      planName: subscriptionPlans.name,
     })
     .from(vendorSubscriptions)
     .innerJoin(subscriptionPlans, eq(vendorSubscriptions.planId, subscriptionPlans.id))
@@ -97,11 +99,67 @@ async function getVendorLimits(vendorId: number) {
     )
     .limit(1);
 
-  if (!subscription) {
-    throw AppError.badRequest('لا يوجد باقة فعالة. يرجى الاشتراك في باقة لتتمكن من استخدام المنصة.');
+  if (subscription) {
+    return subscription;
   }
 
-  return subscription;
+  // Auto-provision free plan if vendor doesn't have an active subscription yet
+  const [freePlan] = await db
+    .select()
+    .from(subscriptionPlans)
+    .where(
+      or(
+        eq(subscriptionPlans.slug, 'basic'),
+        eq(subscriptionPlans.slug, 'starter'),
+        eq(subscriptionPlans.priceMonthly, '0.00')
+      )
+    )
+    .orderBy(asc(subscriptionPlans.sortOrder))
+    .limit(1);
+
+  if (freePlan) {
+    await db
+      .insert(vendorSubscriptions)
+      .values({
+        vendorId,
+        planId: freePlan.id,
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: null,
+        autoRenew: true,
+      })
+      .onConflictDoUpdate({
+        target: vendorSubscriptions.vendorId,
+        set: {
+          planId: freePlan.id,
+          status: 'active',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: null,
+          autoRenew: true,
+        },
+      });
+
+    return {
+      productLimit: freePlan.productLimit,
+      imageLimitPerProduct: freePlan.imageLimitPerProduct,
+      autoShippingEnabled: freePlan.autoShippingEnabled,
+      advancedAnalytics: freePlan.advancedAnalytics,
+      bulkActionsEnabled: freePlan.bulkActionsEnabled,
+      payoutCycleDays: freePlan.payoutCycleDays,
+      planName: freePlan.name,
+    };
+  }
+
+  // Fallback default free limits if subscription_plans table is empty
+  return {
+    productLimit: 50,
+    imageLimitPerProduct: 3,
+    autoShippingEnabled: false,
+    advancedAnalytics: false,
+    bulkActionsEnabled: false,
+    payoutCycleDays: 30,
+    planName: 'Basic',
+  };
 }
 
 // GET /api/vendor/dashboard
@@ -118,6 +176,10 @@ vendorRoutes.get('/dashboard', async (c) => {
   const [pendingOrders] = await db.select({
     count: sql<number>`count(*)::int`,
   }).from(orderItems).where(and(eq(orderItems.vendorId, vendor.id), eq(orderItems.vendorStatus, 'pending')));
+
+  const [productCountResult] = await db.select({
+    count: sql<number>`count(*)::int`,
+  }).from(products).where(eq(products.vendorId, vendor.id));
 
   // Low stock products
   const lowStock = await db
@@ -153,7 +215,7 @@ vendorRoutes.get('/dashboard', async (c) => {
       totalRevenue: stats?.totalRevenue ?? '0',
       totalCommission: stats?.totalCommission ?? '0',
       pendingOrders: pendingOrders?.count ?? 0,
-      totalProducts: 0,
+      totalProducts: productCountResult?.count ?? 0,
     },
     lowStockProducts: lowStock,
     recentOrders: recentOrderItems,
@@ -234,6 +296,7 @@ vendorRoutes.post('/products', validate('body', productSchema), async (c) => {
 vendorRoutes.put('/products/:id', validate('body', productSchema.partial()), async (c) => {
   const vendor = c.get('vendor');
   const productId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(productId)) throw AppError.badRequest('معرف غير صالح');
   const input = getValidated<Partial<z.infer<typeof productSchema>>>(c, 'body');
 
   // Ownership check
@@ -253,6 +316,7 @@ vendorRoutes.put('/products/:id', validate('body', productSchema.partial()), asy
 vendorRoutes.delete('/products/:id', async (c) => {
   const vendor = c.get('vendor');
   const productId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(productId)) throw AppError.badRequest('معرف غير صالح');
 
   const [existing] = await db.select().from(products)
     .where(and(eq(products.id, productId), eq(products.vendorId, vendor.id))).limit(1);
@@ -274,19 +338,24 @@ vendorRoutes.delete('/products/:id', async (c) => {
   return sendSuccess(c, { message: 'تم حذف المنتج' });
 });
 
-// POST /api/vendor/products/:id/images
+// GET /api/vendor/test-r2-ssl (development only)
 vendorRoutes.get('/test-r2-ssl', async (c) => {
+  if (env.NODE_ENV === 'production') {
+    throw AppError.notFound('المسار غير موجود');
+  }
   try {
     const fetchRes = await fetch(`https://${env.R2_ACCOUNT_ID?.trim()}.r2.cloudflarestorage.com`);
     return c.json({ success: true, status: fetchRes.status });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message, stack: err.stack });
+    return c.json({ success: false, error: err.message });
   }
 });
 
-vendorRoutes.post('/products/:id/images', async (c) => {
+// POST /api/vendor/products/:id/images
+vendorRoutes.post('/products/:id/images', uploadRateLimit, async (c) => {
   const vendor = c.get('vendor');
   const productId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(productId)) throw AppError.badRequest('معرف غير صالح');
 
   const [existing] = await db.select({ id: products.id }).from(products)
     .where(and(eq(products.id, productId), eq(products.vendorId, vendor.id))).limit(1);
@@ -308,6 +377,17 @@ vendorRoutes.post('/products/:id/images', async (c) => {
     throw AppError.badRequest('الصورة مطلوبة');
   }
 
+  // Check MIME type
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedMimes.includes(file.type)) {
+    throw AppError.badRequest('نوع الملف غير مسموح. الأنواع المقبولة: JPEG, PNG, WebP');
+  }
+
+  // Check size (5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    throw AppError.badRequest('حجم الملف يتجاوز 5 ميجابايت');
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   
   // Validate magic bytes
@@ -320,7 +400,7 @@ vendorRoutes.post('/products/:id/images', async (c) => {
     imageUrl = await processImage(buffer);
   } catch (err: any) {
     console.error('Image processing/upload failed:', err);
-    throw AppError.internal(`فشل رفع الصورة: ${err.message}`);
+    throw AppError.internal('فشل رفع الصورة');
   }
 
   const [image] = await db.insert(productImages).values({
@@ -338,6 +418,7 @@ vendorRoutes.delete('/products/:id/images/:imgId', async (c) => {
   const vendor = c.get('vendor');
   const productId = parseInt(c.req.param('id')!, 10);
   const imgId = parseInt(c.req.param('imgId')!, 10);
+  if (Number.isNaN(productId) || Number.isNaN(imgId)) throw AppError.badRequest('معرف غير صالح');
 
   const [existing] = await db.select({ id: products.id }).from(products)
     .where(and(eq(products.id, productId), eq(products.vendorId, vendor.id))).limit(1);
@@ -393,6 +474,7 @@ vendorRoutes.get('/orders', validate('query', paginationSchema), async (c) => {
 vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema), async (c) => {
   const vendor = c.get('vendor');
   const itemId = parseInt(c.req.param('itemId')!, 10);
+  if (Number.isNaN(itemId)) throw AppError.badRequest('معرف غير صالح');
   const input = getValidated<z.infer<typeof updateStatusSchema>>(c, 'body');
 
   // Pre-flight: ownership + current status check (outside tx for early error)
@@ -478,7 +560,7 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
 
       // 2. Atomic vendor totalSales increment
       await tx.update(vendors).set({
-        totalSales: sql`${vendors.totalSales}::numeric + ${vendorAmount}`,
+        totalSales: balanceAfter.toFixed(2),
         updatedAt: new Date(),
       }).where(eq(vendors.id, vendor.id));
 
@@ -564,6 +646,7 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
 vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema), async (c) => {
   const vendor = c.get('vendor');
   const itemId = parseInt(c.req.param('itemId')!, 10);
+  if (Number.isNaN(itemId)) throw AppError.badRequest('معرف غير صالح');
   const input = getValidated<z.infer<typeof createShipmentSchema>>(c, 'body');
 
   const [item] = await db
@@ -579,7 +662,7 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
     .limit(1);
 
   if (!item) throw AppError.notFound('عنصر الطلب');
-  if (item.vendorStatus !== 'confirmed') {
+  if (item.vendorStatus !== 'confirmed' && item.vendorStatus !== 'pending') {
     throw AppError.badRequest('يجب أن يكون الطلب مؤكدًا قبل الشحن');
   }
 
@@ -593,7 +676,7 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
     }
   }
 
-  const pickupAddress = { city: 'VendorCity' }; // Could be loaded from vendor settings
+  const pickupAddress = { city: 'VendorCity' };
   const dropoffAddress = {
     city: order.shippingCity,
     address: order.shippingAddressLine1,
@@ -609,13 +692,15 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
     items: [item],
   });
 
+  const finalTrackingNumber = input.trackingNumber || shipmentResult.trackingNumber;
+
   const [shipment] = await db.transaction(async (tx) => {
     const [newShipment] = await tx.insert(shipments).values({
       orderId: order.id,
       vendorId: vendor.id,
       provider: input.provider,
       providerShipmentId: shipmentResult.providerShipmentId,
-      trackingNumber: shipmentResult.trackingNumber,
+      trackingNumber: finalTrackingNumber,
       status: 'created',
       cost: shipmentResult.cost.toString(),
     }).returning();
@@ -633,7 +718,7 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
     await tx.update(orderItems)
       .set({ 
         vendorStatus: 'shipped', 
-        trackingNumber: shipmentResult.trackingNumber || undefined,
+        trackingNumber: finalTrackingNumber || undefined,
         shippedAt: new Date(),
         updatedAt: new Date()
       })
@@ -697,7 +782,7 @@ vendorRoutes.get('/payouts', async (c) => {
 const payoutRequestSchema = z.object({
   settlementId: z.number().int().positive(),
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
-  bankAccountSnapshot: z.any().optional(), // In a real app this would be typed
+  bankAccountSnapshot: z.any().optional(),
 });
 
 // POST /api/vendor/payouts/request
@@ -705,48 +790,59 @@ vendorRoutes.post('/payouts/request', validate('body', payoutRequestSchema), asy
   const vendor = c.get('vendor');
   const input = getValidated<z.infer<typeof payoutRequestSchema>>(c, 'body');
 
-  const [settlement] = await db.select().from(settlements)
-    .where(and(eq(settlements.id, input.settlementId), eq(settlements.vendorId, vendor.id)))
-    .limit(1);
-    
-  if (!settlement) throw AppError.notFound('التسوية غير موجودة');
-  if (settlement.status !== 'finalized') throw AppError.badRequest('لا يمكن طلب سحب إلا للتسويات المعتمدة');
-  
-  // Check if payout request already exists for this settlement
-  const [existing] = await db.select().from(payoutRequests)
-    .where(eq(payoutRequests.settlementId, input.settlementId))
-    .limit(1);
-    
-  if (existing) throw AppError.badRequest('تم تقديم طلب سحب لهذه التسوية مسبقاً');
-  
-  const requestAmount = parseFloat(input.amount);
-  const availableAmount = parseFloat(settlement.netPayable);
-  
-  if (requestAmount > availableAmount) {
-    throw AppError.badRequest('المبلغ المطلوب أكبر من رصيد التسوية');
-  }
-
   const limits = await getVendorLimits(vendor.id);
-  
-  // Check when the last payout request was made
-  const [lastRequest] = await db.select().from(payoutRequests)
-    .where(eq(payoutRequests.vendorId, vendor.id))
-    .orderBy(desc(payoutRequests.createdAt))
-    .limit(1);
 
-  if (lastRequest) {
-    const daysSinceLastRequest = (new Date().getTime() - lastRequest.createdAt.getTime()) / (1000 * 3600 * 24);
-    if (daysSinceLastRequest < limits.payoutCycleDays) {
-      throw AppError.badRequest(`يمكنك طلب سحب الأرباح كل ${limits.payoutCycleDays} أيام في باقة ${limits.planName}. يرجى الانتظار أو الترقية لباقة أعلى.`);
+  const request = await db.transaction(async (tx) => {
+    const [settlement] = await tx.select().from(settlements)
+      .where(and(eq(settlements.id, input.settlementId), eq(settlements.vendorId, vendor.id)))
+      .for('update')
+      .limit(1);
+      
+    if (!settlement) throw AppError.notFound('التسوية غير موجودة');
+    if (settlement.status !== 'finalized') throw AppError.badRequest('لا يمكن طلب سحب إلا للتسويات المعتمدة');
+    
+    // Check if non-rejected payout request already exists for this settlement
+    const [existing] = await tx.select().from(payoutRequests)
+      .where(and(
+        eq(payoutRequests.settlementId, input.settlementId),
+        ne(payoutRequests.status, 'rejected')
+      ))
+      .limit(1);
+      
+    if (existing) throw AppError.badRequest('تم تقديم طلب سحب لهذه التسوية مسبقاً');
+    
+    const requestAmount = parseFloat(input.amount);
+    const availableAmount = parseFloat(settlement.netPayable);
+    
+    if (requestAmount <= 0 || requestAmount > availableAmount) {
+      throw AppError.badRequest('المبلغ المطلوب أكبر من رصيد التسوية');
     }
-  }
+    
+    // Check when the last non-rejected payout request was made
+    const [lastRequest] = await tx.select().from(payoutRequests)
+      .where(and(
+        eq(payoutRequests.vendorId, vendor.id),
+        ne(payoutRequests.status, 'rejected')
+      ))
+      .orderBy(desc(payoutRequests.createdAt))
+      .limit(1);
 
-  const [request] = await db.insert(payoutRequests).values({
-    vendorId: vendor.id,
-    settlementId: input.settlementId,
-    amount: input.amount,
-    bankAccountSnapshot: input.bankAccountSnapshot ?? null,
-  }).returning();
+    if (lastRequest) {
+      const daysSinceLastRequest = (new Date().getTime() - lastRequest.createdAt.getTime()) / (1000 * 3600 * 24);
+      if (daysSinceLastRequest < limits.payoutCycleDays) {
+        throw AppError.badRequest(`يمكنك طلب سحب الأرباح كل ${limits.payoutCycleDays} أيام في باقة ${limits.planName}. يرجى الانتظار أو الترقية لباقة أعلى.`);
+      }
+    }
+
+    const [created] = await tx.insert(payoutRequests).values({
+      vendorId: vendor.id,
+      settlementId: input.settlementId,
+      amount: input.amount,
+      bankAccountSnapshot: input.bankAccountSnapshot ?? null,
+    }).returning();
+
+    return created;
+  });
 
   return sendCreated(c, request);
 });
@@ -770,8 +866,16 @@ vendorRoutes.put('/settings', validate('body', updateSettingsSchema), async (c) 
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   if (input.storeName !== undefined) {
+    const newSlug = slugify(input.storeName);
+    const [existingSlug] = await db.select({ id: vendors.id })
+      .from(vendors)
+      .where(and(eq(vendors.storeSlug, newSlug), ne(vendors.id, vendor.id)))
+      .limit(1);
+    if (existingSlug) {
+      throw AppError.conflict('اسم المتجر مستخدم بالفعل');
+    }
     updateData['storeName'] = input.storeName;
-    updateData['storeSlug'] = slugify(input.storeName);
+    updateData['storeSlug'] = newSlug;
   }
   if (input.storeDescription !== undefined) updateData['storeDescription'] = input.storeDescription;
   if (input.shippingPolicy !== undefined) updateData['shippingPolicy'] = input.shippingPolicy;
@@ -798,6 +902,7 @@ vendorRoutes.get('/notifications', async (c) => {
 vendorRoutes.put('/notifications/:id/read', async (c) => {
   const user = c.get('user');
   const notifId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(notifId)) throw AppError.badRequest('معرف غير صالح');
 
   await db.update(notifications).set({ isRead: true })
     .where(and(eq(notifications.id, notifId), eq(notifications.userId, user.id)));
@@ -810,6 +915,9 @@ vendorRoutes.put('/notifications/:id/read', async (c) => {
 
 vendorRoutes.get('/subscription', async (c) => {
   const vendor = c.get('vendor');
+
+  // Ensure free plan is provisioned if vendor has no active subscription yet
+  await getVendorLimits(vendor.id);
   
   const sub = await db.select({
     id: vendorSubscriptions.id,
@@ -835,8 +943,6 @@ vendorRoutes.get('/subscription', async (c) => {
   .limit(1);
 
   if (!sub.length) {
-    // If no subscription found, they should be on free plan implicitly, 
-    // but the system assigns free plan on registration.
     return sendSuccess(c, null);
   }
 
@@ -917,20 +1023,21 @@ vendorRoutes.post('/subscription/subscribe', validate('body', z.object({ planId:
   const referenceId = `SUB-${vendor.id}-${plan.id}`;
   const { iframeUrl } = await paymobService.generatePaymentKey(referenceId, finalPrice, billingData);
 
-  // We set the subscription to 'pending_payment'. It will be activated in the webhook.
-  if (existingSub) {
+  // Only create a 'pending_payment' row if the vendor has no subscription row at all,
+  // or update planId if the existing row is not active. Do NOT overwrite an 'active' subscription!
+  if (!existingSub) {
+    await db.insert(vendorSubscriptions).values({
+      vendorId: vendor.id,
+      planId: plan.id,
+      status: 'pending_payment'
+    });
+  } else if (existingSub.status !== 'active') {
     await db.update(vendorSubscriptions)
       .set({
         planId: plan.id,
         status: 'pending_payment'
       })
       .where(eq(vendorSubscriptions.id, existingSub.id));
-  } else {
-    await db.insert(vendorSubscriptions).values({
-      vendorId: vendor.id,
-      planId: plan.id,
-      status: 'pending_payment'
-    });
   }
 
   return sendSuccess(c, { iframeUrl, plan });

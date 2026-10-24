@@ -49,6 +49,8 @@ export async function seedUser(
     firstName,
     lastName,
     role,
+    isActive: true,
+    emailVerifiedAt: new Date(),
   }).returning({ id: users.id });
   return user!.id;
 }
@@ -126,8 +128,72 @@ export async function seedAddress(userId: number) {
 }
 
 /**
- * Add an item to a user's cart.
+ * Seed an order directly in DB. Returns order ID.
  */
+export async function seedOrder(customerId: number, overrides: Partial<{
+  orderNumber: string;
+  status: string;
+  subtotal: string;
+  shippingFee: string;
+  discount: string;
+  total: string;
+}> = {}) {
+  const rand = crypto.randomInt(10000, 100000);
+  const [order] = await db.insert(orders).values({
+    orderNumber: overrides.orderNumber ?? `MKT-TEST-${Date.now()}-${rand}`,
+    customerId,
+    status: overrides.status ?? 'pending',
+    subtotal: overrides.subtotal ?? '100.00',
+    shippingFee: overrides.shippingFee ?? '30.00',
+    discount: overrides.discount ?? '0.00',
+    total: overrides.total ?? '130.00',
+    shippingName: 'عميل تست',
+    shippingPhone: '01012345678',
+    shippingAddressLine1: 'شارع التحرير 15',
+    shippingCity: 'القاهرة',
+    shippingCountry: 'Egypt',
+    paymentMethod: 'cash_on_delivery',
+  }).returning({ id: orders.id });
+  return order!.id;
+}
+
+/**
+ * Seed an order item directly in DB. Returns orderItem ID.
+ */
+export async function seedOrderItem(
+  orderId: number,
+  productId: number,
+  vendorId: number,
+  overrides: Partial<{
+    productName: string;
+    price: string;
+    quantity: number;
+    total: string;
+    shippingFee: string;
+    vendorStatus: string;
+    commissionRate: string;
+    commissionAmount: string;
+    vendorAmount: string;
+  }> = {},
+) {
+  const [item] = await db.insert(orderItems).values({
+    orderId,
+    productId,
+    vendorId,
+    productName: overrides.productName ?? 'منتج تست',
+    price: overrides.price ?? '100.00',
+    quantity: overrides.quantity ?? 1,
+    total: overrides.total ?? '100.00',
+    shippingFee: overrides.shippingFee ?? '30.00',
+    vendorStatus: overrides.vendorStatus ?? 'pending',
+    commissionRate: overrides.commissionRate ?? '10.00',
+    commissionAmount: overrides.commissionAmount ?? '10.00',
+    vendorAmount: overrides.vendorAmount ?? '90.00',
+    deliveredAt: overrides.vendorStatus === 'delivered' ? new Date() : null,
+  }).returning({ id: orderItems.id });
+  return item!.id;
+}
+
 /**
  * Add an item to a user's cart. Uses upsert (ON CONFLICT DO UPDATE) so that
  * calling this multiple times for the same (userId, productId) increments
@@ -176,25 +242,19 @@ export async function seedCoupon(overrides: Partial<{
 
 // ── Hono App request helper ─────────────────────────────────────────────────
 
- 
 let _app: any = null;
 
 /**
  * Lazily import the Hono app. The app is created once per test process.
  * This uses app.request() which does NOT start a real HTTP server.
  */
-async function getApp(): Promise<{ request: (req: Request) => Response | Promise<Response> }> {
+export async function getApp(): Promise<{ request: (req: Request) => Response | Promise<Response> }> {
   if (!_app) {
     const mod = await import('../../index.js');
     _app = mod.app ?? mod.default;
   }
   return _app;
 }
-
-/**
- * A unique IP per test file run — keeps each test file's requests in a separate
- * rate-limit bucket so tests don't exhaust each other's windows.
- */
 
 interface RequestOptions {
   body?: unknown;
@@ -209,8 +269,6 @@ async function httpRequest(method: string, path: string, opts: RequestOptions = 
   const url = `http://localhost${path}`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    // Per-request unique IP: each test call gets its own rate-limit window
-    // so tests never exhaust the in-memory rate limiter (5 auth calls/min etc.)
     'X-Forwarded-For': opts.ip ?? `test-${crypto.randomUUID()}`,
     ...opts.headers,
   };

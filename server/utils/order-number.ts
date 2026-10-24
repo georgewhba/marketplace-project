@@ -1,12 +1,12 @@
+import crypto from 'node:crypto';
+
 /**
- * Generate an order number in format: MKT-YYYYMMDD-XXXXX
- * where XXXXX is a random 5-digit number.
+ * Generates a unique, human-readable order number.
+ * Format: MKT-YYYYMMDD-XXXXX (e.g. MKT-20250223-48291)
  */
 export function generateOrderNumber(): string {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const random = String(Math.floor(10000 + Math.random() * 90000));
-  return `MKT-${year}${month}${day}-${random}`;
+  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const random = crypto.randomInt(10000, 100000);
+  return `MKT-${date}-${random}`;
 }

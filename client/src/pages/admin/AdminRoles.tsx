@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useToast } from '../../toast';
-import { Shield, Plus, Edit } from 'lucide-react';
+import { Shield, Plus, Edit, Key, Save } from 'lucide-react';
 
 export default function AdminRoles() {
   const queryClient = useQueryClient();
@@ -11,11 +11,22 @@ export default function AdminRoles() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: '' });
+
+  // Permissions modal/panel state
+  const [permRole, setPermRole] = useState<any | null>(null);
+  const [selectedPermIds, setSelectedPermIds] = useState<number[]>([]);
   
   const { data: roles, isLoading } = useQuery({
     queryKey: ['admin-roles'],
     queryFn: () => api.get<any>('/roles'),
   });
+
+  const { data: permsRes } = useQuery({
+    queryKey: ['admin-permissions'],
+    queryFn: () => api.get<any>('/roles/permissions'),
+  });
+
+  const allPermissions: { id: number; key: string; description?: string }[] = permsRes?.data ?? [];
 
   const saveMutation = useMutation({
     mutationFn: (data: any) => {
@@ -32,10 +43,40 @@ export default function AdminRoles() {
     onError: (err: any) => addToast(err.message || 'حدث خطأ', 'error'),
   });
 
+  const savePermsMutation = useMutation({
+    mutationFn: ({ roleId, permissionIds }: { roleId: number; permissionIds: number[] }) =>
+      api.post(`/roles/${roleId}/permissions`, { permissionIds }),
+    onSuccess: () => {
+      addToast('تم تحديث صلاحيات الدور بنجاح', 'success');
+      queryClient.invalidateQueries({ queryKey: ['admin-roles'] });
+      setPermRole(null);
+    },
+    onError: (err: any) => addToast(err.message || 'حدث خطأ أثناء حفظ الصلاحيات', 'error'),
+  });
+
   const handleEdit = (role: any) => {
     setEditId(role.id);
     setForm({ name: role.name });
     setShowForm(true);
+  };
+
+  const handleOpenPerms = async (role: any) => {
+    setPermRole(role);
+    if (Array.isArray(role.permissionIds)) {
+      setSelectedPermIds(role.permissionIds);
+    } else {
+      try {
+        const res = await api.get<any>(`/roles/${role.id}/permissions`);
+        const list = res?.data || [];
+        setSelectedPermIds(list.map((p: any) => p.id));
+      } catch {
+        setSelectedPermIds([]);
+      }
+    }
+  };
+
+  const togglePerm = (id: number) => {
+    setSelectedPermIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
   };
 
   if (isLoading) return <div className="p-6">جاري التحميل...</div>;
@@ -61,7 +102,7 @@ export default function AdminRoles() {
             <div className="form-group mb-4">
               <label className="form-label">اسم الدور</label>
               <input 
-                className="input" 
+                className="form-input" 
                 value={form.name} 
                 onChange={e => setForm({ ...form, name: e.target.value })} 
                 required 
@@ -74,12 +115,47 @@ export default function AdminRoles() {
         </div>
       )}
 
+      {permRole && (
+        <div className="card card-body mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="m-0 font-semibold">صلاحيات الدور: {permRole.name}</h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => setPermRole(null)}>إغلاق</button>
+          </div>
+          <div className="grid grid-3 gap-3 mb-4">
+            {allPermissions.map((perm) => (
+              <label key={perm.id} className="flex items-center gap-2 p-2 rounded" style={{ border: '1px solid var(--border-primary)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedPermIds.includes(perm.id)}
+                  onChange={() => togglePerm(perm.id)}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{perm.key}</div>
+                  {perm.description && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{perm.description}</div>}
+                </div>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="btn btn-primary"
+              disabled={savePermsMutation.isPending}
+              onClick={() => savePermsMutation.mutate({ roleId: permRole.id, permissionIds: selectedPermIds })}
+            >
+              <Save size={16} /> {savePermsMutation.isPending ? 'جاري الحفظ...' : 'حفظ الصلاحيات'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setPermRole(null)}>إلغاء</button>
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ overflowX: 'auto' }}>
         <table className="data-table">
           <thead>
             <tr>
               <th>المعرف</th>
               <th>الاسم</th>
+              <th>عدد الصلاحيات</th>
               <th>نظامي</th>
               <th>إجراءات</th>
             </tr>
@@ -89,17 +165,27 @@ export default function AdminRoles() {
               <tr key={r.id}>
                 <td>{r.id}</td>
                 <td>{r.name}</td>
+                <td>{Array.isArray(r.permissionIds) ? r.permissionIds.length : '-'}</td>
                 <td>
                   <span className={`badge ${r.isSystem ? 'badge-brand' : 'badge-neutral'}`}>
                     {r.isSystem ? 'نعم' : 'لا'}
                   </span>
                 </td>
-                <td>
+                <td className="flex gap-2">
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenPerms(r)}
+                    title="إدارة الصلاحيات"
+                    aria-label="إدارة الصلاحيات"
+                  >
+                    <Key size={14} /> الصلاحيات
+                  </button>
                   <button 
                     className="btn btn-ghost p-2" 
                     onClick={() => handleEdit(r)}
                     disabled={r.isSystem}
                     title={r.isSystem ? 'لا يمكن تعديل دور أساسي في النظام' : 'تعديل'}
+                    aria-label="تعديل الدور"
                   >
                     <Edit size={16} />
                   </button>

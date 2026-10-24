@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
+import { env } from '../env.js';
 import { orders, payments, vendorSubscriptions, subscriptionPlans, commissionRules } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
@@ -13,7 +14,6 @@ type Variables = {
 };
 
 const router = new Hono<{ Variables: Variables }>();
-
 
 const initiateSchema = z.object({
   orderId: z.number().int().positive(),
@@ -40,7 +40,7 @@ router.post('/initiate', authenticate, validate('body', initiateSchema), async (
   if (method === 'cod') {
     await db.update(orders)
       .set({ paymentMethod: 'cod', status: 'confirmed', updatedAt: new Date() })
-      .where(eq(orders.id, orderId));
+      .where(and(eq(orders.id, orderId), eq(orders.status, 'pending')));
       
     // Remove any existing pending payments for this order
     await db.delete(payments)
@@ -130,7 +130,7 @@ router.post('/webhook', async (c) => {
     const vendorId = parseInt(vendorIdStr, 10);
     const planId = parseInt(planIdStr, 10);
 
-    if (success) {
+    if (success && !Number.isNaN(vendorId) && !Number.isNaN(planId)) {
       const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
       if (plan) {
         // Activate subscription
@@ -138,26 +138,18 @@ router.post('/webhook', async (c) => {
         const periodEnd = new Date();
         periodEnd.setDate(now.getDate() + 30); // 30 days for monthly plan
 
-        const existingSubs = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendorId));
-        const pendingSub = existingSubs.find(s => s.status === 'pending_payment' && s.planId === planId);
-        const activeSub = existingSubs.find(s => s.status === 'active');
+        const [existingSub] = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendorId));
 
-        // Deactivate old active sub if exists
-        if (activeSub && (!pendingSub || activeSub.id !== pendingSub.id)) {
-          await db.update(vendorSubscriptions)
-            .set({ status: 'expired' })
-            .where(eq(vendorSubscriptions.id, activeSub.id));
-        }
-
-        if (pendingSub) {
+        if (existingSub) {
           await db.update(vendorSubscriptions)
             .set({
+              planId,
               status: 'active',
               currentPeriodStart: now,
               currentPeriodEnd: periodEnd,
               autoRenew: true
             })
-            .where(eq(vendorSubscriptions.id, pendingSub.id));
+            .where(eq(vendorSubscriptions.id, existingSub.id));
         } else {
           await db.insert(vendorSubscriptions).values({
             vendorId,
@@ -179,16 +171,15 @@ router.post('/webhook', async (c) => {
           effectiveFrom: now
         });
       }
-    } else {
-      // Handle failed payment (optional logic, mark as failed if needed, but we keep it pending_payment or let user retry)
     }
 
     return c.json({ success: true });
   }
 
   // Handle Regular Order Payment
-  const orderIdStr = merchantOrderId.split('-')[1];
+  const orderIdStr = merchantOrderId.split('-')[1] ?? merchantOrderId;
   const orderId = parseInt(orderIdStr, 10);
+  if (Number.isNaN(orderId)) return c.json({ success: true });
 
   // Update payment row idempotently
   const existingPayments = await db.select().from(payments)
@@ -197,9 +188,9 @@ router.post('/webhook', async (c) => {
   const targetPayment = existingPayments.find(p => p.provider === 'paymob' && p.status === 'pending');
   
   if (targetPayment) {
-    let finalSuccess = success;
+    let finalSuccess = Boolean(success);
     
-    if (success) {
+    if (finalSuccess) {
       const [orderRecord] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
       if (!orderRecord) return c.json({ success: true });
       
@@ -222,7 +213,7 @@ router.post('/webhook', async (c) => {
     if (finalSuccess) {
       await db.update(orders)
         .set({ status: 'confirmed', updatedAt: new Date() })
-        .where(eq(orders.id, orderId));
+        .where(and(eq(orders.id, orderId), eq(orders.status, 'pending')));
     }
   }
 
@@ -230,7 +221,10 @@ router.post('/webhook', async (c) => {
 });
 
 router.get('/:orderId/status', authenticate, async (c) => {
-  const orderId = parseInt(c.req.param('orderId') || '0');
+  const orderId = parseInt(c.req.param('orderId') || '', 10);
+  if (Number.isNaN(orderId) || orderId <= 0) {
+    throw AppError.badRequest('معرف غير صالح');
+  }
   const user = c.get('user');
 
   const orderList = await db.select().from(orders).where(eq(orders.id, orderId));
@@ -255,6 +249,10 @@ router.get('/:orderId/status', authenticate, async (c) => {
 
 // Mock Paymob Webhook (For development without real credentials)
 router.post('/webhook/paymob-mock', async (c) => {
+  if (env.NODE_ENV === 'production') {
+    throw AppError.notFound('المسار غير موجود');
+  }
+
   const { orderId, success } = await c.req.json();
   
   if (typeof orderId === 'string' && orderId.startsWith('SUB-')) {
@@ -262,21 +260,20 @@ router.post('/webhook/paymob-mock', async (c) => {
     const vendorId = parseInt(parts[1] || '0', 10);
     const planId = parseInt(parts[2] || '0', 10);
     
-    if (success) {
+    if (success && !Number.isNaN(vendorId) && !Number.isNaN(planId)) {
       const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
       if (!plan) return c.json({ success: false, message: 'Plan not found' });
       
       const now = new Date();
-      let periodEnd: Date | null = new Date();
-      // Assume 30 days for mock
+      const periodEnd = new Date();
       periodEnd.setDate(now.getDate() + 30);
       
-      const [pendingSub] = await db.select().from(vendorSubscriptions).where(and(eq(vendorSubscriptions.vendorId, vendorId), eq(vendorSubscriptions.status, 'pending_payment')));
+      const [existingSub] = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendorId));
       
-      if (pendingSub) {
+      if (existingSub) {
         await db.update(vendorSubscriptions)
-          .set({ status: 'active', currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true })
-          .where(eq(vendorSubscriptions.id, pendingSub.id));
+          .set({ planId, status: 'active', currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true })
+          .where(eq(vendorSubscriptions.id, existingSub.id));
       } else {
         await db.insert(vendorSubscriptions).values({
           vendorId, planId, status: 'active', currentPeriodStart: now, currentPeriodEnd: periodEnd, autoRenew: true
@@ -291,7 +288,37 @@ router.post('/webhook/paymob-mock', async (c) => {
     return c.json({ success: true });
   }
 
-  return c.json({ success: true, message: 'Not a subscription mock' });
+  // Handle regular order mock payment
+  const numericOrderId = typeof orderId === 'number'
+    ? orderId
+    : typeof orderId === 'string' && orderId.startsWith('ORD-')
+      ? parseInt(orderId.split('-')[1] || '0', 10)
+      : parseInt(String(orderId), 10);
+
+  if (!Number.isNaN(numericOrderId) && numericOrderId > 0) {
+    const existingPayments = await db.select().from(payments).where(eq(payments.orderId, numericOrderId));
+    const targetPayment = existingPayments.find(p => p.status === 'pending');
+
+    if (targetPayment) {
+      await db.update(payments)
+        .set({
+          status: success ? 'succeeded' : 'failed',
+          providerTransactionId: `MOCK-${Date.now()}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, targetPayment.id));
+    }
+
+    if (success) {
+      await db.update(orders)
+        .set({ status: 'confirmed', updatedAt: new Date() })
+        .where(and(eq(orders.id, numericOrderId), eq(orders.status, 'pending')));
+    }
+
+    return c.json({ success: true });
+  }
+
+  return c.json({ success: false, message: 'Invalid orderId' }, 400);
 });
 
 export default router;

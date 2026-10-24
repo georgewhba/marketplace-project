@@ -16,12 +16,15 @@ export const logger = pino({
   } : undefined,
 });
 
+const REQUEST_ID_REGEX = /^[a-zA-Z0-9-_]{1,64}$/;
+
 /**
  * Middleware to inject a unique request ID and log incoming requests.
  */
 export async function requestLogger(c: Context, next: Next) {
-  // Generate or use provided request ID
-  const requestId = c.req.header('x-request-id') || uuidv4();
+  // Generate or use provided sanitized request ID
+  const incomingId = c.req.header('x-request-id');
+  const requestId = incomingId && REQUEST_ID_REGEX.test(incomingId) ? incomingId : uuidv4();
   c.set('requestId', requestId);
   c.header('x-request-id', requestId);
 

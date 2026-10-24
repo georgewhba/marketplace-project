@@ -5,15 +5,16 @@ import {
   users, vendors, products, productImages, orders, orderItems,
   categories, transactions, notifications, auditLog, siteSettings, coupons,
   commissionRules, settlements, payoutRequests, messageLogs,
-  subscriptionPlans, subscriptionPromotions
+  subscriptionPlans, subscriptionPromotions, vendorSubscriptions
 } from '../db/schema/index.js';
-import { eq, and, sql, desc, asc, ilike } from 'drizzle-orm';
+import { eq, and, or, sql, desc, asc, ilike } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
+import { deleteImage } from '../utils/image.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import { 
   getAdminOverview, 
@@ -26,6 +27,14 @@ import type { AppEnv } from '../types/env.js';
 
 const adminRoutes = new Hono<AppEnv>();
 adminRoutes.use('*', authenticate);
+
+function parseIdParam(c: { req: { param: (k: string) => string | undefined } }, paramName = 'id'): number {
+  const id = parseInt(c.req.param(paramName) || '', 10);
+  if (Number.isNaN(id) || id <= 0) {
+    throw AppError.badRequest('معرف غير صالح');
+  }
+  return id;
+}
 
 async function logAction(adminId: number, action: string, targetType: string, targetId: number, details?: unknown) {
   await db.insert(auditLog).values({
@@ -136,7 +145,7 @@ adminRoutes.get('/vendors', requirePermission('vendors.approve'), validate('quer
 
 // GET /api/admin/vendors/:id
 adminRoutes.get('/vendors/:id', requirePermission('vendors.approve'), async (c) => {
-  const vendorId = parseInt(c.req.param('id')!, 10);
+  const vendorId = parseIdParam(c);
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
   if (!vendor) throw AppError.notFound('البائع');
 
@@ -156,7 +165,7 @@ const rejectSchema = z.object({ reason: z.string().min(1, 'سبب الرفض م�
 // PUT /api/admin/vendors/:id/approve
 adminRoutes.put('/vendors/:id/approve', requirePermission('vendors.approve'), validate('body', approveSchema), async (c) => {
   const admin = c.get('user');
-  const vendorId = parseInt(c.req.param('id')!, 10);
+  const vendorId = parseIdParam(c);
   const input = getValidated<z.infer<typeof approveSchema>>(c, 'body');
 
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
@@ -168,6 +177,24 @@ adminRoutes.put('/vendors/:id/approve', requirePermission('vendors.approve'), va
   if (input.commissionRate) updateData['commissionRate'] = input.commissionRate;
 
   await db.update(vendors).set(updateData).where(eq(vendors.id, vendorId));
+
+  // Ensure the approved vendor has an active subscription plan
+  const [existingSub] = await db.select().from(vendorSubscriptions).where(eq(vendorSubscriptions.vendorId, vendorId)).limit(1);
+  if (!existingSub) {
+    const [freePlan] = await db.select().from(subscriptionPlans)
+      .where(or(eq(subscriptionPlans.slug, 'basic'), eq(subscriptionPlans.slug, 'starter')))
+      .limit(1);
+    if (freePlan) {
+      await db.insert(vendorSubscriptions).values({
+        vendorId,
+        planId: freePlan.id,
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: null,
+        autoRenew: true,
+      }).catch(() => {});
+    }
+  }
 
   await db.insert(notifications).values({
     userId: vendor.userId,
@@ -184,7 +211,7 @@ adminRoutes.put('/vendors/:id/approve', requirePermission('vendors.approve'), va
 // PUT /api/admin/vendors/:id/reject
 adminRoutes.put('/vendors/:id/reject', requirePermission('vendors.approve'), validate('body', rejectSchema), async (c) => {
   const admin = c.get('user');
-  const vendorId = parseInt(c.req.param('id')!, 10);
+  const vendorId = parseIdParam(c);
   const input = getValidated<z.infer<typeof rejectSchema>>(c, 'body');
 
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
@@ -208,7 +235,10 @@ adminRoutes.put('/vendors/:id/reject', requirePermission('vendors.approve'), val
 // PUT /api/admin/vendors/:id/suspend
 adminRoutes.put('/vendors/:id/suspend', requirePermission('vendors.suspend'), async (c) => {
   const admin = c.get('user');
-  const vendorId = parseInt(c.req.param('id')!, 10);
+  const vendorId = parseIdParam(c);
+
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId)).limit(1);
+  if (!vendor) throw AppError.notFound('البائع');
 
   await db.update(vendors).set({ status: 'suspended', updatedAt: new Date() })
     .where(eq(vendors.id, vendorId));
@@ -261,7 +291,7 @@ adminRoutes.get('/products', requirePermission('products.moderate'), validate('q
 // PUT /api/admin/products/:id/feature
 adminRoutes.put('/products/:id/feature', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
-  const productId = parseInt(c.req.param('id')!, 10);
+  const productId = parseIdParam(c);
   const [product] = await db.select({ isFeatured: products.isFeatured }).from(products).where(eq(products.id, productId)).limit(1);
   if (!product) throw AppError.notFound('المنتج');
 
@@ -274,7 +304,7 @@ adminRoutes.put('/products/:id/feature', requirePermission('products.moderate'),
 // PUT /api/admin/products/:id/toggle
 adminRoutes.put('/products/:id/toggle', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
-  const productId = parseInt(c.req.param('id')!, 10);
+  const productId = parseIdParam(c);
   const [product] = await db.select({ isActive: products.isActive }).from(products).where(eq(products.id, productId)).limit(1);
   if (!product) throw AppError.notFound('المنتج');
 
@@ -287,8 +317,21 @@ adminRoutes.put('/products/:id/toggle', requirePermission('products.moderate'), 
 // DELETE /api/admin/products/:id
 adminRoutes.delete('/products/:id', requirePermission('products.moderate'), async (c) => {
   const admin = c.get('user');
-  const productId = parseInt(c.req.param('id')!, 10);
+  const productId = parseIdParam(c);
+
+  const [product] = await db.select({ id: products.id, vendorId: products.vendorId }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) throw AppError.notFound('المنتج');
+
+  const imgs = await db.select().from(productImages).where(eq(productImages.productId, productId));
+  for (const img of imgs) {
+    await deleteImage(img.imageUrl).catch(() => {});
+  }
+
   await db.delete(products).where(eq(products.id, productId));
+  await db.update(vendors)
+    .set({ totalProducts: sql`GREATEST(${vendors.totalProducts} - 1, 0)` })
+    .where(eq(vendors.id, product.vendorId));
+
   await logAction(admin.id, 'product.delete', 'product', productId);
   return sendSuccess(c, { message: 'تم حذف المنتج' });
 });
@@ -329,8 +372,12 @@ adminRoutes.post('/categories', requirePermission('categories.manage'), validate
 // PUT /api/admin/categories/:id
 adminRoutes.put('/categories/:id', requirePermission('categories.manage'), validate('body', categorySchema.partial()), async (c) => {
   const admin = c.get('user');
-  const catId = parseInt(c.req.param('id')!, 10);
+  const catId = parseIdParam(c);
   const input = getValidated<Partial<z.infer<typeof categorySchema>>>(c, 'body');
+
+  if (input.parentId !== undefined && input.parentId === catId) {
+    throw AppError.badRequest('لا يمكن جعل القسم أباً لنفسه');
+  }
 
   if (input.name) {
     (input as Record<string, unknown>)['slug'] = slugify(input.name);
@@ -345,7 +392,7 @@ adminRoutes.put('/categories/:id', requirePermission('categories.manage'), valid
 // DELETE /api/admin/categories/:id
 adminRoutes.delete('/categories/:id', requirePermission('categories.manage'), async (c) => {
   const admin = c.get('user');
-  const catId = parseInt(c.req.param('id')!, 10);
+  const catId = parseIdParam(c);
 
   // Check for products
   const [productCount] = await db.select({ count: sql<number>`count(*)::int` }).from(products)
@@ -415,7 +462,7 @@ adminRoutes.get('/users', requirePermission('users.manage'), validate('query', p
 // PUT /api/admin/users/:id/toggle
 adminRoutes.put('/users/:id/toggle', requirePermission('users.manage'), async (c) => {
   const admin = c.get('user');
-  const userId = parseInt(c.req.param('id')!, 10);
+  const userId = parseIdParam(c);
   if (userId === admin.id) throw AppError.badRequest('لا يمكنك تعطيل حسابك');
 
   const [user] = await db.select({ isActive: users.isActive }).from(users).where(eq(users.id, userId)).limit(1);
@@ -453,7 +500,11 @@ adminRoutes.get('/settings', requirePermission('settings.edit'), async (c) => {
   const settings = await db.select().from(siteSettings);
   const settingsMap: Record<string, string> = {};
   for (const s of settings) {
-    settingsMap[s.key] = s.value;
+    if (s.key === 'ai_api_key' && s.value) {
+      settingsMap[s.key] = '********' + s.value.slice(-4);
+    } else {
+      settingsMap[s.key] = s.value;
+    }
   }
   return sendSuccess(c, settingsMap);
 });
@@ -480,9 +531,15 @@ adminRoutes.put('/settings', requirePermission('settings.edit'), validate('body'
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof updateSiteSettingsSchema>>(c, 'body');
 
-  const entries = Object.entries(input).filter(([, v]) => v !== undefined) as [string, string][];
+  const entries = Object.entries(input).filter(([k, v]) => {
+    if (v === undefined || v === null) return false;
+    // Do not overwrite masked API key placeholder
+    if (k === 'ai_api_key' && typeof v === 'string' && v.startsWith('********')) return false;
+    return true;
+  }) as [string, string][];
+
   if (entries.length === 0) {
-    throw AppError.badRequest('لم يتم إرسال أي إعدادات للتحديث');
+    return sendSuccess(c, { message: 'تم تحديث الإعدادات' });
   }
 
   for (const [key, value] of entries) {
@@ -494,15 +551,18 @@ adminRoutes.put('/settings', requirePermission('settings.edit'), validate('body'
   return sendSuccess(c, { message: 'تم تحديث الإعدادات' });
 });
 
-// Coupons management
+// Coupons management — supports both backend & legacy frontend field names
 const couponSchema = z.object({
   code: z.string().min(3).max(50).transform(s => s.toUpperCase()),
-  type: z.enum(['percentage', 'fixed']),
-  value: z.string().regex(/^\d+(\.\d{1,2})?$/),
-  minOrderAmount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
-  usageLimit: z.number().int().positive().optional().nullable(),
+  type: z.enum(['percentage', 'fixed']).optional(),
+  discountType: z.enum(['percentage', 'fixed']).optional(),
+  value: z.union([z.string(), z.number()]).optional(),
+  discountValue: z.union([z.string(), z.number()]).optional(),
+  minOrderAmount: z.union([z.string(), z.number()]).optional().nullable(),
+  minOrderValue: z.union([z.string(), z.number()]).optional().nullable(),
+  usageLimit: z.union([z.number().int().positive(), z.string()]).optional().nullable(),
   isActive: z.boolean().default(true),
-  expiresAt: z.string().datetime().optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
 }).strict();
 
 adminRoutes.get('/coupons', requirePermission('coupons.manage'), async (c) => {
@@ -513,9 +573,47 @@ adminRoutes.get('/coupons', requirePermission('coupons.manage'), async (c) => {
 adminRoutes.post('/coupons', requirePermission('coupons.manage'), validate('body', couponSchema), async (c) => {
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof couponSchema>>(c, 'body');
+
+  const type = input.type || input.discountType;
+  const rawVal = input.value ?? input.discountValue;
+  if (!type || rawVal === undefined || rawVal === '') {
+    throw AppError.badRequest('نوع الكوبون وقيمة الخصم مطلوبان');
+  }
+
+  const numVal = Number(rawVal);
+  if (!Number.isFinite(numVal) || numVal <= 0) {
+    throw AppError.badRequest('قيمة الخصم يجب أن تكون رقماً موجباً');
+  }
+  if (type === 'percentage' && numVal > 100) {
+    throw AppError.badRequest('نسبة الخصم لا يمكن أن تتجاوز 100%');
+  }
+
+  const rawMinOrder = input.minOrderAmount ?? input.minOrderValue;
+  const minOrderAmount = rawMinOrder !== undefined && rawMinOrder !== null && rawMinOrder !== ''
+    ? Number(rawMinOrder).toFixed(2)
+    : undefined;
+
+  const usageLimit = input.usageLimit !== undefined && input.usageLimit !== null && input.usageLimit !== ''
+    ? Number(input.usageLimit)
+    : null;
+
+  let expiresAtDate: Date | null = null;
+  if (input.expiresAt) {
+    const parsed = new Date(input.expiresAt);
+    if (Number.isNaN(parsed.getTime())) {
+      throw AppError.badRequest('تاريخ انتهاء الكوبون غير صالح');
+    }
+    expiresAtDate = parsed;
+  }
+
   const [coupon] = await db.insert(coupons).values({
-    ...input,
-    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    code: input.code,
+    type,
+    value: numVal.toFixed(2),
+    minOrderAmount,
+    usageLimit,
+    isActive: input.isActive ?? true,
+    expiresAt: expiresAtDate,
   }).returning();
 
   await logAction(admin.id, 'coupon.create', 'coupon', coupon!.id, { code: input.code });
@@ -524,11 +622,12 @@ adminRoutes.post('/coupons', requirePermission('coupons.manage'), validate('body
 
 adminRoutes.delete('/coupons/:id', requirePermission('coupons.manage'), async (c) => {
   const admin = c.get('user');
-  const couponId = parseInt(c.req.param('id')!, 10);
+  const couponId = parseIdParam(c);
   await db.delete(coupons).where(eq(coupons.id, couponId));
   await logAction(admin.id, 'coupon.delete', 'coupon', couponId);
   return sendSuccess(c, { message: 'تم حذف الكوبون' });
 });
+
 // ==========================================
 // 8. Commission Rules (FIZ G3)
 // ==========================================
@@ -552,6 +651,9 @@ adminRoutes.post('/commission-rules', requirePermission('commission.manage'), va
   if (input.scope !== 'global' && !input.targetId) {
     throw AppError.badRequest('يجب تحديد targetId للقواعد غير العامة');
   }
+  if (parseFloat(input.rate) > 100) {
+    throw AppError.badRequest('نسبة العمولة لا يمكن أن تتجاوز 100%');
+  }
 
   const [rule] = await db.insert(commissionRules).values({
     scope: input.scope,
@@ -566,7 +668,7 @@ adminRoutes.post('/commission-rules', requirePermission('commission.manage'), va
 });
 
 adminRoutes.delete('/commission-rules/:id', requirePermission('commission.manage'), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
   await db.delete(commissionRules).where(eq(commissionRules.id, id));
   return sendSuccess(c, { message: 'تم حذف القاعدة' });
 });
@@ -595,7 +697,7 @@ adminRoutes.get('/settlements', requirePermission('payouts.approve'), async (c) 
 });
 
 adminRoutes.put('/settlements/:id/finalize', requirePermission('payouts.approve'), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
   const [settlement] = await db.update(settlements)
     .set({ status: 'finalized' })
     .where(and(eq(settlements.id, id), eq(settlements.status, 'draft')))
@@ -628,7 +730,7 @@ const payoutActionSchema = z.object({
 });
 
 adminRoutes.put('/payouts/:id/approve', requirePermission('payouts.approve'), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
   const admin = c.get('user');
   
   const request = await db.transaction(async (tx) => {
@@ -643,12 +745,6 @@ adminRoutes.put('/payouts/:id/approve', requirePermission('payouts.approve'), as
       
     if (!req) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
     
-    if (req.settlementId) {
-      await tx.update(settlements)
-        .set({ status: 'paid', paidAt: new Date() })
-        .where(eq(settlements.id, req.settlementId));
-    }
-    
     // Create payout transaction using strict row lock
     const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
       .from(vendors)
@@ -656,7 +752,17 @@ adminRoutes.put('/payouts/:id/approve', requirePermission('payouts.approve'), as
       .for('update');
       
     const balanceBefore = parseFloat(vendorRecord!.totalSales);
-    const balanceAfter = balanceBefore - parseFloat(req.amount);
+    const amountNum = parseFloat(req.amount);
+    if (balanceBefore < amountNum) {
+      throw AppError.badRequest('رصيد البائع غير كافٍ لإتمام عملية السحب');
+    }
+    const balanceAfter = balanceBefore - amountNum;
+
+    if (req.settlementId) {
+      await tx.update(settlements)
+        .set({ status: 'paid', paidAt: new Date() })
+        .where(eq(settlements.id, req.settlementId));
+    }
     
     await tx.insert(transactions).values({
       vendorId: req.vendorId,
@@ -678,7 +784,7 @@ adminRoutes.put('/payouts/:id/approve', requirePermission('payouts.approve'), as
 });
 
 adminRoutes.put('/payouts/:id/reject', requirePermission('payouts.approve'), validate('body', payoutActionSchema), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
   const admin = c.get('user');
   const input = getValidated<z.infer<typeof payoutActionSchema>>(c, 'body');
   
@@ -693,13 +799,15 @@ adminRoutes.put('/payouts/:id/reject', requirePermission('payouts.approve'), val
     
   if (!request) throw AppError.notFound('الطلب غير موجود أو تمت معالجته');
   
+  await logAction(admin.id, 'payout.reject', 'payout_request', id, { reason: input.reason });
   return sendSuccess(c, request);
 });
+
 // GET /api/admin/message-logs
 adminRoutes.get('/message-logs', requirePermission('audit.view'), async (c) => {
   const query = c.req.query();
-  const page = Math.max(1, parseInt(query.page || '1'));
-  const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20')));
+  const page = Math.max(1, parseInt(query.page || '1', 10) || 1);
+  const limit = Math.max(1, Math.min(100, parseInt(query.limit || '20', 10) || 20));
   const offset = (page - 1) * limit;
 
   const conditions = [];
@@ -710,13 +818,15 @@ adminRoutes.get('/message-logs', requirePermission('audit.view'), async (c) => {
 
   const [logs, totalCount] = await Promise.all([
     db.select().from(messageLogs).where(where).orderBy(desc(messageLogs.createdAt)).limit(limit).offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(messageLogs).where(where)
+    db.select({ count: sql<number>`count(*)::int` }).from(messageLogs).where(where)
   ]);
+
+  const meta = getPaginationMeta(page, limit, Number(totalCount[0]?.count ?? 0));
 
   return sendSuccess(c, {
     logs,
-    meta: getPaginationMeta(Number(totalCount[0]?.count ?? 0), page, limit)
-  });
+    meta,
+  }, 200, meta);
 });
 
 // ==============================================
@@ -761,7 +871,7 @@ adminRoutes.post('/subscription-plans', requirePermission('settings.edit'), vali
 });
 
 adminRoutes.put('/subscription-plans/:id', requirePermission('settings.edit'), validate('body', planSchema), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
   const input = getValidated<z.infer<typeof planSchema>>(c, 'body');
 
   const [plan] = await db.update(subscriptionPlans).set({
@@ -825,7 +935,7 @@ adminRoutes.post('/subscription-promotions', requirePermission('settings.edit'),
 });
 
 adminRoutes.put('/subscription-promotions/:id/cancel', requirePermission('settings.edit'), async (c) => {
-  const id = parseInt(c.req.param('id')!, 10);
+  const id = parseIdParam(c);
 
   const [promotion] = await db.update(subscriptionPromotions)
     .set({ isActive: false })

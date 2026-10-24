@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell, Bot } from 'lucide-react';
+import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell, Bot, Mail } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { useAuth } from '../../auth';
 
@@ -15,12 +15,14 @@ const sidebarLinks = [
   { to: '/admin/orders', icon: ShoppingCart, label: 'الطلبات', permission: 'orders.view' },
   { to: '/admin/settlements', icon: DollarSign, label: 'التسويات', permission: 'payouts.approve' },
   { to: '/admin/payouts', icon: DollarSign, label: 'طلبات السحب', permission: 'payouts.approve' },
+  { to: '/admin/transactions', icon: DollarSign, label: 'المعاملات المالية', permission: 'orders.view' },
   { to: '/admin/users', icon: Users, label: 'المستخدمين', permission: 'users.manage' },
   { to: '/admin/roles', icon: Shield, label: 'الأدوار والصلاحيات', permission: 'users.manage' },
   { to: '/admin/categories', icon: Tag, label: 'الأقسام', permission: 'categories.manage' },
   { to: '/admin/refunds', icon: Undo, label: 'المرتجعات', permission: 'orders.refund' },
   { to: '/admin/coupons', icon: Ticket, label: 'الكوبونات', permission: 'coupons.manage' },
   { to: '/admin/promotions', icon: Tag, label: 'عروض الباقات', permission: 'coupons.manage' },
+  { to: '/admin/message-logs', icon: Mail, label: 'سجل الرسائل', permission: 'audit.view' },
   { to: '/admin/settings', icon: Settings, label: 'الإعدادات', permission: 'settings.edit' },
   { to: '/admin/ai-settings', icon: Bot, label: 'المساعد الذكي', permission: 'settings.edit' },
 ];
@@ -39,7 +41,7 @@ export function AdminLayout() {
     <div className="dashboard-layout">
       <div className="dashboard-mobile-header">
         <div className="flex items-center gap-3">
-          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)} aria-label="فتح القائمة الجانبية">
             <Menu size={24} />
           </button>
           
@@ -48,6 +50,7 @@ export function AdminLayout() {
               onClick={() => navigate(-1)} 
               className="sidebar-toggle"
               title="رجوع"
+              aria-label="رجوع"
             >
               <ChevronRight size={24} />
             </button>
@@ -56,7 +59,7 @@ export function AdminLayout() {
           <span className="text-primary" style={{ fontWeight: 600, fontSize: 'var(--font-size-lg)' }}>لوحة الإدارة</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link to="/notifications" style={{ color: 'var(--text-secondary)' }}>
+          <Link to="/notifications" style={{ color: 'var(--text-secondary)' }} aria-label="الإشعارات">
             <Bell size={20} />
           </Link>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', color: 'var(--brand-500)', textDecoration: 'none', fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
@@ -162,6 +165,7 @@ export default function AdminDashboard() {
               const statusLabels: Record<string, { label: string; cls: string }> = {
                 pending: { label: 'معلق', cls: 'badge-warning' },
                 confirmed: { label: 'مؤكد', cls: 'badge-info' },
+                processing: { label: 'قيد التجهيز', cls: 'badge-info' },
                 shipped: { label: 'شُحن', cls: 'badge-info' },
                 delivered: { label: 'وُصّل', cls: 'badge-success' },
                 cancelled: { label: 'ملغي', cls: 'badge-error' },

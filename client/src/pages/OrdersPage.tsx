@@ -17,7 +17,7 @@ export default function OrdersPage() {
   const toast = useToast();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Refund modal state
   const [refundOrderId, setRefundOrderId] = useState<number | null>(null);
   const [refundReason, setRefundReason] = useState('');
@@ -52,18 +52,18 @@ export default function OrdersPage() {
       toast.error('الرجاء كتابة سبب واضح للاسترجاع (5 أحرف على الأقل)');
       return;
     }
-    
+
     setIsSubmittingRefund(true);
     try {
-      await api.post('/api/refunds', {
+      await api.post('/refunds', {
         orderId: refundOrderId,
-        reason: refundReason
+        reason: refundReason,
       });
       toast.success('تم تقديم طلب الاسترجاع بنجاح');
       setRefundOrderId(null);
       setRefundReason('');
     } catch (e: any) {
-      toast.error(e.response?.data?.error || 'حدث خطأ أثناء طلب الاسترجاع');
+      toast.error(e.message || e.response?.data?.error || 'حدث خطأ أثناء تقديم الطلب');
     } finally {
       setIsSubmittingRefund(false);
     }
@@ -75,7 +75,8 @@ export default function OrdersPage() {
     setTrackingData([]);
     try {
       const res = await orderApi.getTracking(orderId);
-      setTrackingData(res.shipments || []);
+      const shipments = res?.data?.shipments || res?.shipments || [];
+      setTrackingData(shipments);
     } catch (e: any) {
       toast.error('فشل جلب تفاصيل التتبع');
     } finally {
@@ -121,7 +122,7 @@ export default function OrdersPage() {
                     <span className="badge-dot" /> {s.label}
                   </span>
                   <span style={{ fontWeight: 700, color: 'var(--brand-600)' }}>
-                    {parseFloat(order.total).toLocaleString('ar-EG')} ج.م
+                    {parseFloat(order.total ?? order.totalAmount ?? '0').toLocaleString('ar-EG')} ج.م
                   </span>
                 </div>
               </div>
@@ -170,20 +171,20 @@ export default function OrdersPage() {
             <h3 className="text-lg font-bold mb-4 flex gap-2 items-center">
               <Undo size={18} /> طلب استرجاع
             </h3>
-            
+
             <div className="form-group mb-6">
               <label className="form-label">سبب الاسترجاع</label>
-              <textarea 
-                className="form-textarea" 
+              <textarea
+                className="form-textarea"
                 rows={4}
                 value={refundReason}
                 onChange={e => setRefundReason(e.target.value)}
                 placeholder="الرجاء توضيح سبب الاسترجاع (مثال: المنتج تالف أو غير مطابق للمواصفات)..."
               />
             </div>
-            
+
             <div className="flex gap-3 justify-end">
-              <button 
+              <button
                 className="btn btn-ghost"
                 onClick={() => {
                   setRefundOrderId(null);
@@ -193,7 +194,7 @@ export default function OrdersPage() {
               >
                 إلغاء
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={handleSubmitRefund}
                 disabled={isSubmittingRefund}
@@ -213,6 +214,7 @@ export default function OrdersPage() {
               className="icon-btn"
               style={{ position: 'absolute', top: 12, insetInlineEnd: 12 }}
               onClick={() => setTrackingOrderId(null)}
+              aria-label="إغلاق نافذة التتبع"
             >
               <X size={20} />
             </button>
@@ -222,7 +224,7 @@ export default function OrdersPage() {
 
             {isLoadingTracking ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {[1,2].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
+                {[1, 2].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
               </div>
             ) : trackingData.length === 0 ? (
               <div className="empty-state">
@@ -238,11 +240,11 @@ export default function OrdersPage() {
                         بوليصة: <strong style={{ color: 'var(--primary-600)' }}>{shipment.trackingNumber || 'غير متوفر'}</strong>
                       </div>
                     </div>
-                    
+
                     <div style={{ position: 'relative', paddingInlineStart: 'var(--space-4)' }}>
                       {/* Timeline line */}
                       <div style={{ position: 'absolute', insetInlineStart: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--neutral-200)' }} />
-                      
+
                       {shipment.events?.map((event: any, eIdx: number) => {
                         const isLast = eIdx === shipment.events.length - 1;
                         return (

@@ -6,6 +6,10 @@ import {
   addresses, orders, orderItems, reviews, transactions,
   notifications, coupons, siteSettings, wishlists,
   roles, permissions, rolePermissions, userRoles,
+  auditLog, vendorSubscriptions, subscriptionPromotions, subscriptionPlans,
+  payoutRequests, settlements, refundRequests, payments,
+  shipmentEvents, shipments, commissionRules, mfaSecrets,
+  notificationPreferences, messageLogs, refreshTokens, stockAlerts, cartItems
 } from './schema/index.js';
 import { env } from '../env.js';
 
@@ -14,7 +18,24 @@ const SALT_ROUNDS = 12;
 async function seed() {
   console.log('🌱 Seeding database...\n');
 
-  // Clear existing data in reverse dependency order
+  // Clear existing data in strict reverse dependency order
+  await db.delete(auditLog);
+  await db.delete(vendorSubscriptions);
+  await db.delete(subscriptionPromotions);
+  await db.delete(subscriptionPlans);
+  await db.delete(payoutRequests);
+  await db.delete(settlements);
+  await db.delete(refundRequests);
+  await db.delete(payments);
+  await db.delete(shipmentEvents);
+  await db.delete(shipments);
+  await db.delete(commissionRules);
+  await db.delete(mfaSecrets);
+  await db.delete(notificationPreferences);
+  await db.delete(messageLogs);
+  await db.delete(refreshTokens);
+  await db.delete(stockAlerts);
+  await db.delete(cartItems);
   await db.delete(userRoles);
   await db.delete(rolePermissions);
   await db.delete(permissions);
@@ -54,6 +75,7 @@ async function seed() {
     { key: 'orders.view', description: 'View all orders' },
     { key: 'orders.refund', description: 'Process order refunds' },
     { key: 'users.manage', description: 'Manage users and roles' },
+    { key: 'settings.view', description: 'View site settings and subscription plans' },
     { key: 'settings.edit', description: 'Edit site settings' },
     { key: 'commission.manage', description: 'Manage commission rules' },
     { key: 'payouts.approve', description: 'Approve vendor payouts' },
@@ -77,6 +99,57 @@ async function seed() {
   ]);
 
   console.log('  ✓ Roles and permissions created');
+
+  // ─── SUBSCRIPTION PLANS ───
+  const insertedPlans = await db.insert(subscriptionPlans).values([
+    {
+      name: 'الباقة الأساسية (مجاناً)',
+      slug: 'basic',
+      priceMonthly: '0.00',
+      commissionRate: '10.00',
+      productLimit: 50,
+      imageLimitPerProduct: 3,
+      autoShippingEnabled: false,
+      advancedAnalytics: false,
+      bulkActionsEnabled: false,
+      payoutCycleDays: 30,
+      trustBadge: null,
+      sortOrder: 1,
+      isActive: true,
+    },
+    {
+      name: 'باقة بلس (Plus)',
+      slug: 'plus',
+      priceMonthly: '299.00',
+      commissionRate: '7.00',
+      productLimit: 300,
+      imageLimitPerProduct: 7,
+      autoShippingEnabled: true,
+      advancedAnalytics: true,
+      bulkActionsEnabled: false,
+      payoutCycleDays: 14,
+      trustBadge: 'plus_seller',
+      sortOrder: 2,
+      isActive: true,
+    },
+    {
+      name: 'باقة المحترفين (Pro)',
+      slug: 'pro',
+      priceMonthly: '799.00',
+      commissionRate: '4.00',
+      productLimit: null,
+      imageLimitPerProduct: 15,
+      autoShippingEnabled: true,
+      advancedAnalytics: true,
+      bulkActionsEnabled: true,
+      payoutCycleDays: 7,
+      trustBadge: 'verified_pro',
+      sortOrder: 3,
+      isActive: true,
+    },
+  ]).returning();
+  const basicPlan = insertedPlans.find(p => p.slug === 'basic')!;
+  console.log('  ✓ Subscription plans created');
 
   // ─── ADMIN ───
   const adminHash = await bcrypt.hash(env.SEED_ADMIN_PASSWORD, SALT_ROUNDS);
@@ -133,7 +206,14 @@ async function seed() {
     commissionRate: '10.00', status: 'approved', approvedAt: new Date(),
     totalProducts: 12, rating: '4.30', reviewCount: 15,
   }).returning();
-  console.log('  ✓ Vendors created');
+
+  // Assign active Basic subscription to all seeded vendors
+  await db.insert(vendorSubscriptions).values([
+    { vendorId: vendor1!.id, planId: basicPlan.id, status: 'active', currentPeriodStart: new Date(), autoRenew: true },
+    { vendorId: vendor2!.id, planId: basicPlan.id, status: 'active', currentPeriodStart: new Date(), autoRenew: true },
+    { vendorId: vendor3!.id, planId: basicPlan.id, status: 'active', currentPeriodStart: new Date(), autoRenew: true },
+  ]);
+  console.log('  ✓ Vendors and active subscriptions created');
 
   // ─── CATEGORIES ───
   const catData = [
@@ -317,7 +397,7 @@ async function seed() {
 
     orderInserts.push({
       order: {
-        orderNumber: `MKT-2026${String(i + 1).padStart(4, '0')}-${10000 + i}`,
+        orderNumber: `MKT-2026${String(i + 1).padStart(4, '0')}-${100000 + i}`,
         customerId: customer.id,
         status,
         subtotal: subtotal.toFixed(2),
@@ -377,7 +457,6 @@ async function seed() {
   console.log('  ✓ 25 orders created with items');
 
   // ─── REVIEWS (50) ───
-  // Get delivered order items for reviews
   const deliveredItems = await db.select({
     id: orderItems.id, productId: orderItems.productId, vendorId: orderItems.vendorId,
     orderId: orderItems.orderId,
@@ -404,7 +483,6 @@ async function seed() {
   let reviewCount = 0;
   for (let i = 0; i < Math.min(50, deliveredItems.length); i++) {
     const item = deliveredItems[i]!;
-    // Get the customer from the order
     const [order] = await db.select({ customerId: orders.customerId }).from(orders)
       .where(sql`${orders.id} = ${item.orderId}`).limit(1);
     if (!order) continue;
@@ -447,25 +525,41 @@ async function seed() {
   const deliveredOrderItems = await db.select().from(orderItems)
     .where(sql`${orderItems.vendorStatus} = 'delivered'`);
 
+  const vendorBalances: Record<number, number> = {
+    [vendor1!.id]: 0,
+    [vendor2!.id]: 0,
+    [vendor3!.id]: 0,
+  };
+
   let txCount = 0;
   for (const item of deliveredOrderItems) {
     const saleAmount = parseFloat(item.total);
     const commissionRate = parseFloat(item.commissionRate ?? '10');
     const commissionAmount = saleAmount * (commissionRate / 100);
     const vendorAmount = saleAmount - commissionAmount;
+    const balanceBefore = vendorBalances[item.vendorId] ?? 0;
+    const balanceAfter = balanceBefore + vendorAmount;
+    vendorBalances[item.vendorId] = balanceAfter;
 
     await db.insert(transactions).values({
       vendorId: item.vendorId,
       orderItemId: item.id,
       type: 'commission',
       amount: vendorAmount.toFixed(2),
-      balanceBefore: '0',
-      balanceAfter: vendorAmount.toFixed(2),
+      balanceBefore: balanceBefore.toFixed(2),
+      balanceAfter: balanceAfter.toFixed(2),
       description: `عمولة — ${item.productName}`,
     });
     txCount++;
   }
-  console.log(`  ✓ ${txCount} transactions created`);
+
+  // Sync vendor totalSales with their cumulative transaction balances
+  for (const [vIdStr, bal] of Object.entries(vendorBalances)) {
+    await db.update(vendors)
+      .set({ totalSales: bal.toFixed(2) })
+      .where(sql`${vendors.id} = ${Number(vIdStr)}`);
+  }
+  console.log(`  ✓ ${txCount} transactions created and vendor balances synchronized`);
 
   // ─── COUPONS ───
   await db.insert(coupons).values([
@@ -481,7 +575,10 @@ async function seed() {
     { key: 'default_commission_rate', value: '10.00' },
     { key: 'contact_email', value: 'support@marketplace.com' },
     { key: 'contact_phone', value: '01000000000' },
+    { key: 'default_shipping_fee', value: '30.00' },
     { key: 'shipping_fee_per_vendor', value: '30.00' },
+    { key: 'min_order_amount', value: '0.00' },
+    { key: 'currency', value: 'EGP' },
   ]);
   console.log('  ✓ Site settings created');
 
@@ -494,6 +591,14 @@ async function seed() {
     } catch { /* skip duplicates */ }
   }
   console.log('  ✓ Sample wishlists created');
+
+  // Refresh materialized view if present
+  try {
+    await db.execute(sql`REFRESH MATERIALIZED VIEW daily_sales_summary`);
+    console.log('  ✓ Refreshed daily_sales_summary materialized view');
+  } catch {
+    // View may not exist yet if 0010 migration was not applied
+  }
 
   console.log('\n✅ Seed completed successfully!\n');
   console.log('  📧 Admin: admin@marketplace.com / Admin@123456');

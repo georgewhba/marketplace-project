@@ -7,7 +7,7 @@ import { orderItems } from '../db/schema/order-items.js';
 import { payments } from '../db/schema/payments.js';
 import { transactions } from '../db/schema/transactions.js';
 import { vendors } from '../db/schema/vendors.js';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, ne, desc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
@@ -39,6 +39,25 @@ router.post('/', authenticate, validate('body', refundSchema), async (c) => {
     throw AppError.notFound('الطلب');
   }
 
+  // Check for existing non-rejected refund requests on this order
+  const existingRefunds = await db.select().from(refundRequests)
+    .where(and(eq(refundRequests.orderId, orderId), ne(refundRequests.status, 'rejected')));
+
+  if (!orderItemId) {
+    if (existingRefunds.length > 0) {
+      throw AppError.conflict('يوجد طلب استرجاع مسجل بالفعل لهذا الطلب');
+    }
+  } else {
+    const duplicate = existingRefunds.some(r => !r.orderItemId || r.orderItemId === orderItemId);
+    if (duplicate) {
+      throw AppError.conflict('يوجد طلب استرجاع مسجل بالفعل لهذا الطلب');
+    }
+  }
+
+  const maxOrderRefundable = Math.max(0, Number(order.total) - Number(order.shippingFee));
+  const alreadyRefunded = existingRefunds.reduce((sum, r) => sum + Number(r.amount), 0);
+  const remainingRefundable = Math.max(0, Number((maxOrderRefundable - alreadyRefunded).toFixed(2)));
+
   // Find eligible items (must be delivered to refund)
   let amountToRefund = 0;
   if (orderItemId) {
@@ -49,12 +68,21 @@ router.post('/', authenticate, validate('body', refundSchema), async (c) => {
     if (item.vendorStatus !== 'delivered') {
       throw AppError.badRequest('يمكن طلب استرجاع للعناصر المستلمة فقط');
     }
-    amountToRefund = Number(item.total);
+    const subtotalNum = Number(order.subtotal);
+    const discountRatio = subtotalNum > 0
+      ? (subtotalNum - Number(order.discount)) / subtotalNum
+      : 1;
+    amountToRefund = Number((Number(item.total) * Math.max(0, discountRatio)).toFixed(2));
+    amountToRefund = Math.min(amountToRefund, remainingRefundable);
   } else {
     if (order.status !== 'delivered') {
       throw AppError.badRequest('يمكن طلب استرجاع للطلبات المستلمة فقط');
     }
-    amountToRefund = Number(order.total);
+    amountToRefund = remainingRefundable;
+  }
+
+  if (amountToRefund <= 0) {
+    throw AppError.badRequest('لا يوجد مبلغ متبقٍ قابل للاسترجاع في هذا الطلب');
   }
 
   await db.insert(refundRequests).values({
@@ -62,7 +90,7 @@ router.post('/', authenticate, validate('body', refundSchema), async (c) => {
     orderItemId,
     customerId: user.id,
     reason,
-    amount: amountToRefund.toString(),
+    amount: amountToRefund.toFixed(2),
   });
 
   return c.json({ success: true, message: 'تم تقديم طلب الاسترجاع بنجاح' });
@@ -89,7 +117,8 @@ const approveSchema = z.object({
   adminNote: z.string().optional(),
 });
 router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'), validate('body', approveSchema), async (c) => {
-  const id = parseInt(c.req.param('id') || '0');
+  const id = parseInt(c.req.param('id') || '', 10);
+  if (Number.isNaN(id) || id <= 0) throw AppError.badRequest('معرف غير صالح');
   const { adminNote } = getValidated<z.infer<typeof approveSchema>>(c, 'body');
   const user = c.get('user');
 
@@ -104,14 +133,11 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
   
   const payment = paymentList[0];
 
-  // Note: if payment method was COD, the refund would likely happen offline or via wallet transfer.
   // For Paymob electronic payments:
   if (payment && payment.providerTransactionId) {
-    // Attempt actual refund
     try {
       await paymobService.issueRefund(payment.providerTransactionId, Number(req.amount));
       
-      // Update payment status (partially_refunded or refunded depending on amount logic, keeping it simple here)
       await db.update(payments)
         .set({ status: 'refunded', updatedAt: new Date() })
         .where(eq(payments.id, payment.id));
@@ -125,6 +151,13 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
 
   // Execute the refund state changes and ledger deduction inside a transaction
   await db.transaction(async (tx) => {
+    const [lockedReq] = await tx.select().from(refundRequests)
+      .where(eq(refundRequests.id, id))
+      .for('update');
+
+    if (!lockedReq) throw AppError.notFound('طلب الاسترجاع');
+    if (lockedReq.status !== 'pending') throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
+
     // Update refund request status
     await tx.update(refundRequests)
       .set({
@@ -135,36 +168,38 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
       })
       .where(eq(refundRequests.id, id));
 
-    if (req.orderItemId) {
-      const [item] = await tx.select().from(orderItems).where(eq(orderItems.id, req.orderItemId));
+    const itemsToRefund = lockedReq.orderItemId
+      ? await tx.select().from(orderItems).where(eq(orderItems.id, lockedReq.orderItemId))
+      : await tx.select().from(orderItems).where(and(eq(orderItems.orderId, lockedReq.orderId), eq(orderItems.vendorStatus, 'delivered')));
+
+    for (const item of itemsToRefund) {
+      const refundAmount = parseFloat(item.vendorAmount ?? item.total);
+      if (refundAmount <= 0) continue;
+
+      // Lock vendor balance
+      const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
+        .from(vendors)
+        .where(eq(vendors.id, item.vendorId))
+        .for('update');
+
+      const balanceBefore = parseFloat(vendorRecord?.totalSales ?? '0');
+      const balanceAfter = balanceBefore - refundAmount;
+
+      // Record negative transaction for vendor
+      await tx.insert(transactions).values({
+        vendorId: item.vendorId,
+        orderItemId: item.id,
+        type: 'refund',
+        amount: (-refundAmount).toFixed(2),
+        balanceBefore: balanceBefore.toFixed(2),
+        balanceAfter: balanceAfter.toFixed(2),
+        description: `استرجاع للعنصر #${item.id}`,
+      });
       
-      if (item && item.vendorAmount) {
-        // Lock vendor balance
-        const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
-          .from(vendors)
-          .where(eq(vendors.id, item.vendorId))
-          .for('update');
-
-        const balanceBefore = parseFloat(vendorRecord!.totalSales);
-        const refundAmount = parseFloat(item.vendorAmount);
-        const balanceAfter = balanceBefore - refundAmount;
-
-        // Record negative transaction for vendor
-        await tx.insert(transactions).values({
-          vendorId: item.vendorId,
-          orderItemId: item.id,
-          type: 'refund',
-          amount: (-refundAmount).toFixed(2),
-          balanceBefore: balanceBefore.toFixed(2),
-          balanceAfter: balanceAfter.toFixed(2),
-          description: `استرجاع للعنصر #${item.id}`,
-        });
-        
-        // Atomically update vendor totalSales (balance)
-        await tx.update(vendors)
-          .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
-          .where(eq(vendors.id, item.vendorId));
-      }
+      // Atomically update vendor totalSales (balance)
+      await tx.update(vendors)
+        .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
+        .where(eq(vendors.id, item.vendorId));
     }
   });
 
@@ -176,22 +211,22 @@ const rejectSchema = z.object({
   adminNote: z.string().min(1, 'سبب الرفض مطلوب'),
 });
 router.put('/admin/:id/reject', authenticate, requirePermission('orders.refund'), validate('body', rejectSchema), async (c) => {
-  const id = parseInt(c.req.param('id') || '0');
+  const id = parseInt(c.req.param('id') || '', 10);
+  if (Number.isNaN(id) || id <= 0) throw AppError.badRequest('معرف غير صالح');
   const { adminNote } = getValidated<z.infer<typeof rejectSchema>>(c, 'body');
   const user = c.get('user');
 
-  const reqList = await db.select().from(refundRequests).where(eq(refundRequests.id, id));
-  if (!reqList[0]) throw AppError.notFound('طلب الاسترجاع');
-  if (reqList[0].status !== 'pending') throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
-
-  await db.update(refundRequests)
+  const [updated] = await db.update(refundRequests)
     .set({
       status: 'rejected',
       adminId: user.id,
       adminNote,
       processedAt: new Date()
     })
-    .where(eq(refundRequests.id, id));
+    .where(and(eq(refundRequests.id, id), eq(refundRequests.status, 'pending')))
+    .returning();
+
+  if (!updated) throw AppError.badRequest('الطلب غير موجود أو تمت معالجته مسبقاً');
 
   return c.json({ success: true, message: 'تم رفض طلب الاسترجاع' });
 });

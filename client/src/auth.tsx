@@ -20,15 +20,47 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<any>;
   mfaLogin: (tempToken: string, token: string) => Promise<void>;
+  verifyMfa: (tempToken: string, code: string) => Promise<void>;
   register: (data: any) => Promise<any>;
   verifyOtp: (email: string, otp: string) => Promise<void>;
   googleAuth: (idToken: string, vendorData?: any) => Promise<void>;
-  registerVendor: (data: any) => Promise<void>;
+  registerVendor: (data: any) => Promise<any>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+function cleanupStaleTokens() {
+  const access = localStorage.getItem('accessToken');
+  if (access === 'undefined' || access === 'null') {
+    localStorage.removeItem('accessToken');
+  }
+  const refresh = localStorage.getItem('refreshToken');
+  if (refresh === 'undefined' || refresh === 'null') {
+    localStorage.removeItem('refreshToken');
+  }
+}
+
+function saveTokens(data?: { accessToken?: string; refreshToken?: string }) {
+  if (typeof data?.accessToken === 'string' && data.accessToken !== 'undefined' && data.accessToken !== 'null') {
+    localStorage.setItem('accessToken', data.accessToken);
+  } else {
+    const cur = localStorage.getItem('accessToken');
+    if (cur === 'undefined' || cur === 'null') {
+      localStorage.removeItem('accessToken');
+    }
+  }
+
+  if (typeof data?.refreshToken === 'string' && data.refreshToken !== 'undefined' && data.refreshToken !== 'null') {
+    localStorage.setItem('refreshToken', data.refreshToken);
+  } else {
+    const cur = localStorage.getItem('refreshToken');
+    if (cur === 'undefined' || cur === 'null') {
+      localStorage.removeItem('refreshToken');
+    }
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -36,8 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) { setUser(null); setIsLoading(false); return; }
+      cleanupStaleTokens();
       const res = await authApi.getProfile();
       setUser((res as any).data || res);
     } catch {
@@ -50,105 +81,128 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    cleanupStaleTokens();
     refreshProfile();
-    const onLogout = () => { setUser(null); };
+    const onLogout = () => {
+      setUser(null);
+    };
+    const onRefresh = () => {
+      refreshProfile();
+    };
     window.addEventListener('auth:logout', onLogout);
-    return () => window.removeEventListener('auth:logout', onLogout);
+    window.addEventListener('auth:refresh', onRefresh);
+    return () => {
+      window.removeEventListener('auth:logout', onLogout);
+      window.removeEventListener('auth:refresh', onRefresh);
+    };
   }, [refreshProfile]);
 
   const login = async (email: string, password: string): Promise<any> => {
-    const res = await authApi.login({ email, password }) as any;
+    const res = (await authApi.login({ email, password })) as any;
     const data = res.data || res;
-    
+
     if (data.requiresMfa) {
       return { requiresMfa: true, tempToken: data.tempToken };
     }
-    
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+
+    saveTokens(data);
     setUser(data.user);
     return { requiresMfa: false };
   };
-  
+
   const mfaLogin = async (tempToken: string, token: string) => {
-    // Override default header behavior to pass tempToken, since it's a special route
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (tempToken && tempToken !== 'undefined' && tempToken !== 'null') {
+      headers['Authorization'] = `Bearer ${tempToken}`;
+    }
+
     const res = await fetch('/api/auth/mfa/challenge', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tempToken}`
-      },
-      body: JSON.stringify({ token })
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({ token }),
     });
-    
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || 'رمز غير صحيح');
+      throw new Error(err?.error?.message || err?.error || 'رمز غير صحيح');
     }
-    
+
     const json = await res.json();
     const data = json.data || json;
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    saveTokens(data);
     setUser(data.user);
   };
 
   const register = async (formData: any) => {
-    const res = await authApi.register(formData) as any;
+    const res = (await authApi.register(formData)) as any;
     const data = res.data || res;
-    
+
     if (data.requiresOtp) {
       return data;
     }
 
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    saveTokens(data);
     setUser(data.user);
     return data;
   };
 
   const verifyOtp = async (email: string, otp: string) => {
-    const res = await authApi.verifyOtp({ email, otp }) as any;
+    const res = (await authApi.verifyOtp({ email, otp })) as any;
     const data = res.data || res;
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    saveTokens(data);
     setUser(data.user);
   };
 
   const googleAuth = async (idToken: string, vendorData?: any) => {
-    const res = await authApi.googleAuth({ idToken, vendorData }) as any;
+    const res = (await authApi.googleAuth({ idToken, vendorData })) as any;
     const data = res.data || res;
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    saveTokens(data);
     setUser(data.user);
   };
 
   const registerVendor = async (formData: any) => {
-    const res = await authApi.registerVendor(formData) as any;
+    const res = (await authApi.registerVendor(formData)) as any;
     const data = res.data || res;
-    
+
     if (data.requiresOtp) {
       return data;
     }
-    
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+
+    saveTokens(data);
     setUser(data.user);
     return data;
   };
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken) {
-      try { await authApi.logout(refreshToken); } catch {}
-    }
+    const rawRefresh = localStorage.getItem('refreshToken');
+    const refreshToken = rawRefresh && rawRefresh !== 'undefined' && rawRefresh !== 'null' ? rawRefresh : undefined;
+    try {
+      await authApi.logout(refreshToken);
+    } catch {}
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, mfaLogin, register, verifyOtp, googleAuth, registerVendor, logout, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        mfaLogin,
+        verifyMfa: mfaLogin,
+        register,
+        verifyOtp,
+        googleAuth,
+        registerVendor,
+        logout,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

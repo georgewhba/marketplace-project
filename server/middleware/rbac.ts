@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 import { db } from '../db/index.js';
-import { users, userRoles, roles, rolePermissions, permissions } from '../db/schema/index.js';
+import { userRoles, roles, rolePermissions, permissions } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 import { AppError } from '../utils/errors.js';
 import type { AppEnv } from '../types/env.js';
@@ -10,6 +10,10 @@ export const requirePermission = (permissionKey: string) => {
     const user = c.get('user');
     if (!user) {
       throw AppError.unauthorized('غير مصرح');
+    }
+
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      throw AppError.forbidden('ليس لديك صلاحية لهذا الإجراء');
     }
 
     // Always allow super_admin
@@ -22,7 +26,10 @@ export const requirePermission = (permissionKey: string) => {
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(eq(userRoles.userId, user.id));
 
-    const isSuperAdmin = user.role === 'admin' || userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+    const isSuperAdmin =
+      user.role === 'admin' ||
+      user.role === 'super_admin' ||
+      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
     if (isSuperAdmin) {
       await next();
       return;

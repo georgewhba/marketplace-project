@@ -2,23 +2,35 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { products, categories, vendors, productImages, reviews, siteSettings, subscriptionPlans, subscriptionPromotions, vendorSubscriptions } from '../db/schema/index.js';
-import { eq, and, gte, lte, like, desc, asc, sql, ilike } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from 'drizzle-orm';
 import { sendSuccess } from '../utils/response.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import { validate, getValidated } from '../middleware/validate.js';
-import { optionalAuth } from '../middleware/authenticate.js';
+import { emailQueue } from '../jobs/email.queue.js';
 
 const storeRoutes = new Hono();
 
-// GET /api/store/settings
+// GET /api/store/settings — only public-safe settings (never exposes ai_api_key or ai_system_prompt)
 storeRoutes.get('/settings', async (c: any) => {
-  const [siteNameSetting] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'site_name')).limit(1);
-  return sendSuccess(c, { siteName: siteNameSetting?.value || 'سوق مصر' });
+  const publicKeys = ['site_name', 'ai_enabled', 'contact_email', 'contact_phone', 'default_shipping_fee', 'currency', 'min_order_amount'];
+  const settings = await db.select().from(siteSettings).where(inArray(siteSettings.key, publicKeys));
+  const map = Object.fromEntries(settings.map(s => [s.key, s.value]));
+
+  return sendSuccess(c, {
+    siteName: map['site_name'] || 'سوق مصر',
+    ai_enabled: map['ai_enabled'] ?? 'true',
+    aiEnabled: map['ai_enabled'] !== 'false',
+    contactEmail: map['contact_email'] || '',
+    contactPhone: map['contact_phone'] || '',
+    defaultShippingFee: map['default_shipping_fee'] || '30',
+    currency: map['currency'] || 'EGP',
+    minOrderAmount: map['min_order_amount'] || '0',
+  });
 });
 
 // GET /api/store/home — homepage data
 storeRoutes.get('/home', async (c) => {
-  // Featured products
+  // Featured products from approved vendors only
   const featuredProducts = await db
     .select({
       id: products.id, name: products.name, slug: products.slug,
@@ -28,7 +40,8 @@ storeRoutes.get('/home', async (c) => {
       vendorId: products.vendorId,
     })
     .from(products)
-    .where(and(eq(products.isActive, true), eq(products.isFeatured, true)))
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(and(eq(products.isActive, true), eq(products.isFeatured, true), eq(vendors.status, 'approved')))
     .orderBy(desc(products.createdAt))
     .limit(12);
 
@@ -50,7 +63,7 @@ storeRoutes.get('/home', async (c) => {
     .where(and(eq(categories.isActive, true), sql`${categories.parentId} IS NULL`))
     .orderBy(asc(categories.sortOrder));
 
-  // New arrivals
+  // New arrivals from approved vendors only
   const newArrivals = await db
     .select({
       id: products.id, name: products.name, slug: products.slug,
@@ -58,7 +71,8 @@ storeRoutes.get('/home', async (c) => {
       rating: products.rating, reviewCount: products.reviewCount, stock: products.stock,
     })
     .from(products)
-    .where(eq(products.isActive, true))
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(and(eq(products.isActive, true), eq(vendors.status, 'approved')))
     .orderBy(desc(products.createdAt))
     .limit(8);
 
@@ -129,7 +143,7 @@ const productQuerySchema = paginationSchema.extend({
 // GET /api/store/products
 storeRoutes.get('/products', validate('query', productQuerySchema), async (c) => {
   const query = getValidated<z.infer<typeof productQuerySchema>>(c, 'query');
-  const conditions = [eq(products.isActive, true)];
+  const conditions = [eq(products.isActive, true), eq(vendors.status, 'approved')];
 
   if (query.search) {
     conditions.push(ilike(products.name, `%${query.search}%`));
@@ -141,11 +155,18 @@ storeRoutes.get('/products', validate('query', productQuerySchema), async (c) =>
       const subcats = await db.select({ id: categories.id }).from(categories).where(eq(categories.parentId, cat.id));
       const catIds = [cat.id, ...subcats.map(s => s.id)];
       conditions.push(sql`${products.categoryId} IN ${catIds}`);
+    } else {
+      conditions.push(sql`1 = 0`);
     }
   }
   if (query.vendor) {
-    const [v] = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, query.vendor)).limit(1);
-    if (v) conditions.push(eq(products.vendorId, v.id));
+    const [v] = await db.select({ id: vendors.id }).from(vendors)
+      .where(and(eq(vendors.storeSlug, query.vendor), eq(vendors.status, 'approved'))).limit(1);
+    if (v) {
+      conditions.push(eq(products.vendorId, v.id));
+    } else {
+      conditions.push(sql`1 = 0`);
+    }
   }
   if (query.minPrice !== undefined) {
     conditions.push(gte(products.price, String(query.minPrice)));
@@ -167,7 +188,10 @@ storeRoutes.get('/products', validate('query', productQuerySchema), async (c) =>
     rating: desc(products.rating),
   };
 
-  const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(products).where(whereClause);
+  const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(products)
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(whereClause);
   const total = countResult?.count ?? 0;
 
   const offset = getOffset(query.page, query.limit);
@@ -181,6 +205,7 @@ storeRoutes.get('/products', validate('query', productQuerySchema), async (c) =>
       createdAt: products.createdAt,
     })
     .from(products)
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
     .where(whereClause)
     .orderBy(sortMap[query.sort])
     .limit(query.limit)
@@ -209,18 +234,13 @@ storeRoutes.get('/products/:slug', async (c) => {
     return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'المنتج غير موجود' } }, 404);
   }
 
-  // Fire-and-forget view count increment (non-blocking)
-  db.update(products).set({ viewCount: sql`${products.viewCount} + 1` }).where(eq(products.id, product.id)).then(() => {}).catch(() => {});
-
-  // Get images
-  const imgs = await db.select().from(productImages).where(eq(productImages.productId, product.id)).orderBy(asc(productImages.sortOrder));
-
-  // Get vendor info
+  // Get vendor info and verify vendor is approved
   const [vendor] = await db
     .select({ 
       id: vendors.id, 
       storeName: vendors.storeName, 
       storeSlug: vendors.storeSlug, 
+      status: vendors.status,
       rating: vendors.rating, 
       reviewCount: vendors.reviewCount,
       subscriptionPlanSlug: subscriptionPlans.slug
@@ -228,8 +248,18 @@ storeRoutes.get('/products/:slug', async (c) => {
     .from(vendors)
     .leftJoin(vendorSubscriptions, and(eq(vendorSubscriptions.vendorId, vendors.id), eq(vendorSubscriptions.status, 'active')))
     .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, vendorSubscriptions.planId))
-    .where(eq(vendors.id, product.vendorId))
+    .where(and(eq(vendors.id, product.vendorId), eq(vendors.status, 'approved')))
     .limit(1);
+
+  if (!vendor) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'المنتج غير متاح حالياً' } }, 404);
+  }
+
+  // Fire-and-forget view count increment (non-blocking)
+  db.update(products).set({ viewCount: sql`${products.viewCount} + 1` }).where(eq(products.id, product.id)).then(() => {}).catch(() => {});
+
+  // Get images
+  const imgs = await db.select().from(productImages).where(eq(productImages.productId, product.id)).orderBy(asc(productImages.sortOrder));
 
   // Get category
   const [category] = await db
@@ -259,6 +289,19 @@ storeRoutes.get('/products/:slug', async (c) => {
   };
 
   if (c.req.header('Accept')?.includes('text/markdown')) {
+    const schemaJson = JSON.stringify({
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name: product.name,
+      description: product.description || '',
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'EGP',
+        price: String(product.price),
+        availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      },
+    }, null, 2);
+
     const md = `# ${product.name}
 **Price:** ${product.price}
 **Stock:** ${product.stock > 0 ? 'In Stock' : 'Out of Stock'}
@@ -266,22 +309,11 @@ storeRoutes.get('/products/:slug', async (c) => {
 **Category:** ${category?.name || 'Unknown'}
 
 ## Description
-${product.description}
+${product.description || ''}
 
 ## Schema.org
 \`\`\`json
-{
-  "@context": "https://schema.org/",
-  "@type": "Product",
-  "name": "${product.name}",
-  "description": "${product.description}",
-  "offers": {
-    "@type": "Offer",
-    "priceCurrency": "EGP",
-    "price": "${product.price}",
-    "availability": "${product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'}"
-  }
-}
+${schemaJson}
 \`\`\`
 `;
     return c.text(md, 200, { 'Content-Type': 'text/markdown' });
@@ -338,6 +370,13 @@ storeRoutes.get('/vendors/:slug', async (c) => {
   };
 
   if (c.req.header('Accept')?.includes('text/markdown')) {
+    const schemaJson = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: vendor.storeName,
+      description: vendor.storeDescription || '',
+    }, null, 2);
+
     const md = `# ${vendor.storeName}
 **Rating:** ${vendor.rating} (${vendor.reviewCount} reviews)
 **Total Products:** ${vendor.totalProducts}
@@ -350,12 +389,7 @@ ${productsWithImages.map(p => `- ${p.name} - ${p.price}`).join('\n')}
 
 ## Schema.org
 \`\`\`json
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "${vendor.storeName}",
-  "description": "${vendor.storeDescription || ''}"
-}
+${schemaJson}
 \`\`\`
 `;
     return c.text(md, 200, { 'Content-Type': 'text/markdown' });
@@ -363,28 +397,24 @@ ${productsWithImages.map(p => `- ${p.name} - ${p.price}`).join('\n')}
 
   return sendSuccess(c, responseData);
 });
+
 const contactSchema = z.object({
-  name: z.string().min(2, 'الاسم مطلوب'),
-  email: z.string().email('بريد إلكتروني غير صالح'),
-  subject: z.string().min(3, 'الموضوع مطلوب'),
-  message: z.string().min(10, 'الرسالة قصيرة جداً'),
+  name: z.string().min(2, 'الاسم مطلوب').max(255),
+  email: z.string().email('بريد إلكتروني غير صالح').max(255),
+  subject: z.string().min(3, 'الموضوع مطلوب').max(255),
+  message: z.string().min(10, 'الرسالة قصيرة جداً').max(5000),
 });
 
 // POST /api/store/contact
-import { emailQueue } from '../jobs/email.queue.js';
-
 storeRoutes.post('/contact', validate('body', contactSchema), async (c) => {
   const input = getValidated<z.infer<typeof contactSchema>>(c, 'body');
 
-  // In a real application, you might want to save this to a database
-  // and send it to the admin's email.
-  // Here we just send an email to a predefined admin address.
   await emailQueue.add('contact-form', {
-    to: 'admin@example.com', // Admin email
-    templateKey: 'order_confirmation', // Fallback since we don't have a contact template, or create one
+    to: 'admin@example.com',
+    templateKey: 'order_confirmation',
     subject: `رسالة جديدة من نموذج اتصل بنا: ${input.subject}`,
-    data: { orderNumber: `Contact: ${input.name} (${input.email})\n\n${input.message}` } // Hack for now
-  });
+    data: { orderNumber: `Contact: ${input.name} (${input.email})\n\n${input.message}` }
+  }).catch(() => {});
 
   return sendSuccess(c, { message: 'تم إرسال رسالتك بنجاح. سنتواصل معك قريباً.' });
 });

@@ -24,19 +24,31 @@ export interface AuthVendor {
   commissionRate: string;
 }
 
+function extractToken(c: Context): string | undefined {
+  let token = getCookie(c, 'accessToken');
+  if (token === 'undefined' || token === 'null') {
+    token = undefined;
+  }
+
+  if (!token) {
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const bearerToken = authHeader.substring(7).trim();
+      if (bearerToken && bearerToken !== 'undefined' && bearerToken !== 'null') {
+        token = bearerToken;
+      }
+    }
+  }
+
+  return token;
+}
+
 /**
  * Authentication middleware — verifies JWT access token from Authorization header or Cookie.
  * Attaches user info to context.
  */
 export async function authenticate(c: Context, next: Next) {
-  let token = getCookie(c, 'accessToken');
-  
-  if (!token) {
-    const authHeader = c.req.header('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.substring(7);
-    }
-  }
+  const token = extractToken(c);
 
   if (!token) {
     throw AppError.unauthorized('رمز المصادقة مطلوب');
@@ -47,7 +59,12 @@ export async function authenticate(c: Context, next: Next) {
       userId: number;
       email: string;
       role: string;
+      purpose?: string;
     };
+
+    if (payload.purpose === 'mfa_temp') {
+      throw AppError.unauthorized('يرجى إكمال التحقق الثنائي أولاً');
+    }
 
     // Fetch current user state from DB (ensures account is still active)
     const [user] = await db
@@ -74,8 +91,6 @@ export async function authenticate(c: Context, next: Next) {
       firstName: user.firstName,
       lastName: user.lastName,
     } as AuthUser);
-
-    await next();
   } catch (err) {
     if (err instanceof AppError) throw err;
     if (err instanceof jwt.TokenExpiredError) {
@@ -83,25 +98,55 @@ export async function authenticate(c: Context, next: Next) {
     }
     throw AppError.unauthorized('رمز مصادقة غير صالح');
   }
+
+  await next();
 }
 
 /**
  * Optional authentication — attaches user if token exists, but doesn't block if missing.
  */
 export async function optionalAuth(c: Context, next: Next) {
-  const authHeader = c.req.header('Authorization');
-  
-  if (!authHeader?.startsWith('Bearer ')) {
-    await next();
-    return;
+  const token = extractToken(c);
+
+  if (token) {
+    try {
+      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
+        userId: number;
+        email: string;
+        role: string;
+        purpose?: string;
+      };
+
+      if (payload.purpose !== 'mfa_temp') {
+        const [user] = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            role: users.role,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            isActive: users.isActive,
+          })
+          .from(users)
+          .where(eq(users.id, payload.userId))
+          .limit(1);
+
+        if (user && user.isActive) {
+          c.set('user', {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          } as AuthUser);
+        }
+      }
+    } catch {
+      // Token invalid/expired — proceed without user
+    }
   }
 
-  try {
-    await authenticate(c, next);
-  } catch {
-    // Token invalid/expired — proceed without user
-    await next();
-  }
+  await next();
 }
 
 /**

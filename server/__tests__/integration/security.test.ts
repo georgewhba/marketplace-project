@@ -1,7 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
-  POST, GET, PUT, DEL,
-  seedUser, seedCategory, seedVendor, seedProduct, seedCartItem, createAccessToken, cleanup, closeDb, db
+  POST, GET, PUT,
+  seedUser, seedCategory, seedVendor, seedProduct, seedCartItem, seedOrder, seedOrderItem,
+  createAccessToken, cleanup, closeDb
 } from './helpers.js';
 import jwt from 'jsonwebtoken';
 
@@ -12,7 +13,25 @@ const cleanupIds = {
   vendorIds: [] as number[],
   productIds: [] as number[],
   cartItemIds: [] as number[],
+  orderIds: [] as number[],
+  orderItemIds: [] as number[],
+  reviewIds: [] as number[],
 };
+
+let sharedVendorId: number;
+let sharedCategoryId: number;
+let sharedProductId: number;
+
+beforeAll(async () => {
+  const owner = await seedUser(`secOwner-${ts}@test.com`, 'Pass123', 'vendor');
+  cleanupIds.userIds.push(owner);
+  sharedCategoryId = await seedCategory(`cat-${ts}`, `cat-${ts}`);
+  sharedVendorId = await seedVendor(owner, `vendor-${ts}`, `vendor-${ts}`);
+  sharedProductId = await seedProduct(sharedVendorId, sharedCategoryId);
+  cleanupIds.categoryIds.push(sharedCategoryId);
+  cleanupIds.vendorIds.push(sharedVendorId);
+  cleanupIds.productIds.push(sharedProductId);
+});
 
 afterAll(async () => {
   await cleanup(cleanupIds);
@@ -26,16 +45,8 @@ describe('Security — IDOR (Insecure Direct Object Reference)', () => {
     cleanupIds.userIds.push(userA, userB);
 
     const tokenA = createAccessToken(userA, `userA-${ts}@test.com`, 'customer');
-    
-    // User B adds item to cart
-    const category = await seedCategory(`cat-${ts}`, `cat-${ts}`);
-    const vendor = await seedVendor(userA, `vendor-${ts}`, `vendor-${ts}`);
-    const product = await seedProduct(vendor, category);
-    cleanupIds.categoryIds.push(category);
-    cleanupIds.vendorIds.push(vendor);
-    cleanupIds.productIds.push(product);
 
-    const cartItemId = await seedCartItem(userB, product, 2);
+    const cartItemId = await seedCartItem(userB, sharedProductId, 2);
     cleanupIds.cartItemIds.push(cartItemId);
 
     const res = await PUT(`/api/cart/${cartItemId}`, {
@@ -43,7 +54,6 @@ describe('Security — IDOR (Insecure Direct Object Reference)', () => {
       body: { quantity: 5 }
     });
 
-    // Should be 403 or 404 because user A doesn't own this cart item
     expect([403, 404]).toContain(res.status);
   });
 });
@@ -61,10 +71,10 @@ describe('Security — Negative Quantities', () => {
     const user = await seedUser(`userNeg-${ts}@test.com`, 'Pass123');
     cleanupIds.userIds.push(user);
     const token = createAccessToken(user, `userNeg-${ts}@test.com`, 'customer');
-    
+
     const res = await POST('/api/cart', {
       token,
-      body: { productId: cleanupIds.productIds[0], quantity: -5 }
+      body: { productId: sharedProductId, quantity: -5 }
     });
 
     expect(res.status).toBe(400);
@@ -72,25 +82,32 @@ describe('Security — Negative Quantities', () => {
 });
 
 describe('Security — XSS & Data Sanitization', () => {
-  it('sanitizes or rejects XSS payloads in string inputs', async () => {
+  it('sanitizes XSS payloads in review comment and title on a delivered order item', async () => {
     const user = await seedUser(`userXSS-${ts}@test.com`, 'Pass123');
     cleanupIds.userIds.push(user);
     const token = createAccessToken(user, `userXSS-${ts}@test.com`, 'customer');
-    
+
+    const orderId = await seedOrder(user, { status: 'delivered' });
+    cleanupIds.orderIds.push(orderId);
+    const orderItemId = await seedOrderItem(orderId, sharedProductId, sharedVendorId, {
+      vendorStatus: 'delivered',
+    });
+    cleanupIds.orderItemIds.push(orderItemId);
+
     const res = await POST('/api/reviews', {
       token,
-      body: { 
-        productId: cleanupIds.productIds[0], 
+      body: {
+        orderItemId,
         rating: 5,
-        comment: '<script>alert("xss")</script> Great product!' 
+        title: '<img src=x onerror=alert(1)>Nice',
+        comment: '<script>alert("xss")</script> Great product!'
       }
     });
 
-    if (res.status === 201) {
-      const data = res.body?.data as any;
-      expect(data.comment).not.toContain('<script>');
-    } else {
-      expect(res.status).toBe(400);
-    }
+    expect(res.status).toBe(201);
+    const data = res.body?.data as any;
+    if (data?.id) cleanupIds.reviewIds.push(data.id);
+    expect(data.comment).not.toContain('<script>');
+    expect(data.title).not.toContain('onerror');
   });
 });

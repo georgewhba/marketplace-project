@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../db/index.js';
 import { users, refreshTokens, vendors, mfaSecrets, userRoles, roles, rolePermissions, permissions, siteSettings, vendorSubscriptions, subscriptionPlans, auditLog } from '../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { env } from '../env.js';
 import { AppError } from '../utils/errors.js';
 import { slugify } from '../utils/slugify.js';
@@ -18,9 +18,9 @@ import type {
   ChangePasswordInput,
 } from '../validators/auth.validators.js';
 
-const SALT_ROUNDS = process.env['NODE_ENV'] === 'test' ? 4 : 12;
+const SALT_ROUNDS = env.NODE_ENV === 'test' ? 4 : 12;
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
+const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID || 'dummy_client_id');
 
 async function sendOtpEmail(email: string, otp: string, firstName: string) {
   try {
@@ -36,7 +36,7 @@ async function sendOtpEmail(email: string, otp: string, firstName: string) {
 }
 
 function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 function generateAccessToken(user: { id: number; email: string; role: string }): string {
@@ -64,24 +64,54 @@ function parseExpiry(expiry: string): number {
   return value * (multipliers[unit] ?? 86400000);
 }
 
+async function ensureDefaultVendorSubscription(tx: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0], vendorId: number) {
+  const [basicPlan] = await tx
+    .select({ id: subscriptionPlans.id })
+    .from(subscriptionPlans)
+    .where(or(eq(subscriptionPlans.slug, 'basic'), eq(subscriptionPlans.slug, 'starter')))
+    .limit(1);
+
+  if (basicPlan) {
+    const existingSub = await tx
+      .select({ id: vendorSubscriptions.id })
+      .from(vendorSubscriptions)
+      .where(eq(vendorSubscriptions.vendorId, vendorId))
+      .limit(1);
+
+    if (existingSub.length === 0) {
+      await tx.insert(vendorSubscriptions).values({
+        vendorId,
+        planId: basicPlan.id,
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: null,
+        autoRenew: true,
+      });
+    }
+  }
+}
+
 export async function register(input: RegisterInput) {
-  const skipOtp = process.env.NODE_ENV === 'test';
+  const skipOtp = env.NODE_ENV === 'test';
 
-
-  const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
+  const existing = await db
+    .select({ id: users.id, isActive: users.isActive, emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .where(eq(users.email, input.email))
+    .limit(1);
   
   const otpCode = generateOTP();
   const otpExpiresAt = new Date(Date.now() + 120 * 1000); // 120 seconds
 
   if (existing.length > 0) {
-    if (existing[0]!.isActive) {
+    if (existing[0]!.isActive || existing[0]!.emailVerifiedAt !== null) {
       throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
     } else {
       // Resend OTP for unverified account (or activate if skipOtp)
       const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
       const [updatedUser] = await db.update(users).set({ 
-        otpCode, 
-        otpExpiresAt, 
+        otpCode: skipOtp ? null : otpCode, 
+        otpExpiresAt: skipOtp ? null : otpExpiresAt, 
         passwordHash,
         firstName: input.firstName,
         lastName: input.lastName,
@@ -92,6 +122,9 @@ export async function register(input: RegisterInput) {
       
       if (!skipOtp) {
         sendOtpEmail(input.email, otpCode, input.firstName);
+        if (env.NODE_ENV === 'development') {
+          console.log(`[OTP] user ${input.email} code: ${otpCode}`);
+        }
         return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
       }
       
@@ -121,13 +154,15 @@ export async function register(input: RegisterInput) {
     role: 'customer',
     isActive: skipOtp, // active if skipOtp
     emailVerifiedAt: skipOtp ? new Date() : null,
-    otpCode,
-    otpExpiresAt,
+    otpCode: skipOtp ? null : otpCode,
+    otpExpiresAt: skipOtp ? null : otpExpiresAt,
   }).returning();
 
   if (!skipOtp) {
     sendOtpEmail(input.email, otpCode, input.firstName);
-    console.log(`[OTP] user ${input.email} code: ${otpCode}`);
+    if (env.NODE_ENV === 'development') {
+      console.log(`[OTP] user ${input.email} code: ${otpCode}`);
+    }
     return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
   }
 
@@ -146,17 +181,24 @@ export async function register(input: RegisterInput) {
 }
 
 export async function verifyRegistrationOTP(email: string, otp: string) {
+  if (!otp || typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
+    throw AppError.badRequest('رمز التحقق غير صالح');
+  }
+
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
   
   if (!user) throw AppError.notFound('المستخدم غير موجود');
   if (user.isActive) throw AppError.badRequest('الحساب مفعل مسبقاً');
-  
-  if (user.otpCode !== otp) {
-    throw AppError.badRequest('رمز التحقق غير صحيح');
+  if (!user.otpCode || !user.otpExpiresAt || user.emailVerifiedAt !== null) {
+    throw AppError.badRequest('رمز التحقق غير صالح أو الحساب موقوف');
   }
 
-  if (user.otpExpiresAt && user.otpExpiresAt < new Date()) {
+  if (user.otpExpiresAt < new Date()) {
     throw AppError.badRequest('رمز التحقق انتهت صلاحيته');
+  }
+
+  if (user.otpCode !== otp) {
+    throw AppError.badRequest('رمز التحقق غير صحيح');
   }
 
   // Activate user
@@ -186,31 +228,39 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
-  const skipOtp = process.env.NODE_ENV === 'test';
+  const skipOtp = env.NODE_ENV === 'test';
 
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
-  const existing = await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.email, input.email)).limit(1);
+  const existing = await db
+    .select({ id: users.id, isActive: users.isActive, emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .where(eq(users.email, input.email))
+    .limit(1);
   
   const otpCode = generateOTP();
   const otpExpiresAt = new Date(Date.now() + 120 * 1000); // 120 seconds
 
   if (existing.length > 0) {
-    if (existing[0]!.isActive) {
+    if (existing[0]!.isActive || existing[0]!.emailVerifiedAt !== null) {
       throw AppError.conflict('البريد الإلكتروني مسجل بالفعل');
     } else {
       // User exists but unverified, update them
       const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
       const storeSlug = slugify(input.storeName);
 
-      const existingSlug = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, storeSlug)).limit(1);
-      if (existingSlug.length > 0) {
+      const existingSlug = await db
+        .select({ id: vendors.id, userId: vendors.userId })
+        .from(vendors)
+        .where(eq(vendors.storeSlug, storeSlug))
+        .limit(1);
+      if (existingSlug.length > 0 && existingSlug[0]!.userId !== existing[0]!.id) {
         throw AppError.conflict('اسم المتجر مستخدم بالفعل');
       }
 
       await db.transaction(async (tx) => {
         await tx.update(users).set({ 
-          otpCode, 
-          otpExpiresAt, 
+          otpCode: skipOtp ? null : otpCode, 
+          otpExpiresAt: skipOtp ? null : otpExpiresAt, 
           passwordHash,
           firstName: input.firstName,
           lastName: input.lastName,
@@ -224,6 +274,7 @@ export async function registerVendor(input: VendorRegisterInput) {
         const commissionRate = commissionSetting?.value || '10.00';
 
         const existingVendor = await tx.select({ id: vendors.id }).from(vendors).where(eq(vendors.userId, existing[0]!.id)).limit(1);
+        let vendorId: number;
         if (existingVendor.length > 0) {
           await tx.update(vendors).set({
             storeName: input.storeName,
@@ -232,21 +283,27 @@ export async function registerVendor(input: VendorRegisterInput) {
             status: 'pending',
             commissionRate,
           }).where(eq(vendors.userId, existing[0]!.id));
+          vendorId = existingVendor[0]!.id;
         } else {
-          await tx.insert(vendors).values({
+          const [insertedVendor] = await tx.insert(vendors).values({
             userId: existing[0]!.id,
             storeName: input.storeName,
             storeSlug,
             storeDescription: input.storeDescription,
             status: 'pending',
             commissionRate,
-          });
+          }).returning({ id: vendors.id });
+          vendorId = insertedVendor!.id;
         }
+
+        await ensureDefaultVendorSubscription(tx, vendorId);
       });
 
       if (!skipOtp) {
         sendOtpEmail(input.email, otpCode, input.firstName);
-        console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+        if (env.NODE_ENV === 'development') {
+          console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+        }
         return { requiresOtp: true, message: 'تم إعادة إرسال رمز التحقق' };
       }
       
@@ -288,8 +345,8 @@ export async function registerVendor(input: VendorRegisterInput) {
       role: 'vendor',
       isActive: skipOtp,
       emailVerifiedAt: skipOtp ? new Date() : null,
-      otpCode,
-      otpExpiresAt,
+      otpCode: skipOtp ? null : otpCode,
+      otpExpiresAt: skipOtp ? null : otpExpiresAt,
     }).returning({
       id: users.id,
       email: users.email,
@@ -304,19 +361,23 @@ export async function registerVendor(input: VendorRegisterInput) {
     const [commissionSetting] = await tx.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
     const commissionRate = commissionSetting?.value || '10.00';
 
-    await tx.insert(vendors).values({
+    const [insertedVendor] = await tx.insert(vendors).values({
       userId: user.id,
       storeName: input.storeName,
       storeSlug,
       storeDescription: input.storeDescription,
       status: 'pending',
       commissionRate,
-    });
+    }).returning({ id: vendors.id });
+
+    await ensureDefaultVendorSubscription(tx, insertedVendor!.id);
   });
 
   if (!skipOtp) {
     sendOtpEmail(input.email, otpCode, input.firstName);
-    console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+    if (env.NODE_ENV === 'development') {
+      console.log(`[OTP] vendor ${input.email} code: ${otpCode}`);
+    }
     return { requiresOtp: true, message: 'تم إرسال رمز التحقق إلى بريدك الإلكتروني' };
   }
 
@@ -353,6 +414,10 @@ export async function login(input: LoginInput) {
 
   if (!user.isActive) {
     throw AppError.forbidden('الحساب معطّل، تواصل مع الدعم');
+  }
+
+  if (!user.passwordHash) {
+    throw AppError.unauthorized('بريد إلكتروني أو كلمة مرور غير صحيحة');
   }
 
   const valid = await bcrypt.compare(input.password, user.passwordHash);
@@ -524,29 +589,34 @@ export async function getProfile(userId: number) {
   let userPermissions: string[] = [];
   let isSuperAdmin = false;
 
-  const userRoleList = await db
-    .select({
-      roleName: roles.name,
-      isSystem: roles.isSystem,
-    })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, user.id));
-
-  isSuperAdmin = user.role === 'admin' || userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
-
-  if (isSuperAdmin) {
-    userPermissions = ['*'];
-  } else {
-    const perms = await db
-      .select({ key: permissions.key })
+  if (user.role === 'admin' || user.role === 'super_admin') {
+    const userRoleList = await db
+      .select({
+        roleName: roles.name,
+        isSystem: roles.isSystem,
+      })
       .from(userRoles)
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
-      .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
       .where(eq(userRoles.userId, user.id));
-    
-    userPermissions = perms.map(p => p.key);
+
+    isSuperAdmin =
+      user.role === 'admin' ||
+      user.role === 'super_admin' ||
+      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+
+    if (isSuperAdmin) {
+      userPermissions = ['*'];
+    } else {
+      const perms = await db
+        .select({ key: permissions.key })
+        .from(userRoles)
+        .innerJoin(roles, eq(userRoles.roleId, roles.id))
+        .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+        .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+        .where(eq(userRoles.userId, user.id));
+      
+      userPermissions = perms.map(p => p.key);
+    }
   }
 
   return { 
@@ -597,10 +667,14 @@ export async function changePassword(userId: number, input: ChangePasswordInput)
 }
 
 export async function setupMFA(userId: number, email: string) {
+  const existing = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
+  if (existing.length > 0 && existing[0]!.enabled) {
+    throw AppError.badRequest('المصادقة الثنائية مفعلة بالفعل');
+  }
+
   const { secret, uri } = generateSecret(email);
   const encryptedSecret = encryptSecret(secret);
   
-  const existing = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, userId)).limit(1);
   if (existing.length > 0) {
     await db.update(mfaSecrets).set({ secretEncrypted: encryptedSecret, enabled: false }).where(eq(mfaSecrets.userId, userId));
   } else {
@@ -635,6 +709,10 @@ export async function verifyMFAChallenge(userId: number, token: string) {
     throw AppError.badRequest('MFA is not enabled');
   }
 
+  if (!user.isActive) {
+    throw AppError.forbidden('الحساب معطّل، تواصل مع الدعم');
+  }
+
   let isValid = false;
   let usedBackupCodeIndex = -1;
 
@@ -643,7 +721,8 @@ export async function verifyMFAChallenge(userId: number, token: string) {
 
   const mfaBackupCodes = (mfa.backupCodesHashed as string[]) || [];
 
-  if (!isValid && mfaBackupCodes && mfaBackupCodes.length > 0) {
+  // Backup codes are 8-character hex strings; only run bcrypt comparisons when length === 8
+  if (!isValid && token.length === 8 && mfaBackupCodes && mfaBackupCodes.length > 0) {
     for (let i = 0; i < mfaBackupCodes.length; i++) {
       if (await bcrypt.compare(token, mfaBackupCodes[i]!)) {
         isValid = true;
@@ -739,15 +818,15 @@ export async function resetPassword(token: string, newPassword: string) {
   await db.delete(refreshTokens).where(eq(refreshTokens.userId, user.id));
 }
 
-export async function googleAuth(idToken: string, vendorData?: { storeName: string, storeDescription?: string }) {
+export async function googleAuth(idToken: string, vendorData?: { storeName: string; storeDescription?: string; phone?: string }) {
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id',
+      audience: env.GOOGLE_CLIENT_ID || 'dummy_client_id',
     });
     payload = ticket.getPayload();
-  } catch (err) {
+  } catch {
     throw AppError.unauthorized('رمز جوجل غير صالح');
   }
 
@@ -755,76 +834,122 @@ export async function googleAuth(idToken: string, vendorData?: { storeName: stri
     throw AppError.unauthorized('فشل في جلب البيانات من جوجل');
   }
 
-  const { email, given_name, family_name, picture, sub: googleId } = payload;
+  if (!payload.email_verified) {
+    throw AppError.unauthorized('البريد الإلكتروني في جوجل غير مفعل');
+  }
+
+  const email = payload.email.toLowerCase().trim();
+  const { given_name, family_name, picture, sub: googleId } = payload;
 
   let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
-  if (!user) {
-    // Create new user linked to google
-    const [newUser] = await db.insert(users).values({
-      email,
-      firstName: given_name || 'مستخدم',
-      lastName: family_name || '',
-      passwordHash: '', // OAuth users don't have a password
-      role: vendorData ? 'vendor' : 'customer',
-      avatarUrl: picture,
-      googleId,
-      isActive: true,
-      emailVerifiedAt: new Date(),
-    }).returning();
-    user = newUser as any;
-  } else {
-    // Update existing user to link google if not linked, and potentially upgrade to vendor
-    if (vendorData && user.role === 'customer') {
-      const [updatedUser] = await db.update(users).set({ role: 'vendor', googleId: user.googleId || googleId, emailVerifiedAt: new Date(), isActive: true }).where(eq(users.id, user.id)).returning();
-      user = updatedUser as any;
-    } else if (!user.googleId) {
-      const [updatedUser] = await db.update(users).set({ googleId, emailVerifiedAt: new Date(), isActive: true }).where(eq(users.id, user.id)).returning();
-      user = updatedUser as any;
+  if (user) {
+    // Reject deactivated verified accounts BEFORE any update!
+    if (!user.isActive && user.emailVerifiedAt !== null) {
+      throw AppError.forbidden('الحساب معطّل، تواصل مع الدعم');
+    }
+    if (user.googleId && user.googleId !== googleId) {
+      throw AppError.unauthorized('حساب جوجل غير مطابق');
     }
   }
 
-  if (vendorData) {
-    const storeSlug = slugify(vendorData.storeName);
-    const existingSlug = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, storeSlug)).limit(1);
-    
-    // Check if this user already has a vendor profile
-    const existingVendor = await db.select({ id: vendors.id }).from(vendors).where(eq(vendors.userId, user!.id)).limit(1);
-    
-    if (existingVendor.length === 0) {
-      if (existingSlug.length > 0) {
-        throw AppError.conflict('اسم المتجر مستخدم بالفعل');
+  await db.transaction(async (tx) => {
+    if (!user) {
+      // Create new user linked to google
+      const [newUser] = await tx.insert(users).values({
+        email,
+        firstName: given_name || 'مستخدم',
+        lastName: family_name || '',
+        passwordHash: '', // OAuth users don't have a password
+        role: vendorData ? 'vendor' : 'customer',
+        avatarUrl: picture,
+        googleId,
+        isActive: true,
+        emailVerifiedAt: new Date(),
+        otpCode: null,
+        otpExpiresAt: null,
+      }).returning();
+      user = newUser!;
+    } else {
+      // Update existing user to link google if not linked, and potentially upgrade to vendor
+      if (vendorData && user.role === 'customer') {
+        const [updatedUser] = await tx.update(users).set({
+          role: 'vendor',
+          googleId: user.googleId || googleId,
+          emailVerifiedAt: user.emailVerifiedAt || new Date(),
+          isActive: true,
+          otpCode: null,
+          otpExpiresAt: null,
+        }).where(eq(users.id, user.id)).returning();
+        user = updatedUser!;
+      } else if (!user.googleId || !user.isActive) {
+        const [updatedUser] = await tx.update(users).set({
+          googleId: user.googleId || googleId,
+          emailVerifiedAt: user.emailVerifiedAt || new Date(),
+          isActive: true,
+          otpCode: null,
+          otpExpiresAt: null,
+        }).where(eq(users.id, user.id)).returning();
+        user = updatedUser!;
       }
-      const [commissionSetting] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
-      const commissionRate = commissionSetting?.value || '10.00';
-      await db.insert(vendors).values({
-        userId: user!.id,
-        storeName: vendorData.storeName,
-        storeSlug,
-        storeDescription: vendorData.storeDescription,
-        status: 'pending',
-        commissionRate,
-      });
     }
-  }
 
-  if (!user!.isActive) {
+    if (vendorData && user) {
+      const storeSlug = slugify(vendorData.storeName);
+      const existingVendor = await tx.select({ id: vendors.id }).from(vendors).where(eq(vendors.userId, user.id)).limit(1);
+
+      if (existingVendor.length === 0) {
+        const existingSlug = await tx.select({ id: vendors.id }).from(vendors).where(eq(vendors.storeSlug, storeSlug)).limit(1);
+        if (existingSlug.length > 0) {
+          throw AppError.conflict('اسم المتجر مستخدم بالفعل');
+        }
+        const [commissionSetting] = await tx.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, 'default_commission_rate')).limit(1);
+        const commissionRate = commissionSetting?.value || '10.00';
+        const [insertedVendor] = await tx.insert(vendors).values({
+          userId: user.id,
+          storeName: vendorData.storeName,
+          storeSlug,
+          storeDescription: vendorData.storeDescription,
+          status: 'pending',
+          commissionRate,
+        }).returning({ id: vendors.id });
+
+        await ensureDefaultVendorSubscription(tx, insertedVendor!.id);
+      }
+    }
+  });
+
+  if (!user || !user.isActive) {
     throw AppError.forbidden('الحساب معطّل، تواصل مع الدعم');
   }
 
-  const accessToken = generateAccessToken(user!);
+  // Check MFA on googleAuth just like login()
+  const [mfa] = await db.select().from(mfaSecrets).where(eq(mfaSecrets.userId, user.id)).limit(1);
+  if (mfa?.enabled) {
+    const tempToken = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role, purpose: 'mfa_temp' },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: '5m' }
+    );
+    return {
+      requiresMfa: true,
+      tempToken,
+    };
+  }
+
+  const accessToken = generateAccessToken(user);
   const refreshTokenValue = generateRefreshTokenValue();
   const refreshTokenHash = hashToken(refreshTokenValue);
   const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
 
   await db.insert(refreshTokens).values({
-    userId: user!.id,
+    userId: user.id,
     tokenHash: refreshTokenHash,
     expiresAt,
   });
 
   return {
-    user: await getProfile(user!.id),
+    user: await getProfile(user.id),
     accessToken,
     refreshToken: refreshTokenValue,
   };

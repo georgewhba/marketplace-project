@@ -84,8 +84,8 @@ export const paymobService = {
    * Validates HMAC from Paymob Webhook
    */
   validateHMAC(payload: any, hmacReceived: string) {
-    if (!env.PAYMOB_HMAC) {
-      console.error('🚨 PAYMOB_HMAC not configured — rejecting all webhooks until fixed');
+    if (!env.PAYMOB_HMAC || !hmacReceived || typeof hmacReceived !== 'string') {
+      console.error('🚨 PAYMOB_HMAC not configured or hmacReceived missing — rejecting webhook');
       return false; // Safe failure
     }
 
@@ -137,7 +137,13 @@ export const paymobService = {
       .update(concatenatedString)
       .digest('hex');
 
-    return hmacCalculated === hmacReceived;
+    const calcBuf = Buffer.from(hmacCalculated, 'utf8');
+    const recvBuf = Buffer.from(hmacReceived, 'utf8');
+    if (calcBuf.length !== recvBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(calcBuf, recvBuf);
   },
 
   /**

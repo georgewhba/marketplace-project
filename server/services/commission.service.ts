@@ -1,8 +1,7 @@
 import { db } from '../db/index.js';
 import { commissionRules } from '../db/schema/commission-rules.js';
 import { vendors } from '../db/schema/vendors.js';
-import { and, eq, isNull, lte, or } from 'drizzle-orm';
-import { AppError } from '../utils/errors.js';
+import { and, eq, gte, isNull, lte, or } from 'drizzle-orm';
 
 /**
  * Resolves the active commission rate for a vendor and category.
@@ -20,9 +19,7 @@ export async function resolveCommissionRate(vendorId: number, categoryId: number
         lte(commissionRules.effectiveFrom, now),
         or(
           isNull(commissionRules.effectiveTo),
-          // >= doesn't exist directly like lte, so we use SQL or building a custom clause if needed
-          // Actually, we can just fetch and filter in memory since rules won't be huge, 
-          // or use the appropriate operator. Let's filter in memory for effectiveTo to be safe.
+          gte(commissionRules.effectiveTo, now)
         )
       )
     );

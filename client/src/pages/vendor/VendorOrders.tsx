@@ -12,20 +12,22 @@ interface OrderItem {
   quantity: number;
   unitPrice: string;
   total: string;
-  status: string;
+  status?: string;
+  vendorStatus?: string;
   customerName: string;
   createdAt: string;
 }
 
-const statusLabels: Record<string, { label: string; color: string; icon: typeof Package }> = {
-  pending: { label: 'قيد الانتظار', color: 'var(--warning-500)', icon: Clock },
-  processing: { label: 'قيد التجهيز', color: 'var(--primary-500)', icon: Package },
-  shipped: { label: 'تم الشحن', color: 'var(--info-500, #3b82f6)', icon: Truck },
-  delivered: { label: 'تم التسليم', color: 'var(--success-500)', icon: CheckCircle },
-  cancelled: { label: 'ملغي', color: 'var(--error-500)', icon: Package },
+const statusLabels: Record<string, { label: string; color: string; badge: string; icon: typeof Package }> = {
+  pending: { label: 'قيد الانتظار', color: 'var(--warning-500)', badge: 'badge-warning', icon: Clock },
+  confirmed: { label: 'مؤكد (قيد التجهيز)', color: 'var(--primary-500)', badge: 'badge-info', icon: Package },
+  processing: { label: 'قيد التجهيز', color: 'var(--primary-500)', badge: 'badge-info', icon: Package },
+  shipped: { label: 'تم الشحن', color: 'var(--info-500, #3b82f6)', badge: 'badge-info', icon: Truck },
+  delivered: { label: 'تم التسليم', color: 'var(--success-500)', badge: 'badge-success', icon: CheckCircle },
+  cancelled: { label: 'ملغي', color: 'var(--error-500)', badge: 'badge-error', icon: Package },
 };
 
-const statusFlow = ['pending', 'processing', 'shipped', 'delivered'];
+const statusFlow = ['pending', 'confirmed', 'shipped', 'delivered'];
 
 export default function VendorOrders() {
   const { addToast } = useToast();
@@ -47,17 +49,22 @@ export default function VendorOrders() {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ itemId, status, trackingNumber }: { itemId: number; status: string; trackingNumber?: string }) =>
-      vendorApi.updateOrderStatus(itemId, { status, trackingNumber }),
+      vendorApi.updateOrderStatus(itemId, { status, ...(trackingNumber ? { trackingNumber } : {}) }),
     onSuccess: () => {
       addToast('تم تحديث حالة الطلب', 'success');
       qc.invalidateQueries({ queryKey: ['vendor-orders'] });
     },
-    onError: () => addToast('حدث خطأ', 'error'),
+    onError: (err: any) => addToast(err?.message || 'حدث خطأ', 'error'),
   });
 
   const createShipmentMutation = useMutation({
-    mutationFn: ({ itemId, provider }: { itemId: number; provider: 'bosta' | 'manual' }) =>
-      vendorApi.createShipment(itemId, { provider, trackingNumber: provider === 'manual' ? trackingNumber : undefined } as any),
+    mutationFn: ({ itemId, provider }: { itemId: number; provider: 'bosta' | 'manual' }) => {
+      const payload: { provider: 'bosta' | 'manual'; trackingNumber?: string } = { provider };
+      if (provider === 'manual' && trackingNumber.trim()) {
+        payload.trackingNumber = trackingNumber.trim();
+      }
+      return vendorApi.createShipment(itemId, payload);
+    },
     onSuccess: () => {
       addToast('تم إنشاء الشحنة بنجاح', 'success');
       qc.invalidateQueries({ queryKey: ['vendor-orders'] });
@@ -68,12 +75,14 @@ export default function VendorOrders() {
   });
 
   function getNextStatus(current: string): string | null {
-    const idx = statusFlow.indexOf(current);
+    const normalized = current === 'processing' ? 'confirmed' : current;
+    const idx = statusFlow.indexOf(normalized);
     return idx >= 0 && idx < statusFlow.length - 1 ? statusFlow[idx + 1] : null;
   }
 
   const filtered = items.filter(item => {
-    if (filter !== 'all' && item.status !== filter) return false;
+    const itemStatus = item.vendorStatus || item.status || 'pending';
+    if (filter !== 'all' && itemStatus !== filter && !(filter === 'confirmed' && itemStatus === 'processing')) return false;
     if (search && !item.orderNumber?.includes(search) && !item.productName?.includes(search)) return false;
     return true;
   });
@@ -104,7 +113,7 @@ export default function VendorOrders() {
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state border-0">
@@ -113,9 +122,10 @@ export default function VendorOrders() {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map(item => {
-            const st = statusLabels[item.status] ?? statusLabels.pending;
+            const itemStatus = item.vendorStatus || item.status || 'pending';
+            const st = statusLabels[itemStatus] ?? statusLabels.pending;
             const Icon = st.icon;
-            const next = getNextStatus(item.status);
+            const next = getNextStatus(itemStatus);
             return (
               <div key={item.id} className="card p-4">
                 <div className="flex justify-between items-start flex-wrap gap-3">
@@ -142,7 +152,7 @@ export default function VendorOrders() {
                         className="btn btn-primary btn-sm"
                         disabled={updateStatusMutation.isPending}
                         onClick={() => {
-                          if (item.status === 'processing' && next === 'shipped') {
+                          if ((itemStatus === 'confirmed' || itemStatus === 'processing') && next === 'shipped') {
                             setShipmentModal(item);
                             setShippingProvider(meta?.isBostaEnabled ? 'bosta' : 'manual');
                           } else {
@@ -183,11 +193,12 @@ export default function VendorOrders() {
               className="absolute bg-transparent border-0 cursor-pointer"
               style={{ top: 15, insetInlineEnd: 15 }}
               onClick={() => setShipmentModal(null)}
+              aria-label="إغلاق"
             >
               <X size={20} className="text-muted" />
             </button>
             <h3 className="mt-0 mb-4 font-semibold text-lg">شحن الطلب #{shipmentModal.orderNumber}</h3>
-            
+
             <div className="flex flex-col gap-3 mb-5">
               {meta?.isBostaEnabled && (
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -199,7 +210,7 @@ export default function VendorOrders() {
                   <span>شحن آلي عبر بوسطة (Bosta)</span>
                 </label>
               )}
-              
+
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -226,7 +237,7 @@ export default function VendorOrders() {
             <div className="flex gap-3">
               <button
                 className="btn btn-primary flex-1"
-                disabled={createShipmentMutation.isPending || (shippingProvider === 'manual' && !trackingNumber)}
+                disabled={createShipmentMutation.isPending || (shippingProvider === 'manual' && !trackingNumber.trim())}
                 onClick={() => createShipmentMutation.mutate({ itemId: shipmentModal.id, provider: shippingProvider })}
               >
                 {createShipmentMutation.isPending ? 'جاري الإنشاء...' : 'تأكيد الشحن'}

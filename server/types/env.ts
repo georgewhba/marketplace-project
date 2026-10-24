@@ -8,5 +8,6 @@ export type AppEnv = {
   Variables: {
     user: AuthUser;
     vendor: AuthVendor;
+    requestId: string;
   };
 };

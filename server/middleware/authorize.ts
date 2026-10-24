@@ -14,7 +14,11 @@ export function authorize(...allowedRoles: string[]) {
       throw AppError.unauthorized();
     }
 
-    if (!allowedRoles.includes(user.role)) {
+    const isAllowed =
+      allowedRoles.includes(user.role) ||
+      (user.role === 'super_admin' && allowedRoles.includes('admin'));
+
+    if (!isAllowed) {
       throw AppError.forbidden('ليس لديك صلاحية للوصول لهذا المورد');
     }
 

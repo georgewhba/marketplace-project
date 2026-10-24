@@ -26,7 +26,7 @@ export class BostaProvider implements ShippingProvider {
         pickupAddress: {
           city: params.pickupAddress.city,
         },
-        businessReference: `order-${params.orderId}-item-${params.items[0].id}`,
+        businessReference: `order-${params.orderId}-item-${params.items[0]?.id ?? 0}`,
       }),
     });
 
@@ -40,7 +40,7 @@ export class BostaProvider implements ShippingProvider {
     return {
       providerShipmentId: data._id,
       trackingNumber: data.trackingNumber,
-      cost: data.cod?.amount ?? data.pricing?.total ?? 0,
+      cost: data.pricing?.total ?? 0,
     };
   }
 
@@ -60,7 +60,8 @@ export class BostaProvider implements ShippingProvider {
     }
     
     const data = await response.json() as any;
-    return this.mapBostaStatusToInternal(data.state);
+    const stateVal = typeof data.state === 'object' ? data.state?.value : data.state;
+    return this.mapBostaStatusToInternal(stateVal);
   }
 
   async cancelShipment(providerShipmentId: string): Promise<void> {
@@ -84,11 +85,15 @@ export class BostaProvider implements ShippingProvider {
     const stateMap: Record<string, ShipmentStatus> = {
       'TICKET_CREATED': 'created',
       'PACKAGE_RECEIVED': 'picked_up',
+      'PICKED_UP': 'picked_up',
       'IN_TRANSIT': 'in_transit',
+      'OUT_FOR_DELIVERY': 'out_for_delivery',
       'DELIVERED': 'delivered',
+      'FAILED_DELIVERY': 'failed_delivery',
       'CANCELLED': 'cancelled',
+      'CANCELED': 'cancelled',
       'RETURNED': 'returned',
     };
-    return stateMap[bostaState?.toUpperCase()] || 'in_transit';
+    return stateMap[String(bostaState ?? '').toUpperCase()] || 'in_transit';
   }
 }

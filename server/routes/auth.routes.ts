@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { setCookie, getCookie, deleteCookie } from 'hono/cookie';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import { env } from '../env.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { authenticate } from '../middleware/authenticate.js';
@@ -7,13 +9,54 @@ import { authRateLimit } from '../middleware/rateLimit.js';
 import { sendSuccess, sendCreated } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
 import * as authService from '../services/auth.service.js';
+import * as authValidators from '../validators/auth.validators.js';
 import {
   registerSchema, vendorRegisterSchema, loginSchema,
   refreshSchema, updateProfileSchema, changePasswordSchema, mfaTokenSchema, forgotPasswordSchema, resetPasswordSchema,
   type RegisterInput, type VendorRegisterInput, type LoginInput,
   type RefreshInput, type UpdateProfileInput, type ChangePasswordInput, type MfaTokenInput, type ForgotPasswordInput, type ResetPasswordInput
 } from '../validators/auth.validators.js';
+import { db } from '../db/index.js';
+import { notificationPreferences } from '../db/schema/notifications-config.js';
+import { notifications } from '../db/schema/notifications.js';
+import { and, eq, count, desc } from 'drizzle-orm';
 import type { AppEnv } from '../types/env.js';
+
+const verifyOtpSchema = (authValidators as any).verifyOtpSchema || z.object({
+  email: z.string().email('بريد إلكتروني غير صالح').toLowerCase().trim(),
+  otp: z.string().length(6, 'رمز التحقق يجب أن يتكون من 6 أرقام').regex(/^\d{6}$/, 'رمز التحقق غير صالح'),
+}).strict();
+
+const googleAuthSchema = (authValidators as any).googleAuthSchema || z.object({
+  idToken: z.string().min(1, 'رمز جوجل مطلوب'),
+  vendorData: z.object({
+    storeName: z.string().min(3, 'اسم المتجر مطلوب (3 أحرف على الأقل)').max(255).trim(),
+    storeDescription: z.string().max(2000).optional(),
+  }).optional(),
+}).strict();
+
+const notificationPreferenceSchema = (authValidators as any).notificationPreferenceSchema || z.object({
+  category: z.enum(['order_updates', 'promotions', 'system_alerts']),
+  channel: z.enum(['email', 'whatsapp', 'push']),
+  enabled: z.boolean(),
+}).strict();
+
+function setAuthCookies(c: any, accessToken: string, refreshToken: string) {
+  setCookie(c, 'accessToken', accessToken, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    path: '/',
+    maxAge: 15 * 60,
+  });
+  setCookie(c, 'refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'Strict',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60,
+  });
+}
 
 const authRoutes = new Hono<AppEnv>();
 
@@ -23,28 +66,35 @@ authRoutes.post('/register', authRateLimit, validate('body', registerSchema), as
   const result = await authService.register(input);
   
   if (result.accessToken && result.refreshToken) {
-    setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-    setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+    setAuthCookies(c, result.accessToken, result.refreshToken);
   }
   
   return sendCreated(c, result);
 });
 
 // POST /api/auth/verify-otp
-authRoutes.post('/verify-otp', authRateLimit, async (c) => {
-  const { email, otp } = await c.req.json();
+authRoutes.post('/verify-otp', authRateLimit, validate('body', verifyOtpSchema), async (c) => {
+  const { email, otp } = getValidated<{ email: string; otp: string }>(c, 'body');
   const result = await authService.verifyRegistrationOTP(email, otp);
-  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setAuthCookies(c, result.accessToken, result.refreshToken);
   return sendSuccess(c, { user: result.user });
 });
 
 // POST /api/auth/google
-authRoutes.post('/google', authRateLimit, async (c) => {
-  const { idToken, vendorData } = await c.req.json();
-  const result = await authService.googleAuth(idToken, vendorData);
-  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+authRoutes.post('/google', authRateLimit, validate('body', googleAuthSchema), async (c) => {
+  const { idToken, vendorData } = getValidated<{ idToken: string; vendorData?: { storeName: string; storeDescription?: string } }>(c, 'body');
+  const result = await authService.googleAuth(idToken, vendorData) as any;
+  if (result.requiresMfa) {
+    setCookie(c, 'mfaTempToken', result.tempToken!, {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      path: '/',
+      maxAge: 5 * 60,
+    });
+    return sendSuccess(c, { requiresMfa: true, tempToken: result.tempToken });
+  }
+  setAuthCookies(c, result.accessToken, result.refreshToken);
   return sendSuccess(c, { user: result.user });
 });
 
@@ -53,8 +103,7 @@ authRoutes.post('/register/vendor', authRateLimit, validate('body', vendorRegist
   const input = getValidated<VendorRegisterInput>(c, 'body');
   const result = await authService.registerVendor(input);
   if (result.accessToken && result.refreshToken) {
-    setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-    setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+    setAuthCookies(c, result.accessToken, result.refreshToken);
   }
   return sendCreated(c, result);
 });
@@ -64,11 +113,16 @@ authRoutes.post('/login', authRateLimit, validate('body', loginSchema), async (c
   const input = getValidated<LoginInput>(c, 'body');
   const result = await authService.login(input);
   if (result.requiresMfa) {
-    setCookie(c, 'accessToken', result.tempToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/', maxAge: 5 * 60 });
-    return sendSuccess(c, { requiresMfa: true });
+    setCookie(c, 'mfaTempToken', result.tempToken!, {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      path: '/',
+      maxAge: 5 * 60,
+    });
+    return sendSuccess(c, { requiresMfa: true, tempToken: result.tempToken });
   }
-  setCookie(c, 'accessToken', result.accessToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken!, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setAuthCookies(c, result.accessToken!, result.refreshToken!);
   return sendSuccess(c, { user: result.user });
 });
 
@@ -78,8 +132,7 @@ authRoutes.post('/refresh', authRateLimit, async (c) => {
   if (!refreshToken) throw AppError.unauthorized('رمز التحديث مطلوب');
   
   const result = await authService.refreshAccessToken(refreshToken);
-  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  setAuthCookies(c, result.accessToken, result.refreshToken);
   return sendSuccess(c, { message: 'تم تحديث الجلسة بنجاح' });
 });
 
@@ -91,6 +144,7 @@ authRoutes.post('/logout', async (c) => {
   }
   deleteCookie(c, 'accessToken', { path: '/' });
   deleteCookie(c, 'refreshToken', { path: '/' });
+  deleteCookie(c, 'mfaTempToken', { path: '/' });
   return sendSuccess(c, { message: 'تم تسجيل الخروج بنجاح' });
 });
 
@@ -147,27 +201,40 @@ authRoutes.post('/mfa/verify', authRateLimit, authenticate, validate('body', mfa
 });
 
 // POST /api/auth/mfa/challenge
-authRoutes.post('/mfa/challenge', authRateLimit, authenticate, validate('body', mfaTokenSchema), async (c) => {
-  const user = c.get('user');
+authRoutes.post('/mfa/challenge', authRateLimit, validate('body', mfaTokenSchema), async (c) => {
+  const rawAuth = c.req.header('Authorization')?.replace('Bearer ', '').trim();
+  const headerToken = rawAuth && rawAuth !== 'undefined' && rawAuth !== 'null' ? rawAuth : undefined;
+  const tempToken = headerToken || getCookie(c, 'mfaTempToken') || getCookie(c, 'accessToken');
+
+  if (!tempToken) {
+    throw AppError.unauthorized('رمز المصادقة المؤقت مطلوب');
+  }
+
+  let userId: number;
+  try {
+    const payload = jwt.verify(tempToken, env.JWT_ACCESS_SECRET) as { userId: number; purpose?: string };
+    userId = payload.userId;
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      throw AppError.unauthorized('انتهت صلاحية رمز المصادقة');
+    }
+    throw AppError.unauthorized('رمز مصادقة غير صالح');
+  }
+
   const input = getValidated<MfaTokenInput>(c, 'body');
-  const result = await authService.verifyMFAChallenge(user.id, input.token);
-  setCookie(c, 'accessToken', result.accessToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
-  setCookie(c, 'refreshToken', result.refreshToken, { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'Strict', path: '/' });
+  const result = await authService.verifyMFAChallenge(userId, input.token);
+  deleteCookie(c, 'mfaTempToken', { path: '/' });
+  setAuthCookies(c, result.accessToken, result.refreshToken);
   return sendSuccess(c, { user: result.user });
 });
 
 // POST /api/auth/mfa/disable
-authRoutes.post('/mfa/disable', authenticate, validate('body', mfaTokenSchema), async (c) => {
+authRoutes.post('/mfa/disable', authRateLimit, authenticate, validate('body', mfaTokenSchema), async (c) => {
   const user = c.get('user');
   const input = getValidated<MfaTokenInput>(c, 'body');
   await authService.disableMFA(user.id, input.token);
   return sendSuccess(c, { message: 'تم تعطيل المصادقة الثنائية بنجاح' });
 });
-
-import { db } from '../db/index.js';
-import { notificationPreferences } from '../db/schema/notifications-config.js';
-import { notifications } from '../db/schema/notifications.js';
-import { and, eq, count, desc } from 'drizzle-orm';
 
 // GET /api/auth/me/notification-preferences
 authRoutes.get('/me/notification-preferences', authenticate, async (c) => {
@@ -177,11 +244,10 @@ authRoutes.get('/me/notification-preferences', authenticate, async (c) => {
 });
 
 // PUT /api/auth/me/notification-preferences
-authRoutes.put('/me/notification-preferences', authenticate, async (c) => {
+authRoutes.put('/me/notification-preferences', authenticate, validate('body', notificationPreferenceSchema), async (c) => {
   const userId = c.get('user')!.id;
-  const body = await c.req.json();
-  // Expect { category: string, channel: string, enabled: boolean }
-  
+  const body = getValidated<{ category: string; channel: string; enabled: boolean }>(c, 'body');
+
   await db.insert(notificationPreferences)
     .values({
       userId,
@@ -211,6 +277,7 @@ authRoutes.get('/me/notifications', authenticate, async (c) => {
 authRoutes.put('/me/notifications/:id/read', authenticate, async (c) => {
   const userId = c.get('user')!.id;
   const notifId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(notifId)) throw AppError.badRequest('معرف غير صالح');
   await db.update(notifications).set({ isRead: true })
     .where(and(eq(notifications.id, notifId), eq(notifications.userId, userId)));
   return sendSuccess(c, { message: 'تم القراءة' });

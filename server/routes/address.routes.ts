@@ -37,11 +37,14 @@ addressRoutes.post('/', validate('body', addressSchema), async (c) => {
   const user = c.get('user');
   const input = getValidated<z.infer<typeof addressSchema>>(c, 'body');
 
-  if (input.isDefault) {
-    await db.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
-  }
+  const addr = await db.transaction(async (tx) => {
+    if (input.isDefault) {
+      await tx.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
+    }
+    const [inserted] = await tx.insert(addresses).values({ ...input, userId: user.id }).returning();
+    return inserted;
+  });
 
-  const [addr] = await db.insert(addresses).values({ ...input, userId: user.id }).returning();
   return sendCreated(c, addr);
 });
 
@@ -49,17 +52,21 @@ addressRoutes.post('/', validate('body', addressSchema), async (c) => {
 addressRoutes.put('/:id', validate('body', addressSchema.partial()), async (c) => {
   const user = c.get('user');
   const addrId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(addrId)) throw AppError.badRequest('معرف غير صالح');
   const input = getValidated<Partial<z.infer<typeof addressSchema>>>(c, 'body');
 
   const [existing] = await db.select().from(addresses)
     .where(and(eq(addresses.id, addrId), eq(addresses.userId, user.id))).limit(1);
   if (!existing) throw AppError.notFound('العنوان');
 
-  if (input.isDefault) {
-    await db.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
-  }
+  const updated = await db.transaction(async (tx) => {
+    if (input.isDefault) {
+      await tx.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
+    }
+    const [row] = await tx.update(addresses).set(input).where(eq(addresses.id, addrId)).returning();
+    return row;
+  });
 
-  const [updated] = await db.update(addresses).set(input).where(eq(addresses.id, addrId)).returning();
   return sendSuccess(c, updated);
 });
 
@@ -67,6 +74,7 @@ addressRoutes.put('/:id', validate('body', addressSchema.partial()), async (c) =
 addressRoutes.delete('/:id', async (c) => {
   const user = c.get('user');
   const addrId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(addrId)) throw AppError.badRequest('معرف غير صالح');
 
   const [existing] = await db.select().from(addresses)
     .where(and(eq(addresses.id, addrId), eq(addresses.userId, user.id))).limit(1);
@@ -80,13 +88,18 @@ addressRoutes.delete('/:id', async (c) => {
 addressRoutes.put('/:id/default', async (c) => {
   const user = c.get('user');
   const addrId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(addrId)) throw AppError.badRequest('معرف غير صالح');
 
   const [existing] = await db.select().from(addresses)
     .where(and(eq(addresses.id, addrId), eq(addresses.userId, user.id))).limit(1);
   if (!existing) throw AppError.notFound('العنوان');
 
-  await db.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
-  const [updated] = await db.update(addresses).set({ isDefault: true }).where(eq(addresses.id, addrId)).returning();
+  const updated = await db.transaction(async (tx) => {
+    await tx.update(addresses).set({ isDefault: false }).where(eq(addresses.userId, user.id));
+    const [row] = await tx.update(addresses).set({ isDefault: true }).where(eq(addresses.id, addrId)).returning();
+    return row;
+  });
+
   return sendSuccess(c, updated);
 });
 

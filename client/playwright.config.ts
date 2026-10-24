@@ -14,13 +14,14 @@ export default defineConfig({
     {
       command: 'npm run dev',
       url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 120_000,
     },
     {
       command: 'cd .. && npx tsx server/index.ts',
+      env: { PORT: '3001' },
       url: 'http://localhost:3001/api/health',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 120_000,
     }
   ],

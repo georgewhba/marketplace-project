@@ -17,6 +17,7 @@ export const transactions = pgTable('transactions', {
 }, (t) => [
   index('transactions_vendor_idx').on(t.vendorId),
   index('transactions_type_idx').on(t.type),
+  index('transactions_settlement_idx').on(t.settlementId),
 ]);
 
 export type Transaction = typeof transactions.$inferSelect;

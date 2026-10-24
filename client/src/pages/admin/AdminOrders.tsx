@@ -8,13 +8,15 @@ interface Order {
   orderNumber: string;
   customerName: string;
   status: string;
-  totalAmount: string;
+  total?: string;
+  totalAmount?: string;
   itemCount: number;
   createdAt: string;
 }
 
 const statusLabels: Record<string, { label: string; cls: string }> = {
   pending: { label: 'قيد الانتظار', cls: 'badge-warning' },
+  confirmed: { label: 'مؤكد', cls: 'badge-info' },
   processing: { label: 'قيد التجهيز', cls: 'badge-info' },
   shipped: { label: 'تم الشحن', cls: 'badge-info' },
   delivered: { label: 'تم التسليم', cls: 'badge-success' },
@@ -49,7 +51,7 @@ export default function AdminOrders() {
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 64 }} />)}
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 64 }} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state"><div className="empty-state__title">لا توجد طلبات</div></div>
@@ -68,11 +70,12 @@ export default function AdminOrders() {
             <tbody>
               {filtered.map(o => {
                 const st = statusLabels[o.status] ?? statusLabels.pending;
+                const totalVal = o.total ?? o.totalAmount ?? 0;
                 return (
                   <tr key={o.id}>
                     <td className="text-primary font-mono font-semibold">#{o.orderNumber || o.id}</td>
                     <td>{o.customerName || '—'}</td>
-                    <td className="font-semibold">{parseFloat(o.totalAmount).toLocaleString('ar-EG')} ج.م</td>
+                    <td className="font-semibold">{parseFloat(String(totalVal)).toLocaleString('ar-EG')} ج.م</td>
                     <td className="text-center"><span className={`badge ${st.cls}`}>{st.label}</span></td>
                     <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{new Date(o.createdAt).toLocaleDateString('ar-EG')}</td>
                   </tr>

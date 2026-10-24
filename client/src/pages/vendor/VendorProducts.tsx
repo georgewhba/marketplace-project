@@ -10,13 +10,16 @@ interface Product {
   id: number;
   name: string;
   slug: string;
+  description?: string | null;
+  sku?: string | null;
   price: string;
-  compareAtPrice: string | null;
+  comparePrice?: string | null;
+  compareAtPrice?: string | null;
   stock: number;
   isActive: boolean;
   isFeatured: boolean;
   categoryId: number;
-  images: { id: number; url: string; isPrimary: boolean }[];
+  images: { id: number; url?: string; imageUrl?: string; isPrimary?: boolean }[];
   createdAt: string;
 }
 
@@ -50,6 +53,8 @@ export default function VendorProducts() {
   const meta = data?.meta;
   const categories = categoriesData?.data || [];
 
+  const editingProduct = editId ? products.find(p => p.id === editId) : null;
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -67,23 +72,23 @@ export default function VendorProducts() {
       return vendorApi.createProduct(payload);
     },
     onSuccess: async (res) => {
-      // Upload images for new products
-      if (!editId && imageFiles.length > 0 && res?.data?.id) {
+      const targetProductId = editId || res?.data?.id || res?.id;
+      if (imageFiles.length > 0 && targetProductId) {
         let hasErrors = false;
         for (const file of imageFiles) {
           const fd = new FormData();
           fd.append('image', file);
           try {
-            await vendorApi.uploadProductImage(res.data.id, fd);
-          } catch (err: any) { 
+            await vendorApi.uploadProductImage(targetProductId, fd);
+          } catch (err: any) {
             hasErrors = true;
             addToast(`فشل رفع ${file.name}: ${err.response?.data?.message || err.message}`, 'error');
           }
         }
         if (!hasErrors) {
-          addToast('تم إضافة المنتج والصور بنجاح', 'success');
+          addToast(editId ? 'تم تحديث المنتج والصور بنجاح' : 'تم إضافة المنتج والصور بنجاح', 'success');
         } else {
-          addToast('تم إضافة المنتج ولكن فشل رفع بعض الصور', 'error');
+          addToast(editId ? 'تم تحديث المنتج ولكن فشل رفع بعض الصور' : 'تم إضافة المنتج ولكن فشل رفع بعض الصور', 'error');
         }
       } else {
         addToast(editId ? 'تم تحديث المنتج' : 'تم إضافة المنتج', 'success');
@@ -92,6 +97,26 @@ export default function VendorProducts() {
       resetForm();
     },
     onError: (err: any) => addToast(err?.message || 'حدث خطأ أثناء الحفظ', 'error'),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      vendorApi.updateProduct(id, { isActive }),
+    onSuccess: () => {
+      addToast('تم تحديث حالة المنتج', 'success');
+      qc.invalidateQueries({ queryKey: ['vendor-products'] });
+    },
+    onError: (err: any) => addToast(err?.message || 'حدث خطأ أثناء التحديث', 'error'),
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: ({ productId, imgId }: { productId: number; imgId: number }) =>
+      vendorApi.deleteProductImage(productId, imgId),
+    onSuccess: () => {
+      addToast('تم حذف الصورة', 'success');
+      qc.invalidateQueries({ queryKey: ['vendor-products'] });
+    },
+    onError: (err: any) => addToast(err?.message || 'فشل حذف الصورة', 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -113,15 +138,16 @@ export default function VendorProducts() {
   function startEdit(p: Product) {
     setForm({
       name: p.name,
-      description: '',
+      description: p.description || '',
       price: p.price,
-      compareAtPrice: p.compareAtPrice || '',
+      compareAtPrice: String(p.comparePrice || p.compareAtPrice || ''),
       stock: p.stock,
       categoryId: p.categoryId,
-      sku: '',
+      sku: p.sku || '',
       weight: '',
       shippingCost: '',
     });
+    setImageFiles([]);
     setEditId(p.id);
     setShowForm(true);
   }
@@ -154,8 +180,8 @@ export default function VendorProducts() {
       {/* Form Modal */}
       <AnimatePresence>
         {showForm && (
-          <motion.div 
-            className="fixed inset-0 flex items-center justify-center z-50" 
+          <motion.div
+            className="fixed inset-0 flex items-center justify-center z-50"
             style={{ backgroundColor: 'var(--bg-overlay)' }}
             onClick={resetForm}
             initial={{ opacity: 0 }}
@@ -163,63 +189,88 @@ export default function VendorProducts() {
             exit={{ opacity: 0 }}
             transition={{ duration: motionTokens.duration.fast }}
           >
-            <motion.div 
-              className="card relative" 
-              onClick={e => e.stopPropagation()} 
+            <motion.div
+              className="card relative"
+              onClick={e => e.stopPropagation()}
               style={{ maxWidth: 560, width: '90vw', maxHeight: '85vh', overflow: 'auto' }}
               initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               transition={{ duration: motionTokens.duration.base, ...motionTokens.easing.spring }}
             >
-            <div className="p-5">
-              <h3 className="mt-0 mb-4">{editId ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h3>
-              <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(); }}>
-                <div className="form-group mb-3">
-                  <label className="form-label">اسم المنتج *</label>
-                  <input className="input w-full" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                </div>
-                <div className="form-group mb-3">
-                  <label className="form-label">الوصف</label>
-                  <textarea className="input w-full" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-                </div>
-                <div className="grid grid-2 gap-3 mb-3">
-                  <div className="form-group">
-                    <label className="form-label">السعر (ج.م) *</label>
-                    <input className="input w-full" type="number" step="0.01" required value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">السعر قبل الخصم</label>
-                    <input className="input w-full" type="number" step="0.01" value={form.compareAtPrice} onChange={e => setForm(f => ({ ...f, compareAtPrice: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-2 gap-3 mb-3">
-                  <div className="form-group">
-                    <label className="form-label">المخزون *</label>
-                    <input className="input w-full" type="number" required value={form.stock} onChange={e => setForm(f => ({ ...f, stock: parseInt(e.target.value) || 0 }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">القسم *</label>
-                    <select 
-                      className="input w-full" 
-                      value={form.categoryId || ''} 
-                      onChange={e => setForm({ ...form, categoryId: parseInt(e.target.value) })}
-                      required
-                    >
-                      <option value="" disabled>اختر القسم</option>
-                      {categories.map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="form-group mb-3">
-                  <label className="form-label">SKU</label>
-                  <input className="input w-full" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
-                </div>
-                {!editId && (
+              <div className="p-5">
+                <h3 className="mt-0 mb-4">{editId ? 'تعديل المنتج' : 'إضافة منتج جديد'}</h3>
+                <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(); }}>
                   <div className="form-group mb-3">
-                    <label className="form-label">صور المنتج</label>
+                    <label className="form-label">اسم المنتج *</label>
+                    <input className="input w-full" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">الوصف</label>
+                    <textarea className="input w-full" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-2 gap-3 mb-3">
+                    <div className="form-group">
+                      <label className="form-label">السعر (ج.م) *</label>
+                      <input className="input w-full" type="number" step="0.01" required value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">السعر قبل الخصم</label>
+                      <input className="input w-full" type="number" step="0.01" value={form.compareAtPrice} onChange={e => setForm(f => ({ ...f, compareAtPrice: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-2 gap-3 mb-3">
+                    <div className="form-group">
+                      <label className="form-label">المخزون *</label>
+                      <input className="input w-full" type="number" required value={form.stock} onChange={e => setForm(f => ({ ...f, stock: parseInt(e.target.value) || 0 }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">القسم *</label>
+                      <select
+                        className="input w-full"
+                        value={form.categoryId || ''}
+                        onChange={e => setForm({ ...form, categoryId: parseInt(e.target.value) })}
+                        required
+                      >
+                        <option value="" disabled>اختر القسم</option>
+                        {categories.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">SKU</label>
+                    <input className="input w-full" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
+                  </div>
+
+                  {/* Existing Images when editing */}
+                  {editId && editingProduct?.images && editingProduct.images.length > 0 && (
+                    <div className="form-group mb-3">
+                      <label className="form-label">الصور الحالية</label>
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {editingProduct.images.map((img) => (
+                          <div key={img.id} className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
+                            <img src={img.url || img.imageUrl} alt="" className="w-full h-full object-cover rounded" />
+                            <button
+                              type="button"
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                              style={{ transform: 'translate(25%, -25%)' }}
+                              aria-label="حذف الصورة"
+                              disabled={deleteImageMutation.isPending}
+                              onClick={() => deleteImageMutation.mutate({ productId: editId, imgId: img.id })}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload new/additional images */}
+                  <div className="form-group mb-3">
+                    <label className="form-label">{editId ? 'إضافة صور جديدة' : 'صور المنتج'}</label>
                     <input type="file" className="input w-full" accept="image/*" multiple onChange={e => {
                       const files = Array.from(e.target.files ?? []);
                       setImageFiles(prev => [...prev, ...files]);
@@ -231,8 +282,13 @@ export default function VendorProducts() {
                           {imageFiles.map((f, i) => (
                             <div key={i} className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                               <img src={URL.createObjectURL(f)} alt="preview" className="w-full h-full object-cover rounded" />
-                              <button type="button" className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1" style={{ transform: 'translate(25%, -25%)' }}
-                                onClick={() => setImageFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                              <button
+                                type="button"
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                                style={{ transform: 'translate(25%, -25%)' }}
+                                aria-label="إزالة الصورة"
+                                onClick={() => setImageFiles(prev => prev.filter((_, idx) => idx !== i))}
+                              >
                                 <Trash2 size={12} />
                               </button>
                             </div>
@@ -241,24 +297,24 @@ export default function VendorProducts() {
                       </div>
                     )}
                   </div>
-                )}
-                <div className="flex gap-3 mt-4">
-                  <button className="btn btn-primary flex-1" type="submit" disabled={saveMutation.isPending}>
-                    {saveMutation.isPending ? 'جاري الحفظ...' : editId ? 'تحديث' : 'إضافة'}
-                  </button>
-                  <button className="btn btn-outline flex-1" type="button" onClick={resetForm}>إلغاء</button>
-                </div>
-              </form>
-            </div>
+
+                  <div className="flex gap-3 mt-4">
+                    <button className="btn btn-primary flex-1" type="submit" disabled={saveMutation.isPending}>
+                      {saveMutation.isPending ? 'جاري الحفظ...' : editId ? 'تحديث' : 'إضافة'}
+                    </button>
+                    <button className="btn btn-outline flex-1" type="button" onClick={resetForm}>إلغاء</button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
 
       {/* Products Table */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 64 }} />)}
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 64 }} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state border-0">
@@ -278,55 +334,65 @@ export default function VendorProducts() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
-                <tr key={p.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      {p.images?.[0] ? (
-                        <img src={p.images[0].url} alt="" className="rounded-md object-cover" style={{ width: 48, height: 48 }} />
-                      ) : (
-                        <div className="rounded-md flex items-center justify-center bg-gray-100" style={{ width: 48, height: 48 }}>
-                          <Image size={20} className="text-muted" />
+              {filtered.map(p => {
+                const firstImg = p.images?.[0]?.url || p.images?.[0]?.imageUrl;
+                return (
+                  <tr key={p.id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        {firstImg ? (
+                          <img src={firstImg} alt="" className="rounded-md object-cover" style={{ width: 48, height: 48 }} />
+                        ) : (
+                          <div className="rounded-md flex items-center justify-center bg-gray-100" style={{ width: 48, height: 48 }}>
+                            <Image size={20} className="text-muted" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold" style={{ fontSize: 'var(--font-size-sm)' }}>{p.name}</div>
+                          <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>#{p.id}</div>
                         </div>
-                      )}
-                      <div>
-                        <div className="font-semibold" style={{ fontSize: 'var(--font-size-sm)' }}>{p.name}</div>
-                        <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>#{p.id}</div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="font-semibold">{parseFloat(p.price).toLocaleString('ar-EG')} ج.م</td>
-                  <td>
-                    <span className={`badge badge-${p.stock > 10 ? 'success' : p.stock > 0 ? 'warning' : 'error'}`}>
-                      {p.stock > 0 ? `${p.stock} وحدة` : 'نفد'}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    {p.isActive ? (
-                      <span className="badge badge-success">نشط</span>
-                    ) : (
-                      <span className="badge badge-error">معطّل</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="flex justify-center gap-2">
-                      <button className="btn btn-ghost p-2" title="تعديل" onClick={() => startEdit(p)}>
-                        <Edit2 size={16} />
-                      </button>
-                      <button className="btn btn-ghost p-2" title={p.isActive ? 'إخفاء' : 'إظهار'}>
-                        {p.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                      <button
-                        className="btn btn-ghost p-2 text-red-500"
-                        title="حذف"
-                        onClick={() => { if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) deleteMutation.mutate(p.id); }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="font-semibold">{parseFloat(p.price).toLocaleString('ar-EG')} ج.م</td>
+                    <td>
+                      <span className={`badge badge-${p.stock > 10 ? 'success' : p.stock > 0 ? 'warning' : 'error'}`}>
+                        {p.stock > 0 ? `${p.stock} وحدة` : 'نفد'}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      {p.isActive ? (
+                        <span className="badge badge-success">نشط</span>
+                      ) : (
+                        <span className="badge badge-error">معطّل</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="flex justify-center gap-2">
+                        <button className="btn btn-ghost p-2" title="تعديل" aria-label="تعديل المنتج" onClick={() => startEdit(p)}>
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className="btn btn-ghost p-2"
+                          title={p.isActive ? 'إخفاء' : 'إظهار'}
+                          aria-label={p.isActive ? 'إخفاء المنتج' : 'إظهار المنتج'}
+                          disabled={toggleActiveMutation.isPending}
+                          onClick={() => toggleActiveMutation.mutate({ id: p.id, isActive: !p.isActive })}
+                        >
+                          {p.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                        <button
+                          className="btn btn-ghost p-2 text-red-500"
+                          title="حذف"
+                          aria-label="حذف المنتج"
+                          onClick={() => { if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) deleteMutation.mutate(p.id); }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -6,11 +6,6 @@
  * - Any shipped+ and none still pending → "shipped"
  * - All at least confirmed → "confirmed"
  * - Otherwise → current status unchanged (never regress)
- *
- * @param items - All order items with their vendorStatus
- * @param updatedItemId - The item that was just updated (may not yet be persisted)
- * @param updatedStatus - The new status being applied to that item
- * @returns The computed aggregate order status
  */
 
 type ItemStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
@@ -43,7 +38,7 @@ export function calculateOrderStatus(
   // Filter out cancelled items for progression checks
   const activeStatuses = effectiveStatuses.filter(s => s !== 'cancelled');
 
-  // If ALL items are cancelled (edge case) → keep as cancelled
+  // If ALL items are cancelled → order is cancelled
   if (activeStatuses.length === 0) return 'cancelled';
 
   // All active items delivered → order is delivered
@@ -55,7 +50,7 @@ export function calculateOrderStatus(
   if (hasShippedOrAbove && nonePending) return 'shipped';
 
   // All active items at least confirmed → confirmed
-  if (activeStatuses.every(s => STATUS_RANK[s]! >= STATUS_RANK['confirmed']!)) return 'confirmed';
+  if (activeStatuses.every(s => (STATUS_RANK[s] ?? 0) >= STATUS_RANK['confirmed']!)) return 'confirmed';
 
   // Default: still pending
   return 'pending';
@@ -63,12 +58,12 @@ export function calculateOrderStatus(
 
 /**
  * Determines if the order status should advance (never regress).
- * This prevents a late-confirming vendor from pulling the order status backward
- * after another vendor already shipped their items.
+ * Prevents a cancelled order from resurrecting, while allowing transition to 'cancelled' when all items are cancelled.
  */
 export function shouldAdvanceOrderStatus(currentStatus: string, computedStatus: string): boolean {
+  if (currentStatus === 'cancelled') return false;
+  if (computedStatus === 'cancelled') return true;
   const currentRank = STATUS_RANK[currentStatus] ?? 0;
   const computedRank = STATUS_RANK[computedStatus] ?? 0;
-  // Only advance forward, or allow setting "delivered" specifically when all items are done
   return computedRank > currentRank || computedStatus === 'delivered';
 }

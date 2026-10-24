@@ -1,6 +1,7 @@
 /**
  * Utility to export an array of objects to a CSV file.
- * Includes UTF-8 BOM (\uFEFF) to ensure correct Arabic rendering in Excel.
+ * Includes UTF-8 BOM (\uFEFF) to ensure correct Arabic rendering in Excel,
+ * and sanitizes cells against CSV Formula Injection (OWASP).
  */
 export function exportToCsv(filename: string, rows: Record<string, any>[]) {
   if (!rows || !rows.length) {
@@ -18,10 +19,13 @@ export function exportToCsv(filename: string, rows: Record<string, any>[]) {
         return keys
           .map((k) => {
             let cell = row[k] === null || row[k] === undefined ? '' : row[k];
-            // Format string appropriately
             if (typeof cell === 'string') {
+              // Prevent CSV formula injection (=, +, -, @, tab, CR)
+              if (/^[=+\-@\t\r]/.test(cell)) {
+                cell = `'${cell}`;
+              }
               cell = cell.replace(/"/g, '""');
-              if (cell.search(/("|,|\n)/g) >= 0) {
+              if (cell.search(/("|,|\n|\r)/g) >= 0) {
                 cell = `"${cell}"`;
               }
             }
@@ -43,5 +47,6 @@ export function exportToCsv(filename: string, rows: Record<string, any>[]) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }

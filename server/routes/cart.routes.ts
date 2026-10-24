@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { cartItems, products, productImages } from '../db/schema/index.js';
+import { cartItems, products, productImages, vendors } from '../db/schema/index.js';
 import { eq, and, sql, asc } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate, getValidated } from '../middleware/validate.js';
@@ -39,7 +39,8 @@ cartRoutes.get('/', async (c) => {
     })
     .from(cartItems)
     .innerJoin(products, eq(cartItems.productId, products.id))
-    .where(eq(cartItems.userId, user.id))
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(and(eq(cartItems.userId, user.id), eq(vendors.status, 'approved')))
     .orderBy(asc(cartItems.createdAt));
 
   // Get images for cart products
@@ -70,14 +71,20 @@ cartRoutes.post('/', validate('body', addToCartSchema), async (c) => {
   const user = c.get('user');
   const input = getValidated<z.infer<typeof addToCartSchema>>(c, 'body');
 
-  // Check product exists and is active
+  // Check product exists, is active, and vendor is approved
   const [product] = await db
-    .select({ id: products.id, stock: products.stock, isActive: products.isActive })
+    .select({
+      id: products.id,
+      stock: products.stock,
+      isActive: products.isActive,
+      vendorStatus: vendors.status,
+    })
     .from(products)
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
     .where(eq(products.id, input.productId))
     .limit(1);
 
-  if (!product || !product.isActive) {
+  if (!product || !product.isActive || product.vendorStatus !== 'approved') {
     throw AppError.notFound('المنتج');
   }
   if (product.stock < input.quantity) {
@@ -117,6 +124,7 @@ cartRoutes.post('/', validate('body', addToCartSchema), async (c) => {
 cartRoutes.put('/:id', validate('body', updateCartSchema), async (c) => {
   const user = c.get('user');
   const itemId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(itemId)) throw AppError.badRequest('معرف غير صالح');
   const input = getValidated<z.infer<typeof updateCartSchema>>(c, 'body');
 
   const [item] = await db.select().from(cartItems).where(and(eq(cartItems.id, itemId), eq(cartItems.userId, user.id))).limit(1);
@@ -141,6 +149,7 @@ cartRoutes.put('/:id', validate('body', updateCartSchema), async (c) => {
 cartRoutes.delete('/:id', async (c) => {
   const user = c.get('user');
   const itemId = parseInt(c.req.param('id')!, 10);
+  if (Number.isNaN(itemId)) throw AppError.badRequest('معرف غير صالح');
 
   const [item] = await db.select().from(cartItems).where(and(eq(cartItems.id, itemId), eq(cartItems.userId, user.id))).limit(1);
   if (!item) throw AppError.notFound('عنصر السلة');

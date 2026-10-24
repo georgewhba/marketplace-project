@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { storeApi, cartApi } from '../api';
-import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
+import { ProductCard, ProductCardSkeleton, StarRating } from '../components/ProductCard';
 import { AnimatedPage } from '../components/AnimatedPage';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
-import { SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
+import { SlidersHorizontal, ArrowLeft, ArrowRight, Store } from 'lucide-react';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const sortOptions = [
   { value: 'newest', label: 'الأحدث' },
@@ -17,53 +19,72 @@ const sortOptions = [
   { value: 'rating', label: 'الأعلى تقييماً' },
 ];
 
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
-
 export default function ProductsPage() {
   const shouldReduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { slug: vendorRouteSlug } = useParams<{ slug?: string }>();
   const { user } = useAuth();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   const search = searchParams.get('search') || '';
   const category = searchParams.get('category') || '';
-  
-  const pageTitle = search 
-    ? `نتائج البحث عن "${search}"` 
-    : (category ? `منتجات قسم ${category}` : 'تصفّح المنتجات');
+  const vendorSlug = vendorRouteSlug || searchParams.get('vendor') || '';
 
-  useDocumentTitle(pageTitle, {
-    description: 'تصفّح تشكيلة واسعة من أفضل المنتجات بأسعار تنافسية وشحن سريع لجميع المحافظات.',
-    canonicalPath: '/products',
-  });
-
+  const [vendorInfo, setVendorInfo] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState<any>(null);
 
+  const pageTitle = vendorInfo?.storeName
+    ? `متجر ${vendorInfo.storeName}`
+    : search
+      ? `نتائج البحث عن "${search}"`
+      : category
+        ? `منتجات قسم ${category}`
+        : 'تصفّح المنتجات';
+
+  useDocumentTitle(pageTitle, {
+    description: vendorInfo?.storeDescription || 'تصفّح تشكيلة واسعة من أفضل المنتجات بأسعار تنافسية وشحن سريع لجميع المحافظات.',
+    canonicalPath: vendorRouteSlug ? `/store/${vendorRouteSlug}` : '/products',
+  });
+
   const page = parseInt(searchParams.get('page') || '1');
   const sort = searchParams.get('sort') || 'newest';
+
+  useEffect(() => {
+    if (!vendorSlug) {
+      setVendorInfo(null);
+      return;
+    }
+    storeApi.getVendorStore(vendorSlug)
+      .then((res: any) => setVendorInfo(res?.data || res))
+      .catch(() => setVendorInfo(null));
+  }, [vendorSlug]);
 
   useEffect(() => {
     setLoading(true);
     const params: Record<string, string> = { page: String(page), sort, limit: '12' };
     if (search) params.search = search;
     if (category) params.category = category;
+    if (vendorSlug) params.vendor = vendorSlug;
     if (searchParams.get('featured')) params.featured = 'true';
 
     storeApi.getProducts(params)
       .then((res: any) => {
         setProducts(res.data || []);
-        setPagination(res.pagination || null);
+        const paginationData = (res as any)?.meta || (res as any)?.pagination || null;
+        setPagination(paginationData);
       })
       .catch(() => toast.error('فشل تحميل المنتجات'))
       .finally(() => setLoading(false));
-  }, [page, sort, search, category, searchParams.get('featured')]);
+  }, [page, sort, search, category, vendorSlug, searchParams.get('featured')]);
 
   const handleAddToCart = async (productId: number) => {
     if (!user) { toast.info('سجّل الدخول أولاً'); return; }
     try {
       await cartApi.addItem(productId, 1);
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
       toast.success('تمت الإضافة للسلة');
     } catch (e: any) {
       toast.error(e.message);
@@ -81,10 +102,30 @@ export default function ProductsPage() {
 
   return (
     <AnimatedPage className="container page-content">
+      {vendorInfo && (
+        <div className="card card-body mb-6 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center justify-center rounded-lg bg-primary-50" style={{ width: 56, height: 56 }}>
+            <Store size={28} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold m-0">{vendorInfo.storeName}</h1>
+            {vendorInfo.storeDescription && (
+              <p className="text-muted text-sm mt-1 mb-0">{vendorInfo.storeDescription}</p>
+            )}
+            <div className="flex items-center gap-2 text-xs text-muted mt-2">
+              <StarRating rating={parseFloat(vendorInfo.rating || '0')} size={14} />
+              <span>({vendorInfo.reviewCount || 0} تقييم)</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page-header">
-        <h1 className="page-header__title">
-          {search ? `نتائج البحث: "${search}"` : category ? `قسم: ${category}` : 'جميع المنتجات'}
-        </h1>
+        {!vendorInfo && (
+          <h1 className="page-header__title">
+            {search ? `نتائج البحث: "${search}"` : category ? `قسم: ${category}` : 'جميع المنتجات'}
+          </h1>
+        )}
         <p className="page-header__subtitle">
           {pagination ? `${pagination.total} منتج` : ''}
         </p>
@@ -121,7 +162,7 @@ export default function ProductsPage() {
           </Link>
         </div>
       ) : (
-        <motion.div 
+        <motion.div
           className="grid grid-4"
           initial="hidden"
           animate="visible"
@@ -140,6 +181,7 @@ export default function ProductsPage() {
             className="pagination__btn"
             disabled={page <= 1}
             onClick={() => updateParam('page', String(page - 1))}
+            aria-label="الصفحة السابقة"
           >
             <ArrowRight size={16} />
           </button>
@@ -159,6 +201,7 @@ export default function ProductsPage() {
             className="pagination__btn"
             disabled={page >= totalPages}
             onClick={() => updateParam('page', String(page + 1))}
+            aria-label="الصفحة التالية"
           >
             <ArrowLeft size={16} />
           </button>

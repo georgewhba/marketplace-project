@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { shipments, shipmentEvents, orderItems, orders } from '../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { shipments, shipmentEvents, orderItems, orders, products, vendors, transactions } from '../db/schema/index.js';
+import { eq, and, sql } from 'drizzle-orm';
 import { validate, getValidated } from '../middleware/validate.js';
 import { sendSuccess } from '../utils/response.js';
 import { AppError } from '../utils/errors.js';
-import { calculateOrderStatus, shouldAdvanceOrderStatus } from '../utils/calculateOrderStatus.js';
+import { resolveCommissionRate } from '../services/commission.service.js';
 import type { AppEnv } from '../types/env.js';
 import { env } from '../env.js';
 
@@ -41,10 +42,15 @@ function mapBostaState(bostaValue: string): string {
 webhooksRoutes.post('/bosta', validate('body', bostaWebhookSchema), async (c) => {
   const payload = getValidated<z.infer<typeof bostaWebhookSchema>>(c, 'body');
 
-  // Verify auth header or signature here if bosta provides one
-  // e.g. const signature = c.req.header('x-bosta-signature');
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader || authHeader !== `Bearer ${env.BOSTA_WEBHOOK_SECRET}`) {
+  if (!env.BOSTA_WEBHOOK_SECRET) {
+    throw AppError.unauthorized('Webhook secret not configured');
+  }
+
+  const authHeader = c.req.header('Authorization') ?? '';
+  const expectedAuth = `Bearer ${env.BOSTA_WEBHOOK_SECRET}`;
+  const authBuf = Buffer.from(authHeader);
+  const expectedBuf = Buffer.from(expectedAuth);
+  if (authBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(authBuf, expectedBuf)) {
     throw AppError.unauthorized('Invalid webhook signature');
   }
 
@@ -74,30 +80,93 @@ webhooksRoutes.post('/bosta', validate('body', bostaWebhookSchema), async (c) =>
       .set({ status: mappedStatus as any, updatedAt: new Date() })
       .where(eq(shipments.id, shipment.id));
 
-    // 3. Sync to orderItems & orders if delivered
+    // 3. Sync to orderItems & orders if delivered (with full ledger + balance + stock stats)
     if (mappedStatus === 'delivered') {
-      const allOrderItems = await tx.select().from(orderItems).where(eq(orderItems.orderId, shipment.orderId));
-      
-      // Update items linked to this shipment's vendor
-      await tx.update(orderItems)
-        .set({ vendorStatus: 'delivered', deliveredAt: new Date(), updatedAt: new Date() })
+      const lockedItems = await tx
+        .select()
+        .from(orderItems)
         .where(
           and(
             eq(orderItems.orderId, shipment.orderId),
             eq(orderItems.trackingNumber, payload.trackingNumber)
           )
-        );
+        )
+        .for('update');
+
+      const nowDate = new Date();
+
+      for (const lockedItem of lockedItems) {
+        if (lockedItem.vendorStatus === 'delivered' || lockedItem.vendorStatus === 'cancelled') {
+          continue;
+        }
+
+        let categoryId: number | undefined = undefined;
+        if (lockedItem.productId) {
+          const [prod] = await tx.select({ categoryId: products.categoryId })
+            .from(products)
+            .where(eq(products.id, lockedItem.productId));
+          categoryId = prod?.categoryId ?? undefined;
+        }
+
+        const saleAmount = parseFloat(lockedItem.total);
+        const commissionRate = await resolveCommissionRate(lockedItem.vendorId, categoryId ?? 0);
+        const commissionAmount = saleAmount * (commissionRate / 100);
+        const vendorAmount = saleAmount - commissionAmount;
+
+        // Lock vendor row and compute balance
+        const [vendorRecord] = await tx
+          .select({ totalSales: vendors.totalSales })
+          .from(vendors)
+          .where(eq(vendors.id, lockedItem.vendorId))
+          .for('update')
+          .limit(1);
+
+        const balanceBefore = parseFloat(vendorRecord?.totalSales ?? '0');
+        const balanceAfter = balanceBefore + vendorAmount;
+
+        // Record commission transaction
+        await tx.insert(transactions).values({
+          vendorId: lockedItem.vendorId,
+          orderItemId: lockedItem.id,
+          type: 'commission',
+          amount: vendorAmount.toFixed(2),
+          balanceBefore: balanceBefore.toFixed(2),
+          balanceAfter: balanceAfter.toFixed(2),
+          description: `عمولة من الطلب - ${lockedItem.productName}`,
+        });
+
+        // Update vendor balance
+        await tx.update(vendors).set({
+          totalSales: balanceAfter.toFixed(2),
+          updatedAt: nowDate,
+        }).where(eq(vendors.id, lockedItem.vendorId));
+
+        // Increment product totalSold
+        if (lockedItem.productId) {
+          await tx.update(products).set({
+            totalSold: sql`${products.totalSold} + ${lockedItem.quantity}`,
+          }).where(eq(products.id, lockedItem.productId));
+        }
+
+        // Update orderItem
+        await tx.update(orderItems).set({
+          vendorStatus: 'delivered',
+          deliveredAt: nowDate,
+          updatedAt: nowDate,
+          commissionRate: commissionRate.toFixed(2),
+          commissionAmount: commissionAmount.toFixed(2),
+          vendorAmount: vendorAmount.toFixed(2),
+        }).where(eq(orderItems.id, lockedItem.id));
+      }
 
       // Calculate parent order status
       const [order] = await tx.select().from(orders).where(eq(orders.id, shipment.orderId)).limit(1);
-      
       if (order) {
         const updatedSiblings = await tx.select().from(orderItems).where(eq(orderItems.orderId, shipment.orderId));
-        // A rough simplification of calculateOrderStatus without itemId since we don't know exactly which item caused it
-        const allDelivered = updatedSiblings.every(i => i.vendorStatus === 'delivered' || i.vendorStatus === 'cancelled');
+        const allDelivered = updatedSiblings.length > 0 && updatedSiblings.every(i => i.vendorStatus === 'delivered' || i.vendorStatus === 'cancelled');
         if (allDelivered) {
           await tx.update(orders)
-            .set({ status: 'delivered', updatedAt: new Date() })
+            .set({ status: 'delivered', updatedAt: nowDate })
             .where(eq(orders.id, order.id));
         }
       }

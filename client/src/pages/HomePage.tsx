@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 import { storeApi, cartApi } from '../api';
@@ -22,6 +23,7 @@ export default function HomePage() {
   const shouldReduceMotion = useReducedMotion();
   const { user } = useAuth();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +41,7 @@ export default function HomePage() {
     if (!user) { toast.info('سجّل الدخول أولاً'); return; }
     try {
       await cartApi.addItem(productId, 1);
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
       toast.success('تمت الإضافة للسلة');
     } catch (e: any) {
       toast.error(e.message);
@@ -105,11 +108,11 @@ export default function HomePage() {
               {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
             </div>
           ) : (
-            <motion.div 
+            <motion.div
               className="grid grid-4"
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: '-50px' }}
               variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
             >
               {data?.featuredProducts?.map((p: any) => (
@@ -132,11 +135,11 @@ export default function HomePage() {
               {Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}
             </div>
           ) : (
-            <motion.div 
+            <motion.div
               className="grid grid-4"
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: '-50px' }}
               variants={{ visible: { transition: { staggerChildren: shouldReduceMotion ? 0 : motionTokens.stagger } } }}
             >
               {data?.newArrivals?.map((p: any) => (

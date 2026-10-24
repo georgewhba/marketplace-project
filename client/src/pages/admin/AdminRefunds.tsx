@@ -13,14 +13,14 @@ export default function AdminRefunds() {
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['admin-refunds'],
     queryFn: async () => {
-      const res = await api.get('/api/refunds/admin') as any;
-      return res.data.data || res.data;
-    }
+      const res = (await api.get('/refunds/admin')) as any;
+      return res?.data?.data || res?.data || res || [];
+    },
   });
 
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
-      await api.put(`/api/refunds/admin/${id}/approve`, { adminNote });
+      await api.put(`/refunds/admin/${id}/approve`, { adminNote });
     },
     onSuccess: () => {
       toast.success('تمت الموافقة على الاسترجاع');
@@ -28,13 +28,13 @@ export default function AdminRefunds() {
       setSelectedRequest(null);
       setAdminNote('');
     },
-    onError: (e: any) => toast.error(e.response?.data?.error || 'حدث خطأ')
+    onError: (e: any) => toast.error(e.message || e.response?.data?.error || 'حدث خطأ'),
   });
 
   const rejectMutation = useMutation({
     mutationFn: async (id: number) => {
       if (!adminNote) throw new Error('سبب الرفض مطلوب');
-      await api.put(`/api/refunds/admin/${id}/reject`, { adminNote });
+      await api.put(`/refunds/admin/${id}/reject`, { adminNote });
     },
     onSuccess: () => {
       toast.success('تم رفض طلب الاسترجاع');
@@ -42,7 +42,7 @@ export default function AdminRefunds() {
       setSelectedRequest(null);
       setAdminNote('');
     },
-    onError: (e: any) => toast.error(e.message || e.response?.data?.error || 'حدث خطأ')
+    onError: (e: any) => toast.error(e.message || e.response?.data?.error || 'حدث خطأ'),
   });
 
   if (isLoading) return <div className="skeleton" style={{ height: 400 }}></div>;
@@ -87,7 +87,7 @@ export default function AdminRefunds() {
                 <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{new Date(req.createdAt).toLocaleDateString('ar-EG')}</td>
                 <td>
                   {req.status === 'pending' && (
-                    <button 
+                    <button
                       className="btn btn-outline btn-sm"
                       onClick={() => setSelectedRequest(req)}
                     >
@@ -110,16 +110,16 @@ export default function AdminRefunds() {
             <h3 className="font-semibold mb-4 flex gap-2 items-center" style={{ fontSize: 'var(--font-size-lg)' }}>
               <RefreshCw size={18} /> معالجة طلب استرجاع #{selectedRequest.orderId}
             </h3>
-            
+
             <div className="mb-4">
               <p className="text-muted mb-1" style={{ fontSize: 'var(--font-size-sm)' }}>السبب المقدم من العميل:</p>
               <div className="p-3 border" style={{ backgroundColor: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>{selectedRequest.reason}</div>
             </div>
-            
+
             <div className="form-group mb-6">
               <label className="form-label">ملاحظات الإدارة (تظهر للعميل)</label>
-              <textarea 
-                className="input" 
+              <textarea
+                className="input"
                 rows={3}
                 value={adminNote}
                 onChange={e => setAdminNote(e.target.value)}
@@ -127,9 +127,9 @@ export default function AdminRefunds() {
                 style={{ resize: 'vertical' }}
               />
             </div>
-            
+
             <div className="flex gap-3 justify-end">
-              <button 
+              <button
                 className="btn btn-ghost"
                 onClick={() => {
                   setSelectedRequest(null);
@@ -139,14 +139,14 @@ export default function AdminRefunds() {
               >
                 إلغاء
               </button>
-              <button 
+              <button
                 className="btn btn-danger"
                 onClick={() => rejectMutation.mutate(selectedRequest.id)}
                 disabled={approveMutation.isPending || rejectMutation.isPending}
               >
                 <X size={16} /> رفض الطلب
               </button>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={() => approveMutation.mutate(selectedRequest.id)}
                 disabled={approveMutation.isPending || rejectMutation.isPending}

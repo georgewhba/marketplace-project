@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { storeApi, cartApi, wishlistApi } from '../api';
+import { storeApi, cartApi, wishlistApi, reviewApi } from '../api';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
 import { StarRating } from '../components/ProductCard';
-import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store, Gem, Sparkles } from 'lucide-react';
+import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store, Gem, Sparkles, Star } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ProductDetailPage() {
@@ -22,18 +22,29 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
 
+  const [reviewForm, setReviewForm] = useState<{ rating: number; title: string; comment: string; orderItemId?: number }>({
+    rating: 5,
+    title: '',
+    comment: '',
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   useDocumentTitle(product?.name, {
     description: product?.description ? product.description.slice(0, 160) : undefined,
     canonicalPath: `/products/${slug}`,
   });
 
-  useEffect(() => {
+  const loadProduct = () => {
     if (!slug) return;
     setLoading(true);
     storeApi.getProduct(slug)
       .then(res => setProduct((res as any).data || res))
       .catch(() => toast.error('فشل تحميل المنتج'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadProduct();
   }, [slug]);
 
   const handleAddToCart = async () => {
@@ -41,6 +52,7 @@ export default function ProductDetailPage() {
     setAddingToCart(true);
     try {
       await cartApi.addItem(product.id, quantity);
+      qc.invalidateQueries({ queryKey: ['cart'] });
       toast.success('تمت الإضافة للسلة');
     } catch (e: any) {
       toast.error(e.message);
@@ -49,10 +61,32 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) { toast.info('سجّل الدخول أولاً'); return; }
+    setSubmittingReview(true);
+    try {
+      await reviewApi.createReview({
+        productId: product.id,
+        ...(reviewForm.orderItemId ? { orderItemId: reviewForm.orderItemId } : {}),
+        rating: reviewForm.rating,
+        title: reviewForm.title || undefined,
+        comment: reviewForm.comment || undefined,
+      });
+      toast.success('تم إضافة تقييمك بنجاح');
+      setReviewForm({ rating: 5, title: '', comment: '' });
+      loadProduct();
+    } catch (e: any) {
+      toast.error(e.message || 'حدث خطأ أثناء إرسال التقييم');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const handleWishlist = async () => {
     if (!user) { toast.info('سجّل الدخول أولاً'); return; }
     try {
-      const res = await wishlistApi.toggle(product.id) as any;
+      const res = (await wishlistApi.toggle(product.id)) as any;
       const data = res.data || res;
       toast.success(data.wishlisted ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة');
       qc.invalidateQueries({ queryKey: ['wishlist'] });
@@ -109,7 +143,7 @@ export default function ProductDetailPage() {
               <AnimatePresence mode="wait">
                 <motion.img
                   key={selectedImage}
-                  src={images[selectedImage]?.imageUrl || 'https://picsum.photos/seed/fallback/800/800'}
+                  src={images[selectedImage]?.imageUrl || images[selectedImage]?.url || 'https://picsum.photos/seed/fallback/800/800'}
                   alt={product.name}
                   className="w-full h-full object-cover"
                   initial={{ opacity: 0 }}
@@ -126,10 +160,11 @@ export default function ProductDetailPage() {
                 <button
                   key={i}
                   onClick={() => setSelectedImage(i)}
+                  aria-label={`صورة المنتج ${i + 1}`}
                   className={`overflow-hidden rounded-md cursor-pointer border ${i === selectedImage ? 'border-primary' : 'border-neutral-200'}`}
                   style={{ width: 72, height: 72 }}
                 >
-                  <img src={img.imageUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={img.imageUrl || img.url} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -183,11 +218,11 @@ export default function ProductDetailPage() {
           {!isOutOfStock && (
             <div className="flex items-center flex-wrap gap-4 mb-6">
               <div className="quantity-control">
-                <button className="quantity-control__btn" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                <button className="quantity-control__btn" aria-label="تقليل الكمية" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
                   <Minus size={16} />
                 </button>
-                <input className="quantity-control__value" type="text" value={quantity} readOnly />
-                <button className="quantity-control__btn" onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}>
+                <input className="quantity-control__value" type="text" value={quantity} readOnly aria-label="الكمية" />
+                <button className="quantity-control__btn" aria-label="زيادة الكمية" onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}>
                   <Plus size={16} />
                 </button>
               </div>
@@ -195,7 +230,7 @@ export default function ProductDetailPage() {
                 <ShoppingCart size={18} />
                 {addingToCart ? 'جارٍ الإضافة...' : 'أضف للسلة'}
               </button>
-              <button className="btn btn-ghost btn-lg p-4" onClick={handleWishlist}>
+              <button className="btn btn-ghost btn-lg p-4" aria-label="إضافة إلى المفضلة" onClick={handleWishlist}>
                 <Heart size={20} />
               </button>
             </div>
@@ -233,11 +268,11 @@ export default function ProductDetailPage() {
 
           {/* Description */}
           {product.description && (
-            <motion.div 
+            <motion.div
               className="mt-6"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
+              viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
             >
               <h3 className="text-base font-semibold mb-3">وصف المنتج</h3>
@@ -250,17 +285,57 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Reviews */}
-      {product.reviews && product.reviews.length > 0 && (
-        <motion.section 
-          className="mt-12"
-          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
-        >
-          <h2 className="text-xl font-bold mb-6">
-            التقييمات ({product.reviewCount})
-          </h2>
+      <motion.section
+        className="mt-12"
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-50px' }}
+        transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
+      >
+        <h2 className="text-xl font-bold mb-6">
+          التقييمات ({product.reviewCount || 0})
+        </h2>
+
+        {user && user.role === 'customer' && (
+          <form onSubmit={handleSubmitReview} className="card card-body mb-6">
+            <h3 className="text-base font-semibold mb-3">أضف تقييمك</h3>
+            <div className="flex items-center gap-2 mb-3">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  aria-label={`تقييم ${star} نجوم`}
+                  onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                  className="btn btn-ghost p-1"
+                >
+                  <Star size={20} fill={star <= reviewForm.rating ? 'var(--accent-500)' : 'none'} color="var(--accent-500)" />
+                </button>
+              ))}
+            </div>
+            <div className="form-group mb-3">
+              <input
+                className="form-input"
+                placeholder="عنوان التقييم (اختياري)"
+                value={reviewForm.title}
+                onChange={e => setReviewForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="form-group mb-3">
+              <textarea
+                className="form-textarea"
+                rows={3}
+                placeholder="اكتب تجربتك مع المنتج..."
+                value={reviewForm.comment}
+                onChange={e => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={submittingReview}>
+              {submittingReview ? 'جاري الإرسال...' : 'إرسال التقييم'}
+            </button>
+          </form>
+        )}
+
+        {product.reviews && product.reviews.length > 0 && (
           <div className="flex flex-col gap-4">
             {product.reviews.map((review: any) => (
               <div key={review.id} className="card card-body">
@@ -290,8 +365,8 @@ export default function ProductDetailPage() {
               </div>
             ))}
           </div>
-        </motion.section>
-      )}
+        )}
+      </motion.section>
     </div>
   );
 }

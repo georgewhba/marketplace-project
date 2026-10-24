@@ -1,9 +1,8 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   POST,
-  seedUser, seedCategory, seedVendor, seedProduct, createAccessToken, cleanup, closeDb, db, seedCartItem, seedAddress
+  seedUser, seedCategory, seedVendor, seedProduct, createAccessToken, cleanup, closeDb, seedCartItem, seedAddress
 } from './helpers.js';
-import crypto from 'crypto';
 
 const ts = Date.now();
 const cleanupIds = {
@@ -13,6 +12,7 @@ const cleanupIds = {
   productIds: [] as number[],
   addressIds: [] as number[],
   cartItemIds: [] as number[],
+  orderIds: [] as number[],
 };
 
 afterAll(async () => {
@@ -23,7 +23,7 @@ afterAll(async () => {
 describe('Payment & Checkout Edge Cases', () => {
   let user: number, token: string, product: number, address: number;
 
-  it('Setup data', async () => {
+  beforeAll(async () => {
     user = await seedUser(`pay-${ts}@test.com`, 'Pass123');
     cleanupIds.userIds.push(user);
     token = createAccessToken(user, `pay-${ts}@test.com`, 'customer');
@@ -44,21 +44,29 @@ describe('Payment & Checkout Edge Cases', () => {
     cleanupIds.cartItemIds.push(cartItem);
   });
 
-  it('rejects price manipulation in checkout payload', async () => {
-    const res = await POST('/api/orders', {
+  it('rejects price manipulation in checkout payload and enforces server-side price calculation', async () => {
+    // 1. Extra malicious fields (totalAmount / total) must be rejected by strict schema
+    const tamperedRes = await POST('/api/orders', {
       token,
-      body: { 
-        shippingAddressId: address,
-        paymentMethod: 'card',
-        totalAmount: 1.00 // Malicious attempt to change price
+      body: {
+        addressId: address,
+        total: 1.00, // Malicious attempt to override price
       }
     });
+    expect(tamperedRes.status).toBe(400);
 
-    expect([200, 201, 400]).toContain(res.status); // 400 if strictly validated
-    if (res.status === 201 || res.status === 200) {
-      // If it passes, ensure the DB-calculated total is 200, not 1
-      const orderData = res.body?.data as any;
-      expect(Number(orderData.totalAmount)).toBeGreaterThan(1);
+    // 2. Valid checkout must compute total from DB product price (2 * 100 = 200 + shipping)
+    const validRes = await POST('/api/orders', {
+      token,
+      body: {
+        addressId: address,
+      }
+    });
+    expect(validRes.status).toBe(201);
+    const orderData = validRes.body?.data as any;
+    expect(Number(orderData.total)).toBeGreaterThanOrEqual(200);
+    if (orderData?.id) {
+      cleanupIds.orderIds.push(orderData.id);
     }
   });
 
@@ -67,16 +75,14 @@ describe('Payment & Checkout Edge Cases', () => {
       obj: {
         id: 12345,
         success: true,
-        order: { id: 9999 } // Mismatched or fake order
+        order: { id: 9999 }
       }
     };
-    
-    // Simulate what paymob sends, but with wrong HMAC in query
+
     const res = await POST('/api/payments/webhook?hmac=invalid_hmac_hash', {
       body: fakePayload
     });
 
-    // Should definitely be 401 or 403 or 400 for bad signature
     expect([400, 401, 403]).toContain(res.status);
   });
 });

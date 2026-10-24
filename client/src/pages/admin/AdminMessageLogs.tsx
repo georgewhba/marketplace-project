@@ -8,10 +8,13 @@ export default function AdminMessageLogs() {
   const [channel, setChannel] = useState('');
   const [status, setStatus] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data: rawRes, isLoading } = useQuery({
     queryKey: ['adminMessageLogs', page, channel, status],
-    queryFn: () => adminApi.getMessageLogs(page, { channel, status }).then(res => res.data),
+    queryFn: () => adminApi.getMessageLogs(page, { channel, status }),
   });
+
+  const data = rawRes?.data;
+  const meta = (rawRes as any)?.meta || data?.meta;
 
   const formatDate = (isoString: string) => {
     const d = new Date(isoString);
@@ -63,7 +66,7 @@ export default function AdminMessageLogs() {
               </tr>
             </thead>
             <tbody>
-              {data?.logs?.length === 0 && (
+              {(!data?.logs || data.logs.length === 0) && (
                 <tr>
                   <td colSpan={5} className="text-center" style={{ padding: 'var(--space-4)' }}>
                     لا توجد رسائل مسجلة
@@ -103,10 +106,9 @@ export default function AdminMessageLogs() {
             </tbody>
           </table>
           
-          {/* Pagination */}
-          {data?.meta && data.meta.totalPages > 1 && (
+          {meta && meta.totalPages > 1 && (
             <div className="flex justify-center gap-2 p-4" style={{ borderTop: '1px solid var(--border-color)' }}>
-              {Array.from({ length: data.meta.totalPages }).map((_, i) => (
+              {Array.from({ length: meta.totalPages }).map((_, i) => (
                 <button 
                   key={i} 
                   className={`btn btn-sm ${page === i + 1 ? 'btn-primary' : 'btn-outline'}`}

@@ -4,7 +4,7 @@ import { notifications } from '../db/schema/notifications.js';
 import { and, eq } from 'drizzle-orm';
 import { emailQueue } from '../jobs/email.queue.js';
 import type { EmailTemplateKey } from './email.service.js';
-import { sendSms, SmsOptions } from './sms.service.js';
+import { sendSms } from './sms.service.js';
 import { users } from '../db/schema/users.js';
 
 export type NotificationCategory = 'order_updates' | 'promotions' | 'stock_alerts' | 'system' | 'vendor_updates';
@@ -67,7 +67,7 @@ export async function dispatchNotification(options: DispatchOptions): Promise<vo
       subject: title,
       templateKey: email.templateKey,
       data: email.data,
-    });
+    }).catch((err) => console.error('[Notification] Async dispatch error:', err));
   }
 
   // 5. Dispatch SMS
@@ -77,6 +77,6 @@ export async function dispatchNotification(options: DispatchOptions): Promise<vo
       to: user.phone,
       message: sms.message,
       templateKey: category,
-    });
+    }).catch((err) => console.error('[Notification] Async dispatch error:', err));
   }
 }

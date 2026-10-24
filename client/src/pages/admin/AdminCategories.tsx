@@ -15,6 +15,7 @@ interface Category {
   parentId: number | null;
   isActive: boolean;
   sortOrder: number;
+  children?: Category[];
 }
 
 export default function AdminCategories() {
@@ -29,7 +30,19 @@ export default function AdminCategories() {
     queryFn: () => adminApi.getCategories(),
   });
 
-  const categories: Category[] = data?.data ?? [];
+  // Flatten tree if backend returns nested children
+  const rawCategories: Category[] = data?.data ?? [];
+  const categories: Category[] = [];
+  for (const cat of rawCategories) {
+    categories.push(cat);
+    if (Array.isArray(cat.children)) {
+      for (const child of cat.children) {
+        if (!categories.some(c => c.id === child.id)) {
+          categories.push(child);
+        }
+      }
+    }
+  }
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -37,7 +50,7 @@ export default function AdminCategories() {
         name: form.name,
         description: form.description || undefined,
         icon: form.icon || undefined,
-        parentId: form.parentId || undefined,
+        parentId: form.parentId || null,
         sortOrder: form.sortOrder,
       };
       return editId ? adminApi.updateCategory(editId, payload) : adminApi.createCategory(payload);
@@ -61,7 +74,6 @@ export default function AdminCategories() {
 
   const rootCategories = categories.filter(c => !c.parentId);
   
-  // Recursive component to render tree
   const CategoryNode = ({ cat, level = 0 }: { cat: Category, level?: number }) => {
     const children = categories.filter(c => c.parentId === cat.id);
     
@@ -81,7 +93,6 @@ export default function AdminCategories() {
           }}
         >
           <div className="flex-1 flex items-center">
-            {/* Display Icon */}
             {(() => {
               const IconComp = (Icons as any)[cat.icon || ''] || Icons.Tag;
               return (
@@ -104,12 +115,11 @@ export default function AdminCategories() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="btn btn-ghost btn-sm" onClick={() => startEdit(cat)} title="تعديل"><Edit2 size={14} /></button>
-            <button className="btn btn-ghost btn-sm text-error" onClick={() => { if (confirm('هل أنت متأكد من حذف هذا القسم؟')) deleteMutation.mutate(cat.id); }} title="حذف"><Trash2 size={14} /></button>
+            <button className="btn btn-ghost btn-sm" onClick={() => startEdit(cat)} title="تعديل" aria-label="تعديل القسم"><Edit2 size={14} /></button>
+            <button className="btn btn-ghost btn-sm text-error" onClick={() => { if (confirm('هل أنت متأكد من حذف هذا القسم؟')) deleteMutation.mutate(cat.id); }} title="حذف" aria-label="حذف القسم"><Trash2 size={14} /></button>
           </div>
         </div>
         
-        {/* Render children recursively */}
         {children.length > 0 && (
           <div className="category-children">
             {children.map(child => <CategoryNode key={child.id} cat={child} level={level + 1} />)}
@@ -131,7 +141,6 @@ export default function AdminCategories() {
         </button>
       </div>
 
-      {/* Form */}
       {showForm && (
         <div className="card card-body mb-4" style={{ maxWidth: 480 }}>
           <h3 className="text-primary" style={{ marginTop: 0, fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>{editId ? 'تعديل القسم' : 'قسم جديد'}</h3>
@@ -161,7 +170,7 @@ export default function AdminCategories() {
               <label className="form-label">القسم الأب</label>
               <select className="form-select" value={form.parentId} onChange={e => setForm(f => ({ ...f, parentId: parseInt(e.target.value) }))}>
                 <option value={0}>— قسم رئيسي —</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {categories.filter(c => c.id !== editId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <p className="text-muted mt-1" style={{ fontSize: '11px' }}>اختر قسماً لتفريعه، أو اتركه كقسم رئيسي.</p>
             </div>
@@ -175,7 +184,6 @@ export default function AdminCategories() {
         </div>
       )}
 
-      {/* Categories Tree */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 56 }} />)}

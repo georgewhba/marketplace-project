@@ -26,7 +26,10 @@ jobs:
       - run: npm ci
       - run: cd client && npm ci
       - name: Typecheck / Lint
-        run: npm run lint
+        run: |
+          npx tsc --noEmit
+          npm --prefix client run build
+          npm run lint
       - name: Migrate test DB
         run: npm run db:migrate
         env:
@@ -65,17 +68,18 @@ jobs:
       - run: cd client && npm ci
       - name: Install Playwright Browsers
         run: cd client && npx playwright install --with-deps chromium
-      - name: Migrate test DB
-        run: npm run db:migrate
+      - name: Migrate and seed test DB
+        run: |
+          npm run db:migrate
+          npx tsx server/db/seed.ts
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long
           JWT_REFRESH_SECRET: test_secret_minimum_32_characters_long_2
       - name: Run E2E tests
-        run: |
-          PORT=3001 npm run dev &
-          npm run test:e2e
+        run: npm run test:e2e
         env:
+          PORT: 3001
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long

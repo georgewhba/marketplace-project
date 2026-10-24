@@ -4,9 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../auth';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, cartApi } from '../api';
 import { useTheme } from '../hooks/useTheme';
-import { cartApi } from '../api';
 import { useSiteName } from '../hooks/useSiteSettings';
 
 const MotionLink = motion.create(Link);
@@ -21,7 +20,7 @@ export function Header({ className }: { className?: string }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { data: unreadData } = useQuery({
-    queryKey: ['notifications', 'unread'],
+    queryKey: ['notifications-unread'],
     queryFn: () => api.get<any>('/auth/me/notifications/unread-count').then(res => res.data),
     enabled: !!user,
     refetchInterval: 30000,
@@ -73,26 +72,32 @@ export function Header({ className }: { className?: string }) {
             placeholder="ابحث عن منتجات..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="ابحث عن منتجات"
           />
           <Search className="header__search-icon" size={16} />
         </form>
 
         <div className="header__actions" ref={menuRef}>
           {/* DESKTOP: Theme toggle */}
-          <button className="header__icon-btn max-md:!hidden" onClick={toggleTheme} title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}>
+          <button
+            className="header__icon-btn max-md:!hidden"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
+            aria-label={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
+          >
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
           {user && (
             <>
               {/* DESKTOP: Notifications */}
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn max-md:!hidden" title="الإشعارات" style={{ position: 'relative' }}>
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/notifications" className="header__icon-btn max-md:!hidden" title="الإشعارات" aria-label="الإشعارات" style={{ position: 'relative' }}>
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span style={{
                     position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--brand-500)', color: 'white',
                     fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
-                    boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
+                    boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)',
                   }}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
@@ -100,7 +105,7 @@ export function Header({ className }: { className?: string }) {
               </MotionLink>
 
               {/* DESKTOP: Wishlist */}
-              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn max-md:!hidden" title="المفضلة">
+              <MotionLink whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} to="/wishlist" className="header__icon-btn max-md:!hidden" title="المفضلة" aria-label="المفضلة">
                 <Heart size={20} />
               </MotionLink>
             </>
@@ -108,12 +113,13 @@ export function Header({ className }: { className?: string }) {
 
           {/* DESKTOP: Cart */}
           {user?.role !== 'vendor' && user?.role !== 'admin' && (
-            <MotionLink 
-              whileHover={{ scale: 1.05 }} 
-              whileTap={{ scale: 0.95 }} 
-              to="/cart" 
-              className="header__icon-btn max-md:!hidden" 
-              title="السلة" 
+            <MotionLink
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              to="/cart"
+              className="header__icon-btn max-md:!hidden"
+              title="السلة"
+              aria-label="السلة"
               style={{ position: 'relative' }}
             >
               <motion.div
@@ -128,7 +134,7 @@ export function Header({ className }: { className?: string }) {
                 <span style={{
                   position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--brand-500)', color: 'white',
                   fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold',
-                  boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)'
+                  boxShadow: '0 2px 4px rgba(201,95,52,0.4)', border: '1px solid rgba(255,255,255,0.2)',
                 }}>
                   {cartItemCount > 99 ? '99+' : cartItemCount}
                 </span>
@@ -147,22 +153,22 @@ export function Header({ className }: { className?: string }) {
                 <div className="flex items-center"><User size={18} /></div>
                 <span className="inline" style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{user.firstName}</span>
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'plus' && (
-                  <span className="inline" style={{ 
+                  <span className="inline" style={{
                     background: 'linear-gradient(to right, var(--brand-400), var(--brand-600))',
                     color: 'white', fontSize: 'var(--font-size-xs, 0.65rem)', padding: '2px 6px',
-                    borderRadius: '12px', fontWeight: 'bold', marginInlineStart: '4px'
+                    borderRadius: '12px', fontWeight: 'bold', marginInlineStart: '4px',
                   }}>بلس</span>
                 )}
                 {user.role === 'vendor' && user.vendor?.subscription?.planSlug === 'pro' && (
-                  <span className="inline" style={{ 
+                  <span className="inline" style={{
                     background: 'linear-gradient(45deg, #1f2937, #111827)',
                     color: 'var(--warning-500, #fbbf24)', border: '1px solid #374151',
                     fontSize: 'var(--font-size-xs, 0.65rem)', padding: '2px 6px',
-                    borderRadius: '12px', fontWeight: 'bold', marginInlineStart: '4px'
+                    borderRadius: '12px', fontWeight: 'bold', marginInlineStart: '4px',
                   }}>برو</span>
                 )}
               </motion.button>
-              
+
               {menuOpen && (
                 <div className="dropdown__menu">
                   <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}><User size={16} /> حسابي</Link>
@@ -178,86 +184,91 @@ export function Header({ className }: { className?: string }) {
 
           {/* MOBILE ONLY: Generic Three Dots Menu */}
           <div className="dropdown md:hidden">
-             <motion.button 
-               whileHover={{ scale: 1.05 }} 
-               whileTap={{ scale: 0.95 }}
-               className="header__icon-btn" 
-               onClick={() => setMenuOpen(!menuOpen)}
-               style={{ position: 'relative' }}
-             >
-               <MoreVertical size={24} />
-               {(unreadCount > 0 || cartItemCount > 0) && (
-                 <span style={{
-                   position: 'absolute', top: 2, right: 2, width: 8, height: 8,
-                   background: 'var(--brand-500)', borderRadius: '50%', border: '2px solid var(--bg-surface)'
-                 }}></span>
-               )}
-             </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="header__icon-btn"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="القائمة"
+              style={{ position: 'relative' }}
+            >
+              <MoreVertical size={24} />
+              {(unreadCount > 0 || cartItemCount > 0) && (
+                <span style={{
+                  position: 'absolute', top: 2, right: 2, width: 8, height: 8,
+                  background: 'var(--brand-500)', borderRadius: '50%', border: '2px solid var(--bg-surface)',
+                }}></span>
+              )}
+            </motion.button>
 
-             {menuOpen && (
-                <div className="dropdown__menu">
-                  {/* Theme */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] mb-1">
-                    <span className="text-sm font-semibold">المظهر</span>
-                    <button onClick={toggleTheme} className="p-1 rounded bg-[var(--bg-surface-2)]">
-                      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                    </button>
-                  </div>
-
-                  {user ? (
-                    <>
-                      <Link to="/notifications" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
-                        <div className="flex items-center gap-2"><Bell size={16} /> الإشعارات</div>
-                        {unreadCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{unreadCount}</span>}
-                      </Link>
-
-                      {user?.role !== 'vendor' && user?.role !== 'admin' && (
-                        <>
-                          <Link to="/wishlist" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                            <Heart size={16} /> المفضلة
-                          </Link>
-                          <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
-                            <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
-                            {cartItemCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{cartItemCount}</span>}
-                          </Link>
-                        </>
-                      )}
-
-                      <hr className="dropdown__divider" />
-                      <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                        <User size={16} /> حسابي
-                      </Link>
-                      <Link to="/orders" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                        <ShoppingCart size={16} /> طلباتي
-                      </Link>
-                      {user.role === 'vendor' && (
-                        <Link to="/vendor" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                          <Store size={16} /> لوحة البائع
-                        </Link>
-                      )}
-                      {user.role === 'admin' && (
-                        <Link to="/admin" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                          <LayoutDashboard size={16} /> لوحة الإدارة
-                        </Link>
-                      )}
-                      <hr className="dropdown__divider" />
-                      <button className="dropdown__item" onClick={handleLogout}>
-                        <LogOut size={16} /> تسجيل الخروج
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
-                        <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
-                        {cartItemCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{cartItemCount}</span>}
-                      </Link>
-                      <Link to="/login" className="dropdown__item" onClick={() => setMenuOpen(false)}>
-                        <LogOut size={16} /> تسجيل الدخول
-                      </Link>
-                    </>
-                  )}
+            {menuOpen && (
+              <div className="dropdown__menu">
+                {/* Theme */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] mb-1">
+                  <span className="text-sm font-semibold">المظهر</span>
+                  <button
+                    onClick={toggleTheme}
+                    className="p-1 rounded bg-[var(--bg-surface-2)]"
+                    aria-label={theme === 'dark' ? 'تفعيل الوضع الفاتح' : 'تفعيل الوضع الداكن'}
+                  >
+                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  </button>
                 </div>
-             )}
+
+                {user ? (
+                  <>
+                    <Link to="/notifications" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
+                      <div className="flex items-center gap-2"><Bell size={16} /> الإشعارات</div>
+                      {unreadCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{unreadCount}</span>}
+                    </Link>
+
+                    {user?.role !== 'vendor' && user?.role !== 'admin' && (
+                      <>
+                        <Link to="/wishlist" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                          <Heart size={16} /> المفضلة
+                        </Link>
+                        <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
+                          <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
+                          {cartItemCount > 0 && <span className="bg-[var(--brand-500)] text-white text-[10px] px-2 py-0.5 rounded-full">{cartItemCount}</span>}
+                        </Link>
+                      </>
+                    )}
+
+                    <hr className="dropdown__divider" />
+                    <Link to="/profile" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                      <User size={16} /> حسابي
+                    </Link>
+                    <Link to="/orders" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                      <ShoppingCart size={16} /> طلباتي
+                    </Link>
+                    {user.role === 'vendor' && (
+                      <Link to="/vendor" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                        <Store size={16} /> لوحة البائع
+                      </Link>
+                    )}
+                    {user.role === 'admin' && (
+                      <Link to="/admin" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                        <LayoutDashboard size={16} /> لوحة الإدارة
+                      </Link>
+                    )}
+                    <hr className="dropdown__divider" />
+                    <button className="dropdown__item" onClick={handleLogout}>
+                      <LogOut size={16} /> تسجيل الخروج
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/cart" className="dropdown__item flex justify-between" onClick={() => setMenuOpen(false)}>
+                      <div className="flex items-center gap-2"><ShoppingCart size={16} /> السلة</div>
+                      {cartItemCount > 0 && <span className="badge badge-error text-xs px-2 py-1">{cartItemCount}</span>}
+                    </Link>
+                    <Link to="/login" className="dropdown__item" onClick={() => setMenuOpen(false)}>
+                      <LogOut size={16} /> تسجيل الدخول
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -267,7 +278,7 @@ export function Header({ className }: { className?: string }) {
 
 export function Footer() {
   const siteName = useSiteName();
-  
+
   return (
     <footer className="footer">
       <div className="footer__grid">

@@ -5,11 +5,11 @@ WORKDIR /app
 
 # Install root dependencies
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 # Install client dependencies
 COPY client/package*.json ./client/
-RUN cd client && npm install
+RUN cd client && npm ci
 
 # Copy all source code
 COPY . .
@@ -28,7 +28,7 @@ ENV PORT=3000
 
 # Install production dependencies only
 COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Copy built artifacts from the builder stage
 COPY --from=builder /app/dist ./dist
@@ -36,13 +36,17 @@ COPY --from=builder /app/client/dist ./client/dist
 COPY --from=builder /app/drizzle ./drizzle
 
 # Create required directories for volume mounts
-RUN mkdir -p uploads && chown -R node:node /app
+RUN mkdir -p uploads logs && chown -R node:node /app
 
 # Drop privileges for security
 USER node
 
 # Expose standard web port
 EXPOSE 3000
+
+# Container healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run migrations and start the server
 CMD ["npm", "start"]

@@ -21,6 +21,15 @@ export interface EmailOptions {
   html?: string; // Fallback if no template generator is fully built yet
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function sendEmail(options: EmailOptions): Promise<void> {
   let providerMessageId = '';
   let status: 'sent' | 'failed' = 'sent';
@@ -84,6 +93,11 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
 // Very basic template generator - in a real app this would be more robust
 function generateTemplate(key: EmailTemplateKey, data: Record<string, any>): string {
   const brandColor = '#c95f34';
+  const safeName = escapeHtml(data.name);
+  const safeOrderNumber = escapeHtml(data.orderNumber);
+  const safeOtp = escapeHtml(data.otp);
+  const safeResetLink = escapeHtml(data.resetLink);
+
   const header = `
     <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #211c17;">
       <div style="background-color: ${brandColor}; padding: 20px; text-align: center; color: white;">
@@ -102,20 +116,20 @@ function generateTemplate(key: EmailTemplateKey, data: Record<string, any>): str
   let body = '';
   switch (key) {
     case 'welcome':
-      body = `<h3>مرحباً ${data.name}،</h3><p>شكراً لتسجيلك معنا!</p>`;
+      body = `<h3>مرحباً ${safeName}،</h3><p>شكراً لتسجيلك معنا!</p>`;
       break;
     case 'order_confirmation':
-      body = `<h3>تم تأكيد طلبك #${data.orderNumber}</h3><p>نشكرك على تسوقك معنا.</p>`;
+      body = `<h3>تم تأكيد طلبك #${safeOrderNumber}</h3><p>نشكرك على تسوقك معنا.</p>`;
       break;
     case 'password_reset':
-      body = `<h3>مرحباً ${data.name}،</h3><p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. يرجى النقر على الرابط أدناه لإعادة تعيينها:</p><p><a href="${data.resetLink}" style="display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 4px;">إعادة تعيين كلمة المرور</a></p><p>إذا لم تقم بهذا الطلب، يمكنك تجاهل هذه الرسالة.</p>`;
+      body = `<h3>مرحباً ${safeName}،</h3><p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك. يرجى النقر على الرابط أدناه لإعادة تعيينها:</p><p><a href="${safeResetLink}" style="display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 4px;">إعادة تعيين كلمة المرور</a></p><p>إذا لم تقم بهذا الطلب، يمكنك تجاهل هذه الرسالة.</p>`;
       break;
     case 'otp_registration':
       body = `<div style="text-align: center;">
-        <h3>مرحباً ${data.name}،</h3>
+        <h3>مرحباً ${safeName}،</h3>
         <p>استخدم رمز التحقق التالي لإكمال تسجيل حسابك:</p>
         <div style="background-color: #fff; border: 2px dashed ${brandColor}; color: ${brandColor}; font-size: 24px; font-weight: bold; letter-spacing: 5px; padding: 20px; margin: 20px auto; max-width: 200px; border-radius: 8px;">
-          ${data.otp}
+          ${safeOtp}
         </div>
         <p>هذا الرمز صالح لمدة دقيقتين فقط.</p>
         <p>إذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة بأمان.</p>

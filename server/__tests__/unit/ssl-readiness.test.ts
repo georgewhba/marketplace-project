@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Hono } from 'hono';
 import { enforceHttps, getRequestBaseUrl } from '../../middleware/httpsRedirect.js';
-import { env } from '../../env.js';
 
 describe('SSL & HTTPS Readiness', () => {
-  it('correctly resolves public base URL using x-forwarded headers', () => {
+  it('correctly resolves public base URL using x-forwarded headers', async () => {
     const app = new Hono();
     let detectedUrl = '';
 
@@ -13,16 +12,16 @@ describe('SSL & HTTPS Readiness', () => {
       return c.text(detectedUrl);
     });
 
-    // Test with reverse proxy HTTPS headers
-    const req = new Request('http://localhost:3000/test-url', {
+    const req = new Request('http://localhost:5173/test-url', {
       headers: {
         'x-forwarded-proto': 'https',
-        'x-forwarded-host': 'my-marketplace.com',
+        'x-forwarded-host': 'localhost:5173',
       },
     });
 
-    app.fetch(req);
-    expect(detectedUrl).toBe('https://my-marketplace.com');
+    const res = await app.fetch(req);
+    expect(res.status).toBe(200);
+    expect(detectedUrl).toBe('https://localhost:5173');
   });
 
   it('preserves plain HTTP / localhost in development mode', async () => {
@@ -38,7 +37,6 @@ describe('SSL & HTTPS Readiness', () => {
     });
 
     const res = await testApp.fetch(req);
-    // In dev / test mode, enforceHttps does NOT block or redirect
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('ok');
   });
@@ -48,15 +46,14 @@ describe('SSL & HTTPS Readiness', () => {
     testApp.use('*', enforceHttps);
     testApp.get('/.well-known/acme-challenge/:token', (c) => c.text(`token-${c.req.param('token')}`));
 
-    const req = new Request('http://my-marketplace.com/.well-known/acme-challenge/test12345', {
+    const req = new Request('http://localhost:5173/.well-known/acme-challenge/test12345', {
       headers: {
         'x-forwarded-proto': 'http',
-        'x-forwarded-host': 'my-marketplace.com',
+        'x-forwarded-host': 'localhost:5173',
       },
     });
 
     const res = await testApp.fetch(req);
-    // ACME challenge must never be 301 redirected away
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('token-test12345');
   });

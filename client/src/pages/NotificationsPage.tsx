@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { Bell, Package, Tag, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: notifications, isLoading } = useQuery({
     queryKey: ['notifications'],
@@ -20,7 +22,8 @@ export default function NotificationsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications', 'unread'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread'] });
+    },
   });
 
   const formatDate = (isoString: string) => {
@@ -74,9 +77,9 @@ export default function NotificationsPage() {
           )}
         </h1>
         {unreadCount > 0 && (
-          <button 
-            className="btn btn-outline btn-sm" 
-            onClick={() => markAsReadMutation.mutate()}
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => markAsReadMutation.mutate(undefined)}
             disabled={markAsReadMutation.isPending}
           >
             <CheckCircle2 size={16} /> تحديد الكل كمقروء
@@ -92,26 +95,29 @@ export default function NotificationsPage() {
           </div>
         ) : (
           notifications?.map((notification: any) => (
-            <div 
-              key={notification.id} 
-              className="card" 
-              style={{ 
-                padding: 'var(--space-4)', 
-                display: 'flex', 
+            <div
+              key={notification.id}
+              className="card"
+              style={{
+                padding: 'var(--space-4)',
+                display: 'flex',
                 gap: 'var(--space-4)',
                 opacity: notification.isRead ? 0.7 : 1,
                 borderLeft: !notification.isRead ? '4px solid var(--primary-500)' : '4px solid transparent',
-                cursor: !notification.isRead ? 'pointer' : 'default',
+                cursor: !notification.isRead || notification.actionUrl ? 'pointer' : 'default',
                 transition: 'all 0.2s ease',
               }}
               onClick={() => {
                 if (!notification.isRead && !markAsReadMutation.isPending) {
                   markAsReadMutation.mutate(notification.id);
                 }
+                if (notification.actionUrl) {
+                  navigate(notification.actionUrl);
+                }
               }}
             >
-              <div style={{ 
-                background: getBackground(notification.type), 
+              <div style={{
+                background: getBackground(notification.type),
                 color: getColor(notification.type),
                 width: 48,
                 height: 48,
@@ -119,7 +125,7 @@ export default function NotificationsPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
               }}>
                 {getIcon(notification.type)}
               </div>
