@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vendorApi } from '../../api';
-import { DollarSign, ChevronRight, ChevronLeft, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { DollarSign, ChevronRight, ChevronLeft, CreditCard, Clock, CheckCircle, Layers } from 'lucide-react';
 import { useToast } from '../../toast';
 
-const formatCurrency = (val: number) => 
-  parseFloat(String(val)).toLocaleString('ar-EG') + ' ج.م';
+const formatCurrency = (val: number) => parseFloat(String(val)).toLocaleString('ar-EG') + ' ج.م';
 
-const formatDate = (date: string) => 
+const formatDate = (date: string) =>
   new Date(date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function VendorEarnings() {
@@ -38,6 +37,7 @@ export default function VendorEarnings() {
   const meta = settlementsData?.meta;
   const balance = settlementsData?.data?.balance ?? '0';
   const payouts = payoutsData?.data ?? [];
+  const paidPayoutsCount = payouts.filter((p: any) => p.status === 'paid').length;
 
   const handleRequestPayout = (settlement: any) => {
     if (window.confirm(`هل أنت متأكد من طلب سحب مبلغ ${formatCurrency(Number(settlement.netPayable))}؟`)) {
@@ -51,63 +51,115 @@ export default function VendorEarnings() {
   return (
     <div>
       <div className="page-header mb-6">
-        <h1 className="page-header__title m-0">الأرباح والتسويات</h1>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-3 mb-6">
-        <div className="stat-card">
-          <div className="flex items-center justify-between mb-3">
-            <span className="stat-card__label">إجمالي الأرباح</span>
-            <div className="flex items-center justify-center rounded-md" style={{ width: 36, height: 36, background: `var(--success-50, #ecfdf5)` }}>
-              <DollarSign size={18} color="var(--success-500, #10b981)" />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <DollarSign size={22} />
           </div>
-          <div className="stat-card__value">
-            {formatCurrency(Number(balance))}
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>الأرباح والتسويات</h1>
+            <p className="page-header__subtitle">متابعة الرصيد المتاح، دورات التسوية المعتمدة، وطلبات سحب الأرباح</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-2 gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))' }}>
+      {/* Summary Cards */}
+      <div className="grid grid-3 mb-8">
+        <div className="stat-card flex items-center justify-between">
+          <div>
+            <div className="stat-card__label">الرصيد المتاح للسحب</div>
+            <div className="stat-card__value text-brand" style={{ marginBottom: 0 }}>
+              {formatCurrency(Number(balance))}
+            </div>
+          </div>
+          <div className="feature-card__icon">
+            <DollarSign size={20} />
+          </div>
+        </div>
+        <div className="stat-card flex items-center justify-between">
+          <div>
+            <div className="stat-card__label">دورات التسوية</div>
+            <div className="stat-card__value" style={{ marginBottom: 0 }}>
+              {settlements.length}
+            </div>
+          </div>
+          <div className="feature-card__icon">
+            <Layers size={20} />
+          </div>
+        </div>
+        <div className="stat-card flex items-center justify-between">
+          <div>
+            <div className="stat-card__label">تحويلات مكتملة</div>
+            <div className="stat-card__value" style={{ marginBottom: 0 }}>
+              {paidPayoutsCount}
+            </div>
+          </div>
+          <div className="feature-card__icon">
+            <CheckCircle size={20} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-2 gap-6">
         <div>
-          <h3 className="font-semibold text-lg m-0 mb-3">دورات التسوية</h3>
-          
+          <h3 className="text-primary font-bold text-lg m-0 mb-4">دورات التسوية</h3>
+
           {isLoadingSettlements ? (
             <div className="flex flex-col gap-3">
-              {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 100 }} />)}
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton" style={{ height: 100 }} />
+              ))}
             </div>
           ) : settlements.length === 0 ? (
-            <div className="empty-state border-0">
-              <div className="empty-state__title">لا توجد تسويات بعد</div>
+            <div className="card">
+              <div className="empty-state">
+                <div className="empty-state__title">لا توجد تسويات بعد</div>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {settlements.map((item: any) => {
-                const hasPendingPayout = payouts.some((p: any) => p.settlementId === item.id && (p.status === 'pending' || p.status === 'paid'));
+                const hasPendingPayout = payouts.some(
+                  (p: any) => p.settlementId === item.id && (p.status === 'pending' || p.status === 'paid')
+                );
                 return (
-                  <div key={item.id} className="card p-4">
+                  <div key={item.id} className="card card-body">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <div className="font-semibold mb-1" style={{ fontSize: 'var(--font-size-sm)' }}>تسوية #{item.id}</div>
+                        <div className="font-semibold text-primary mb-1" style={{ fontSize: 'var(--font-size-sm)' }}>
+                          تسوية #{item.id}
+                        </div>
                         <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                          {new Date(item.periodStart).toLocaleDateString('ar-EG')} - {new Date(item.periodEnd).toLocaleDateString('ar-EG')}
+                          {new Date(item.periodStart).toLocaleDateString('ar-EG')} -{' '}
+                          {new Date(item.periodEnd).toLocaleDateString('ar-EG')}
                         </div>
                       </div>
-                      <span className={`badge ${item.status === 'paid' ? 'badge-success' : item.status === 'finalized' ? 'badge-info' : 'badge-warning'}`}>
+                      <span
+                        className={`badge ${
+                          item.status === 'paid'
+                            ? 'badge-success'
+                            : item.status === 'finalized'
+                            ? 'badge-info'
+                            : 'badge-warning'
+                        }`}
+                      >
                         {item.status === 'paid' ? 'مدفوعة' : item.status === 'finalized' ? 'معتمدة' : 'مسودة'}
                       </span>
                     </div>
-                    
-                    <div className="flex justify-between items-end pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+
+                    <div
+                      className="flex justify-between items-end pt-3"
+                      style={{ borderTop: '1px solid var(--border-color)' }}
+                    >
                       <div>
-                        <div className="text-muted mb-1" style={{ fontSize: 'var(--font-size-xs)' }}>الصافي المستحق</div>
-                        <div className="font-bold">{formatCurrency(Number(item.netPayable))}</div>
+                        <div className="text-muted mb-1" style={{ fontSize: 'var(--font-size-xs)' }}>
+                          الصافي المستحق
+                        </div>
+                        <div className="font-bold text-brand">{formatCurrency(Number(item.netPayable))}</div>
                       </div>
-                      
+
                       {item.status === 'finalized' && !hasPendingPayout && (
-                        <button 
-                          className="btn btn-primary btn-sm flex items-center gap-1" 
+                        <button
+                          className="btn btn-primary btn-sm"
                           onClick={() => handleRequestPayout(item)}
                           disabled={requestPayoutMutation.isPending}
                         >
@@ -115,9 +167,9 @@ export default function VendorEarnings() {
                         </button>
                       )}
                       {hasPendingPayout && item.status !== 'paid' && (
-                        <div className="flex items-center gap-1 font-semibold rounded" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--warning-600)', background: 'var(--warning-50)', padding: '4px 8px' }}>
+                        <span className="badge badge-warning">
                           <Clock size={12} /> السحب قيد المراجعة
-                        </div>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -125,14 +177,20 @@ export default function VendorEarnings() {
               })}
             </div>
           )}
-          
+
           {meta && meta.totalPages > 1 && (
             <div className="flex justify-center items-center gap-3 mt-6">
-              <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
                 <ChevronRight size={18} /> السابق
               </button>
-              <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>صفحة {meta.page} من {meta.totalPages}</span>
-              <button className="btn btn-outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
+              <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
+                صفحة {meta.page} من {meta.totalPages}
+              </span>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={page >= meta.totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
                 التالي <ChevronLeft size={18} />
               </button>
             </div>
@@ -140,39 +198,69 @@ export default function VendorEarnings() {
         </div>
 
         <div>
-          <h3 className="font-semibold text-lg m-0 mb-3">طلبات السحب</h3>
-          
+          <h3 className="text-primary font-bold text-lg m-0 mb-4">طلبات السحب</h3>
+
           {isLoadingPayouts ? (
             <div className="flex flex-col gap-3">
-              {[1,2].map(i => <div key={i} className="skeleton" style={{ height: 70 }} />)}
+              {[1, 2].map(i => (
+                <div key={i} className="skeleton" style={{ height: 70 }} />
+              ))}
             </div>
           ) : payouts.length === 0 ? (
-            <div className="empty-state border-0">
-              <div className="empty-state__title">لم تقم بتقديم طلبات سحب</div>
+            <div className="card">
+              <div className="empty-state">
+                <div className="empty-state__title">لم تقم بتقديم طلبات سحب</div>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {payouts.map((req: any) => (
-                <div key={req.id} className="card p-3 flex justify-between items-center">
+                <div key={req.id} className="card card-body flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-full flex items-center justify-center" style={{
-                      width: 40, height: 40,
-                      background: req.status === 'paid' ? 'var(--success-50, #ecfdf5)' : req.status === 'rejected' ? 'var(--error-50, #fef2f2)' : 'var(--warning-50, #fffbeb)',
-                      color: req.status === 'paid' ? 'var(--success-600, #059669)' : req.status === 'rejected' ? 'var(--error-600, #dc2626)' : 'var(--warning-600, #d97706)'
-                    }}>
-                      {req.status === 'paid' ? <CheckCircle size={20} /> : <Clock size={20} />}
+                    <div
+                      className="feature-card__icon"
+                      style={{
+                        width: 40,
+                        height: 40,
+                        background:
+                          req.status === 'paid'
+                            ? 'var(--success-50)'
+                            : req.status === 'rejected'
+                            ? 'var(--error-50)'
+                            : 'var(--warning-50)',
+                        color:
+                          req.status === 'paid'
+                            ? 'var(--success-700)'
+                            : req.status === 'rejected'
+                            ? 'var(--error-700)'
+                            : 'var(--warning-700)',
+                      }}
+                    >
+                      {req.status === 'paid' ? <CheckCircle size={18} /> : <Clock size={18} />}
                     </div>
                     <div>
-                      <div className="font-semibold" style={{ fontSize: 'var(--font-size-sm)' }}>سحب تسوية #{req.settlementId}</div>
-                      <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{formatDate(req.createdAt)}</div>
+                      <div className="font-semibold text-primary" style={{ fontSize: 'var(--font-size-sm)' }}>
+                        سحب تسوية #{req.settlementId}
+                      </div>
+                      <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                        {formatDate(req.createdAt)}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-left">
-                    <div className="font-bold">{formatCurrency(Number(req.amount))}</div>
-                    <div className="mt-1" style={{ 
-                      fontSize: 'var(--font-size-xs)',
-                      color: req.status === 'paid' ? 'var(--success-600)' : req.status === 'rejected' ? 'var(--error-600)' : 'var(--warning-600)' 
-                    }}>
+                  <div style={{ textAlign: 'end' }}>
+                    <div className="font-bold text-brand">{formatCurrency(Number(req.amount))}</div>
+                    <div
+                      className="mt-1"
+                      style={{
+                        fontSize: 'var(--font-size-xs)',
+                        color:
+                          req.status === 'paid'
+                            ? 'var(--success-500)'
+                            : req.status === 'rejected'
+                            ? 'var(--error-500)'
+                            : 'var(--warning-500)',
+                      }}
+                    >
                       {req.status === 'paid' ? 'تم الدفع' : req.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}
                     </div>
                   </div>

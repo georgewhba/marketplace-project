@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { Plus, Trash, Ticket } from 'lucide-react';
+import { Plus, Trash, Ticket, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../../lib/motion-tokens';
 
@@ -27,7 +27,7 @@ export default function AdminCoupons() {
       setLoading(true);
       const data = await adminApi.getCoupons();
       setCoupons(data?.data || []);
-    } catch (err) {
+    } catch {
       toast.error('فشل في تحميل الكوبونات');
     } finally {
       setLoading(false);
@@ -44,7 +44,7 @@ export default function AdminCoupons() {
       await adminApi.deleteCoupon(id);
       toast.success('تم الحذف بنجاح');
       loadCoupons();
-    } catch (err) {
+    } catch {
       toast.error('فشل في الحذف');
     }
   };
@@ -80,22 +80,30 @@ export default function AdminCoupons() {
   };
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="page-header__title">إدارة الكوبونات</h1>
+    <div>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <Ticket size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>إدارة الكوبونات</h1>
+            <p className="page-header__subtitle">إنشاء وإدارة أكواد الخصم الترويجية للعملاء</p>
+          </div>
+        </div>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} />
           إضافة كوبون جديد
         </button>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ overflowX: 'auto' }}>
         {loading ? (
           <div style={{ padding: 'var(--space-6)', textAlign: 'center' }}>جاري التحميل...</div>
         ) : coupons.length === 0 ? (
-          <div className="text-muted" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-            <Ticket size={48} style={{ margin: '0 auto var(--space-4)', opacity: 0.5 }} />
-            <p>لا توجد كوبونات حالياً</p>
+          <div className="empty-state">
+            <Ticket size={48} className="empty-state__icon" />
+            <div className="empty-state__title">لا توجد كوبونات حالياً</div>
           </div>
         ) : (
           <table className="data-table">
@@ -111,29 +119,41 @@ export default function AdminCoupons() {
               </tr>
             </thead>
             <tbody>
-              {coupons.map((coupon) => {
+              {coupons.map(coupon => {
                 const type = coupon.type || coupon.discountType;
                 const val = coupon.value ?? coupon.discountValue;
                 const minOrder = coupon.minOrderAmount ?? coupon.minOrderValue;
                 return (
                   <tr key={coupon.id}>
-                    <td><span className="text-primary" style={{ fontWeight: 'bold', fontFamily: 'monospace', background: 'var(--neutral-100)', padding: '4px 8px', borderRadius: '4px' }}>{coupon.code}</span></td>
-                    <td>{type === 'percentage' ? 'نسبة مئوية' : 'مبلغ ثابت'}</td>
                     <td>
+                      <span
+                        className="badge badge-brand ltr"
+                        style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', padding: '4px 10px' }}
+                      >
+                        {coupon.code}
+                      </span>
+                    </td>
+                    <td>{type === 'percentage' ? 'نسبة مئوية' : 'مبلغ ثابت'}</td>
+                    <td className="font-bold text-brand">
                       {val}
                       {type === 'percentage' ? '%' : ' ج.م'}
                     </td>
-                    <td>{coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString('ar-EG') : 'بدون تاريخ انتهاء'}</td>
-                    <td>{coupon.usedCount ?? 0} {coupon.usageLimit ? `/ ${coupon.usageLimit}` : ''}</td>
-                    <td>{minOrder ? `${minOrder} ج.م` : '-'}</td>
+                    <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      {coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString('ar-EG') : 'بدون تاريخ انتهاء'}
+                    </td>
+                    <td>
+                      {coupon.usedCount ?? 0} {coupon.usageLimit ? `/ ${coupon.usageLimit}` : ''}
+                    </td>
+                    <td>{minOrder ? `${minOrder} ج.م` : '—'}</td>
                     <td>
                       <button
-                        className="btn btn-ghost text-error btn-sm"
+                        className="icon-btn"
+                        style={{ color: 'var(--error-500)' }}
                         onClick={() => handleDelete(coupon.id)}
                         title="حذف"
                         aria-label="حذف الكوبون"
                       >
-                        <Trash size={16} />
+                        <Trash size={15} />
                       </button>
                     </td>
                   </tr>
@@ -147,7 +167,8 @@ export default function AdminCoupons() {
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
-            className="modal-backdrop"
+            className="modal-overlay"
+            onClick={() => setIsModalOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -155,14 +176,19 @@ export default function AdminCoupons() {
           >
             <motion.div
               className="modal card"
+              onClick={e => e.stopPropagation()}
               initial={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: shouldReduceMotion ? 1 : 0.95, opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
               transition={{ duration: motionTokens.duration.base, ...motionTokens.easing.spring }}
             >
               <div className="modal-header">
-                <h3 className="text-primary">إضافة كوبون جديد</h3>
-                <button className="modal-close" onClick={() => setIsModalOpen(false)} aria-label="إغلاق">&times;</button>
+                <h3 className="text-primary flex items-center gap-2">
+                  <Ticket size={18} color="var(--brand-500)" /> إضافة كوبون جديد
+                </h3>
+                <button className="modal-close" onClick={() => setIsModalOpen(false)} aria-label="إغلاق">
+                  <X size={18} />
+                </button>
               </div>
               <div className="modal-body">
                 <form onSubmit={handleSubmit} id="coupon-form" className="flex flex-col gap-4">
@@ -171,9 +197,10 @@ export default function AdminCoupons() {
                     <input
                       type="text"
                       className="form-input"
+                      dir="ltr"
                       value={formData.code}
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                      placeholder="مثال: SUMMER2024"
+                      placeholder="SUMMER2026"
                       required
                     />
                   </div>
@@ -251,14 +278,18 @@ export default function AdminCoupons() {
                   </div>
                 </form>
               </div>
-              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)' }}>
-                <button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>إلغاء</button>
-                <button type="submit" form="coupon-form" className="btn btn-primary">حفظ الكوبون</button>
+              <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>
+                  إلغاء
+                </button>
+                <button type="submit" form="coupon-form" className="btn btn-primary">
+                  حفظ الكوبون
+                </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

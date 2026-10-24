@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
-import { Package, Truck, CheckCircle, Clock, ChevronRight, ChevronLeft, Search, X } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, ChevronRight, ChevronLeft, Search, X, ShoppingCart } from 'lucide-react';
 
 interface OrderItem {
   id: number;
@@ -20,9 +20,9 @@ interface OrderItem {
 
 const statusLabels: Record<string, { label: string; color: string; badge: string; icon: typeof Package }> = {
   pending: { label: 'قيد الانتظار', color: 'var(--warning-500)', badge: 'badge-warning', icon: Clock },
-  confirmed: { label: 'مؤكد (قيد التجهيز)', color: 'var(--primary-500)', badge: 'badge-info', icon: Package },
-  processing: { label: 'قيد التجهيز', color: 'var(--primary-500)', badge: 'badge-info', icon: Package },
-  shipped: { label: 'تم الشحن', color: 'var(--info-500, #3b82f6)', badge: 'badge-info', icon: Truck },
+  confirmed: { label: 'مؤكد (قيد التجهيز)', color: 'var(--brand-500)', badge: 'badge-info', icon: Package },
+  processing: { label: 'قيد التجهيز', color: 'var(--brand-500)', badge: 'badge-info', icon: Package },
+  shipped: { label: 'تم الشحن', color: 'var(--info-500)', badge: 'badge-info', icon: Truck },
   delivered: { label: 'تم التسليم', color: 'var(--success-500)', badge: 'badge-success', icon: CheckCircle },
   cancelled: { label: 'ملغي', color: 'var(--error-500)', badge: 'badge-error', icon: Package },
 };
@@ -82,7 +82,8 @@ export default function VendorOrders() {
 
   const filtered = items.filter(item => {
     const itemStatus = item.vendorStatus || item.status || 'pending';
-    if (filter !== 'all' && itemStatus !== filter && !(filter === 'confirmed' && itemStatus === 'processing')) return false;
+    if (filter !== 'all' && itemStatus !== filter && !(filter === 'confirmed' && itemStatus === 'processing'))
+      return false;
     if (search && !item.orderNumber?.includes(search) && !item.productName?.includes(search)) return false;
     return true;
   });
@@ -90,34 +91,63 @@ export default function VendorOrders() {
   return (
     <div>
       <div className="page-header mb-6">
-        <h1 className="page-header__title m-0">إدارة الطلبات</h1>
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <ShoppingCart size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>إدارة الطلبات</h1>
+            <p className="page-header__subtitle">تجهيز وشحن طلبات العملاء وتحديث حالة التسليم</p>
+          </div>
+        </div>
+        <span className="catalog-count-badge">
+          إجمالي: <strong>{filtered.length}</strong> طلب
+        </span>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        {['all', ...statusFlow, 'cancelled'].map(s => (
-          <button
-            key={s}
-            className={`btn ${filter === s ? 'btn-primary' : 'btn-outline'} btn-sm`}
-            onClick={() => setFilter(s)}
-          >
-            {s === 'all' ? 'الكل' : statusLabels[s]?.label ?? s}
-          </button>
-        ))}
-        <div className="relative ms-auto mt-3 md:mt-0 w-full md:w-auto">
-          <Search size={16} className="absolute text-muted" style={{ insetInlineStart: 10, top: '50%', transform: 'translateY(-50%)' }} />
-          <input className="input w-full md:w-auto" placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ paddingInlineStart: 34, height: 36, maxWidth: '100%' }} />
+      {/* Filters Toolbar */}
+      <div className="card card-body mb-6" style={{ padding: 'var(--space-4) var(--space-5)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {['all', ...statusFlow, 'cancelled'].map(s => (
+              <button
+                key={s}
+                className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setFilter(s)}
+              >
+                {s === 'all' ? 'الكل' : statusLabels[s]?.label ?? s}
+              </button>
+            ))}
+          </div>
+          <div className="relative" style={{ minWidth: 240 }}>
+            <Search
+              size={16}
+              className="text-muted"
+              style={{ position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)' }}
+            />
+            <input
+              className="form-input"
+              placeholder="بحث برقم الطلب أو المنتج..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ paddingInlineEnd: 38, height: 38 }}
+            />
+          </div>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
+          {[1, 2, 3].map(i => (
+            <div key={i} className="skeleton" style={{ height: 80 }} />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state border-0">
-          <div className="empty-state__title">لا توجد طلبات</div>
+        <div className="card">
+          <div className="empty-state">
+            <ShoppingCart size={52} className="empty-state__icon" />
+            <div className="empty-state__title">لا توجد طلبات مطابقة</div>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -127,24 +157,32 @@ export default function VendorOrders() {
             const Icon = st.icon;
             const next = getNextStatus(itemStatus);
             return (
-              <div key={item.id} className="card p-4">
+              <div key={item.id} className="card card-body">
                 <div className="flex justify-between items-start flex-wrap gap-3">
                   <div className="flex-1 min-w-0" style={{ minWidth: 200 }}>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <Icon size={18} color={st.color} />
-                      <span className="font-semibold" style={{ color: st.color, fontSize: 'var(--font-size-sm)' }}>{st.label}</span>
-                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>•</span>
-                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>طلب #{item.orderNumber || item.orderId}</span>
+                      <span className="font-semibold" style={{ color: st.color, fontSize: 'var(--font-size-sm)' }}>
+                        {st.label}
+                      </span>
+                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                        •
+                      </span>
+                      <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                        طلب #{item.orderNumber || item.orderId}
+                      </span>
                     </div>
-                    <div className="font-semibold mb-1 whitespace-normal">{item.productName}</div>
-                    <div className="text-muted flex flex-wrap items-center gap-1" style={{ fontSize: 'var(--font-size-sm)' }}>
-                      <span>الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م</span>
-                      <span className="hidden sm:inline" style={{ color: 'var(--neutral-300)' }}>|</span>
+                    <div className="font-bold text-primary mb-1">{item.productName}</div>
+                    <div className="text-secondary flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--font-size-sm)' }}>
+                      <span>
+                        الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م
+                      </span>
+                      <span>•</span>
                       <span>العميل: {item.customerName || '—'}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <div className="font-bold text-lg">
+                    <div className="font-bold text-lg text-brand">
                       {parseFloat(item.total).toLocaleString('ar-EG')} ج.م
                     </div>
                     {next && (
@@ -176,30 +214,31 @@ export default function VendorOrders() {
 
       {meta && meta.totalPages > 1 && (
         <div className="flex justify-center items-center gap-3 mt-6">
-          <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
             <ChevronRight size={18} /> السابق
           </button>
-          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>صفحة {meta.page} من {meta.totalPages}</span>
-          <button className="btn btn-outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
+            صفحة {meta.page} من {meta.totalPages}
+          </span>
+          <button className="btn btn-outline btn-sm" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
             التالي <ChevronLeft size={18} />
           </button>
         </div>
       )}
 
       {shipmentModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'var(--bg-overlay)' }}>
-          <div className="card p-5 relative" style={{ width: '100%', maxWidth: 400 }}>
-            <button
-              className="absolute bg-transparent border-0 cursor-pointer"
-              style={{ top: 15, insetInlineEnd: 15 }}
-              onClick={() => setShipmentModal(null)}
-              aria-label="إغلاق"
-            >
-              <X size={20} className="text-muted" />
-            </button>
-            <h3 className="mt-0 mb-4 font-semibold text-lg">شحن الطلب #{shipmentModal.orderNumber}</h3>
+        <div className="modal-overlay" onClick={() => setShipmentModal(null)}>
+          <div className="modal card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="text-primary flex items-center gap-2">
+                <Truck size={18} color="var(--brand-500)" /> شحن الطلب #{shipmentModal.orderNumber}
+              </h3>
+              <button className="modal-close" onClick={() => setShipmentModal(null)} aria-label="إغلاق">
+                <X size={18} />
+              </button>
+            </div>
 
-            <div className="flex flex-col gap-3 mb-5">
+            <div className="modal-body flex flex-col gap-3">
               {meta?.isBostaEnabled && (
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -221,32 +260,29 @@ export default function VendorOrders() {
               </label>
 
               {shippingProvider === 'manual' && (
-                <div className="mt-2">
-                  <label className="label">رقم التتبع</label>
+                <div className="form-group mt-2">
+                  <label className="form-label">رقم التتبع *</label>
                   <input
                     type="text"
-                    className="input"
+                    className="form-input"
                     value={trackingNumber}
-                    onChange={(e) => setTrackingNumber(e.target.value)}
-                    placeholder="أدخل رقم التتبع"
+                    onChange={e => setTrackingNumber(e.target.value)}
+                    placeholder="أدخل رقم بوليصة الشحن"
                   />
                 </div>
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShipmentModal(null)}>
+                إلغاء
+              </button>
               <button
-                className="btn btn-primary flex-1"
+                className="btn btn-primary"
                 disabled={createShipmentMutation.isPending || (shippingProvider === 'manual' && !trackingNumber.trim())}
                 onClick={() => createShipmentMutation.mutate({ itemId: shipmentModal.id, provider: shippingProvider })}
               >
                 {createShipmentMutation.isPending ? 'جاري الإنشاء...' : 'تأكيد الشحن'}
-              </button>
-              <button
-                className="btn btn-outline flex-1"
-                onClick={() => setShipmentModal(null)}
-              >
-                إلغاء
               </button>
             </div>
           </div>

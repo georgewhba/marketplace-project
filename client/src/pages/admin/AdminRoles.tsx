@@ -2,20 +2,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api';
 import { useToast } from '../../toast';
-import { Shield, Plus, Edit, Key, Save } from 'lucide-react';
+import { Shield, Plus, Edit, Key, Save, X } from 'lucide-react';
 
 export default function AdminRoles() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
-  
+
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({ name: '' });
 
-  // Permissions modal/panel state
+  // Permissions modal state
   const [permRole, setPermRole] = useState<any | null>(null);
   const [selectedPermIds, setSelectedPermIds] = useState<number[]>([]);
-  
+
   const { data: roles, isLoading } = useQuery({
     queryKey: ['admin-roles'],
     queryFn: () => api.get<any>('/roles'),
@@ -76,125 +76,201 @@ export default function AdminRoles() {
   };
 
   const togglePerm = (id: number) => {
-    setSelectedPermIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+    setSelectedPermIds(prev => (prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]));
   };
-
-  if (isLoading) return <div className="p-6">جاري التحميل...</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="page-header__title m-0 flex items-center gap-2">
-          <Shield size={24} className="text-brand" />
-          الأدوار والصلاحيات
-        </h1>
-        <button className="btn btn-primary" onClick={() => { setEditId(null); setForm({ name: '' }); setShowForm(!showForm); }}>
-          <Plus size={18} /> {showForm ? 'إلغاء' : 'إضافة دور جديد'}
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <Shield size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>الأدوار والصلاحيات</h1>
+            <p className="page-header__subtitle">إدارة مستويات الوصول وصلاحيات المشرفين وفريق العمل</p>
+          </div>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setEditId(null);
+            setForm({ name: '' });
+            setShowForm(true);
+          }}
+        >
+          <Plus size={18} /> إضافة دور جديد
         </button>
       </div>
 
-      {showForm && (
-        <div className="card p-5 mb-6">
-          <h2 className="mt-0 mb-4 font-semibold" style={{ fontSize: 'var(--font-size-lg)' }}>
-            {editId ? 'تعديل دور' : 'إضافة دور جديد'}
-          </h2>
-          <form onSubmit={e => { e.preventDefault(); saveMutation.mutate(form); }}>
-            <div className="form-group mb-4">
-              <label className="form-label">اسم الدور</label>
-              <input 
-                className="form-input" 
-                value={form.name} 
-                onChange={e => setForm({ ...form, name: e.target.value })} 
-                required 
-              />
-            </div>
-            <button className="btn btn-primary" type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ'}
-            </button>
-          </form>
+      {isLoading ? (
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="skeleton" style={{ height: 64 }} />
+          ))}
         </div>
-      )}
-
-      {permRole && (
-        <div className="card card-body mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="m-0 font-semibold">صلاحيات الدور: {permRole.name}</h3>
-            <button className="btn btn-ghost btn-sm" onClick={() => setPermRole(null)}>إغلاق</button>
-          </div>
-          <div className="grid grid-3 gap-3 mb-4">
-            {allPermissions.map((perm) => (
-              <label key={perm.id} className="flex items-center gap-2 p-2 rounded" style={{ border: '1px solid var(--border-primary)', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={selectedPermIds.includes(perm.id)}
-                  onChange={() => togglePerm(perm.id)}
-                />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{perm.key}</div>
-                  {perm.description && <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>{perm.description}</div>}
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button
-              className="btn btn-primary"
-              disabled={savePermsMutation.isPending}
-              onClick={() => savePermsMutation.mutate({ roleId: permRole.id, permissionIds: selectedPermIds })}
-            >
-              <Save size={16} /> {savePermsMutation.isPending ? 'جاري الحفظ...' : 'حفظ الصلاحيات'}
-            </button>
-            <button className="btn btn-ghost" onClick={() => setPermRole(null)}>إلغاء</button>
-          </div>
-        </div>
-      )}
-
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>المعرف</th>
-              <th>الاسم</th>
-              <th>عدد الصلاحيات</th>
-              <th>نظامي</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roles?.data?.map((r: any) => (
-              <tr key={r.id}>
-                <td>{r.id}</td>
-                <td>{r.name}</td>
-                <td>{Array.isArray(r.permissionIds) ? r.permissionIds.length : '-'}</td>
-                <td>
-                  <span className={`badge ${r.isSystem ? 'badge-brand' : 'badge-neutral'}`}>
-                    {r.isSystem ? 'نعم' : 'لا'}
-                  </span>
-                </td>
-                <td className="flex gap-2">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => handleOpenPerms(r)}
-                    title="إدارة الصلاحيات"
-                    aria-label="إدارة الصلاحيات"
-                  >
-                    <Key size={14} /> الصلاحيات
-                  </button>
-                  <button 
-                    className="btn btn-ghost p-2" 
-                    onClick={() => handleEdit(r)}
-                    disabled={r.isSystem}
-                    title={r.isSystem ? 'لا يمكن تعديل دور أساسي في النظام' : 'تعديل'}
-                    aria-label="تعديل الدور"
-                  >
-                    <Edit size={16} />
-                  </button>
-                </td>
+      ) : (
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>المعرف</th>
+                <th>اسم الدور</th>
+                <th>عدد الصلاحيات</th>
+                <th>النوع</th>
+                <th>الإجراءات</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {roles?.data?.map((r: any) => (
+                <tr key={r.id}>
+                  <td className="text-muted">#{r.id}</td>
+                  <td className="font-semibold text-primary">{r.name}</td>
+                  <td>
+                    <span className="badge badge-brand">
+                      {Array.isArray(r.permissionIds) ? r.permissionIds.length : 0} صلاحية
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${r.isSystem ? 'badge-info' : 'badge-neutral'}`}>
+                      {r.isSystem ? 'دور نظامي' : 'مخصص'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => handleOpenPerms(r)}
+                        title="إدارة الصلاحيات"
+                      >
+                        <Key size={14} /> الصلاحيات
+                      </button>
+                      <button
+                        className="icon-btn"
+                        onClick={() => handleEdit(r)}
+                        disabled={r.isSystem}
+                        title={r.isSystem ? 'لا يمكن تعديل دور أساسي في النظام' : 'تعديل'}
+                        aria-label="تعديل الدور"
+                      >
+                        <Edit size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal: Add / Edit Role */}
+      {showForm && (
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="text-primary flex items-center gap-2">
+                <Shield size={18} color="var(--brand-500)" />
+                {editId ? 'تعديل الدور' : 'إضافة دور جديد'}
+              </h3>
+              <button className="modal-close" onClick={() => setShowForm(false)} aria-label="إغلاق">
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                saveMutation.mutate(form);
+              }}
+            >
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">اسم الدور *</label>
+                  <input
+                    className="form-input"
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="مثال: مدير العمليات"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-ghost" type="button" onClick={() => setShowForm(false)}>
+                  إلغاء
+                </button>
+                <button className="btn btn-primary" type="submit" disabled={saveMutation.isPending}>
+                  <Save size={16} /> {saveMutation.isPending ? 'جاري الحفظ...' : 'حفظ الدور'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Manage Role Permissions */}
+      {permRole && (
+        <div className="modal-overlay" onClick={() => setPermRole(null)}>
+          <div className="modal card" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="text-primary flex items-center gap-2">
+                <Key size={18} color="var(--brand-500)" />
+                صلاحيات الدور: {permRole.name}
+              </h3>
+              <button className="modal-close" onClick={() => setPermRole(null)} aria-label="إغلاق">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="grid grid-2 gap-3">
+                {allPermissions.map(perm => {
+                  const checked = selectedPermIds.includes(perm.id);
+                  return (
+                    <label
+                      key={perm.id}
+                      className="flex items-start gap-3 p-3 rounded-lg"
+                      style={{
+                        border: checked ? '1.5px solid var(--brand-500)' : '1px solid var(--border-color)',
+                        background: checked ? 'var(--brand-50)' : 'var(--bg-surface)',
+                        cursor: 'pointer',
+                        transition: 'all var(--transition-fast)',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePerm(perm.id)}
+                        style={{ marginTop: 4 }}
+                      />
+                      <div>
+                        <div className="text-primary" style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                          {perm.key}
+                        </div>
+                        {perm.description && (
+                          <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                            {perm.description}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setPermRole(null)}>
+                إلغاء
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={savePermsMutation.isPending}
+                onClick={() => savePermsMutation.mutate({ roleId: permRole.id, permissionIds: selectedPermIds })}
+              >
+                <Save size={16} /> {savePermsMutation.isPending ? 'جاري الحفظ...' : 'حفظ الصلاحيات'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

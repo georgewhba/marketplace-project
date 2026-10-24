@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { UserCheck, UserX, Search, ChevronRight, ChevronLeft, Shield, User } from 'lucide-react';
+import { UserCheck, UserX, Search, ChevronRight, ChevronLeft, Shield, Users } from 'lucide-react';
 
 interface AppUser {
   id: number;
@@ -32,29 +32,61 @@ export default function AdminUsers() {
 
   const toggleMutation = useMutation({
     mutationFn: (id: number) => adminApi.toggleUser(id),
-    onSuccess: () => { addToast('تم تحديث حالة المستخدم', 'success'); qc.invalidateQueries({ queryKey: ['admin-users'] }); },
+    onSuccess: () => {
+      addToast('تم تحديث حالة المستخدم', 'success');
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    },
     onError: () => addToast('حدث خطأ', 'error'),
   });
 
-  const filtered = search ? users.filter(u =>
-    u.firstName.includes(search) || u.lastName.includes(search) || u.email.includes(search)
-  ) : users;
+  const filtered = search
+    ? users.filter(
+        u =>
+          u.firstName.toLowerCase().includes(search.toLowerCase()) ||
+          u.lastName.toLowerCase().includes(search.toLowerCase()) ||
+          u.email.toLowerCase().includes(search.toLowerCase())
+      )
+    : users;
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <User size={24} className="text-brand" />
-        <h1 className="page-header__title m-0">إدارة المستخدمين</h1>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <Users size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>إدارة المستخدمين</h1>
+            <p className="page-header__subtitle">استعراض حسابات العملاء والبائعين والمشرفين والتحكم في حالة التفعيل</p>
+          </div>
+        </div>
+        <span className="catalog-count-badge">
+          المعروض: <strong>{filtered.length}</strong> مستخدم
+        </span>
       </div>
 
-      <div className="relative mb-4" style={{ maxWidth: 360 }}>
-        <Search size={18} className="text-muted" style={{ position: 'absolute', insetInlineEnd: 12, top: '50%', transform: 'translateY(-50%)' }} />
-        <input className="input" placeholder="بحث بالاسم أو البريد..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingInlineStart: 40 }} />
+      <div className="card card-body mb-6" style={{ padding: 'var(--space-4) var(--space-5)' }}>
+        <div className="relative" style={{ maxWidth: 420 }}>
+          <Search
+            size={18}
+            className="text-muted"
+            style={{ position: 'absolute', insetInlineEnd: 14, top: '50%', transform: 'translateY(-50%)' }}
+          />
+          <input
+            className="form-input"
+            placeholder="بحث بالاسم أو البريد الإلكتروني..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ paddingInlineEnd: 42 }}
+          />
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 56 }} />)}
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="skeleton" style={{ height: 56 }} />
+          ))}
         </div>
       ) : (
         <div className="card" style={{ overflowX: 'auto' }}>
@@ -62,26 +94,40 @@ export default function AdminUsers() {
             <thead>
               <tr>
                 <th>المستخدم</th>
-                <th>البريد</th>
+                <th>البريد الإلكتروني</th>
                 <th className="text-center">الدور</th>
                 <th className="text-center">الحالة</th>
-                <th className="text-center">إجراءات</th>
+                <th className="text-center">الإجراءات</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(u => (
                 <tr key={u.id}>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center font-semibold text-brand" style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--brand-50)', fontSize: 'var(--font-size-sm)' }}>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center justify-center font-bold text-brand"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--brand-50)',
+                          border: '1px solid var(--brand-200)',
+                          fontSize: 'var(--font-size-sm)',
+                        }}
+                      >
                         {u.firstName[0]}
                       </div>
-                      <span className="font-semibold">{u.firstName} {u.lastName}</span>
+                      <span className="font-semibold text-primary">
+                        {u.firstName} {u.lastName}
+                      </span>
                     </div>
                   </td>
-                  <td className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>{u.email}</td>
+                  <td className="text-secondary ltr" style={{ fontSize: 'var(--font-size-sm)' }}>
+                    {u.email}
+                  </td>
                   <td className="text-center">
-                    <span className="flex items-center justify-center gap-1 font-semibold" style={{ display: 'inline-flex', fontSize: 'var(--font-size-xs)', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: u.role === 'admin' ? 'var(--brand-50)' : 'var(--bg-surface-2)', color: u.role === 'admin' ? 'var(--brand-700)' : 'var(--text-muted)' }}>
+                    <span className={`badge ${u.role === 'admin' ? 'badge-brand' : 'badge-neutral'}`}>
                       {u.role === 'admin' && <Shield size={12} />}
                       {roleLabels[u.role] ?? u.role}
                     </span>
@@ -93,7 +139,7 @@ export default function AdminUsers() {
                   </td>
                   <td className="text-center">
                     <button
-                      className="btn btn-ghost p-2"
+                      className="icon-btn"
                       style={{ color: u.isActive ? 'var(--error-500)' : 'var(--success-500)' }}
                       title={u.isActive ? 'تعطيل' : 'تفعيل'}
                       onClick={() => toggleMutation.mutate(u.id)}
@@ -111,9 +157,15 @@ export default function AdminUsers() {
 
       {meta && meta.totalPages > 1 && (
         <div className="flex justify-center items-center gap-3 mt-6">
-          <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronRight size={18} /> السابق</button>
-          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>صفحة {meta.page} من {meta.totalPages}</span>
-          <button className="btn btn-outline" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>التالي <ChevronLeft size={18} /></button>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            <ChevronRight size={18} /> السابق
+          </button>
+          <span className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
+            صفحة {meta.page} من {meta.totalPages}
+          </span>
+          <button className="btn btn-outline btn-sm" disabled={page >= meta.totalPages} onClick={() => setPage(p => p + 1)}>
+            التالي <ChevronLeft size={18} />
+          </button>
         </div>
       )}
     </div>

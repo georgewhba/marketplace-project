@@ -2991,3 +2991,32 @@ input[type="radio"] {
   font-size: var(--font-size-base);
   margin: 0;
 }
+
+/* ══════════════════════════════════════════════
+   DASHBOARD & FORM SELECT REFINEMENTS
+   ══════════════════════════════════════════════ */
+.sidebar__link.active {
+  font-weight: var(--font-weight-semibold);
+  border-inline-start: 3px solid var(--brand-500);
+}
+
+.dashboard-layout {
+  min-height: calc(100vh - var(--header-height));
+  background: var(--bg-body);
+}
+
+.dashboard-content {
+  padding: var(--space-8);
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: var(--space-4);
+  }
+}
+
+select option {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+

@@ -113,7 +113,12 @@ function AdminTransactionsView() {
 
   return (
     <div>
-      <h1 className="page-header__title mb-6">المعاملات المالية</h1>
+      <div className="page-header flex items-center gap-3">
+        <div>
+          <h1 className="page-header__title" style={{ marginBottom: 2 }}>المعاملات المالية</h1>
+          <p className="page-header__subtitle">سجل العمولات، التحويلات المالية، وعمليات الاسترجاع لكافة المتاجر</p>
+        </div>
+      </div>
       {isLoading ? (
         <Loading />
       ) : (

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock, DollarSign } from 'lucide-react';
 
 const formatCurrency = (val: number) => parseFloat(String(val)).toLocaleString('ar-EG') + ' ج.م';
 
@@ -40,10 +40,15 @@ export function AdminSettlements() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-header__title">دورات التسوية</h1>
-          <p className="page-header__subtitle mt-2">مراجعة واعتماد المبالغ المستحقة للبائعين.</p>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <DollarSign size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>دورات التسوية</h1>
+            <p className="page-header__subtitle">مراجعة واعتماد المبالغ المستحقة للبائعين بعد خصم العمولات</p>
+          </div>
         </div>
       </div>
 
@@ -58,46 +63,61 @@ export function AdminSettlements() {
               <th>العمولة</th>
               <th>الصافي للبائع</th>
               <th>الحالة</th>
-              <th>إجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              [1,2,3].map(i => (
+              [1, 2, 3].map(i => (
                 <tr key={i}>
-                  <td colSpan={8}><div className="skeleton" style={{ height: 40 }} /></td>
+                  <td colSpan={8}>
+                    <div className="skeleton" style={{ height: 40 }} />
+                  </td>
                 </tr>
               ))
             ) : settlements.length === 0 ? (
               <tr>
                 <td colSpan={8}>
-                  <div className="empty-state border-0">
+                  <div className="empty-state">
                     <div className="empty-state__title">لا توجد تسويات حالية</div>
                   </div>
                 </td>
               </tr>
             ) : (
-              settlements.map((item) => (
+              settlements.map(item => (
                 <tr key={item.id}>
-                  <td>SET-{item.id}</td>
+                  <td className="font-semibold text-primary">SET-{item.id}</td>
                   <td className="font-semibold">{item.vendorName}</td>
                   <td className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {new Date(item.periodStart).toLocaleDateString('ar-EG')} - {new Date(item.periodEnd).toLocaleDateString('ar-EG')}
+                    {new Date(item.periodStart).toLocaleDateString('ar-EG')} -{' '}
+                    {new Date(item.periodEnd).toLocaleDateString('ar-EG')}
                   </td>
                   <td>{formatCurrency(Number(item.grossSales))}</td>
-                  <td style={{ color: 'var(--error-600)' }}>{formatCurrency(Number(item.totalCommission))}</td>
-                  <td className="font-bold">{formatCurrency(Number(item.netPayable))}</td>
+                  <td className="text-error">{formatCurrency(Number(item.totalCommission))}</td>
+                  <td className="font-bold text-brand">{formatCurrency(Number(item.netPayable))}</td>
                   <td>
-                    <span className={`badge ${item.status === 'paid' ? 'badge-success' : item.status === 'finalized' ? 'badge-info' : 'badge-warning'}`}>
+                    <span
+                      className={`badge ${
+                        item.status === 'paid'
+                          ? 'badge-success'
+                          : item.status === 'finalized'
+                          ? 'badge-info'
+                          : 'badge-warning'
+                      }`}
+                    >
                       {item.status === 'paid' ? 'مدفوعة' : item.status === 'finalized' ? 'معتمدة' : 'مسودة'}
                     </span>
                   </td>
                   <td>
                     {item.status === 'draft' ? (
-                      <button 
-                        className="btn btn-primary btn-sm flex items-center gap-1" 
+                      <button
+                        className="btn btn-primary btn-sm"
                         onClick={() => {
-                          if (window.confirm('اعتماد التسوية يمنع تعديلها لاحقاً ويسمح للبائع بسحب رصيدها. هل أنت متأكد؟')) {
+                          if (
+                            window.confirm(
+                              'اعتماد التسوية يمنع تعديلها لاحقاً ويسمح للبائع بسحب رصيدها. هل أنت متأكد؟'
+                            )
+                          ) {
                             finalizeMutation.mutate(item.id);
                           }
                         }}

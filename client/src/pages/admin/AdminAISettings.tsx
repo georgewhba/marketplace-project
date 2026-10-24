@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api';
 import { useToast } from '../../toast';
-import { Save, Bot } from 'lucide-react';
+import { Save, Bot, Cpu, MessageSquare } from 'lucide-react';
 
 export function AdminAISettings() {
   const toast = useToast();
@@ -29,7 +29,8 @@ export function AdminAISettings() {
 7. لا تتحدث عن أي مواضيع خارج نطاق التجارة الإلكترونية وخدمة عملاء الموقع.`;
 
   useEffect(() => {
-    adminApi.getSettings()
+    adminApi
+      .getSettings()
       .then((res: any) => {
         const data = res.data || res;
         const currentSettings = { ...settings };
@@ -42,16 +43,15 @@ export function AdminAISettings() {
         } else if (typeof data === 'object') {
           Object.keys(data).forEach(key => {
             if (key in currentSettings) {
-               (currentSettings as any)[key] = data[key];
+              (currentSettings as any)[key] = data[key];
             }
           });
         }
-        
-        // Populate default prompt if empty
+
         if (!currentSettings.ai_system_prompt) {
           currentSettings.ai_system_prompt = DEFAULT_SYSTEM_INSTRUCTION;
         }
-        
+
         setSettings(currentSettings);
       })
       .catch(() => toast.error('فشل تحميل إعدادات المساعد الذكي'))
@@ -62,9 +62,9 @@ export function AdminAISettings() {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setSettings((prev) => ({ ...prev, [name]: checked ? 'true' : 'false' }));
+      setSettings(prev => ({ ...prev, [name]: checked ? 'true' : 'false' }));
     } else {
-      setSettings((prev) => ({ ...prev, [name]: value }));
+      setSettings(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -72,14 +72,13 @@ export function AdminAISettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      // Filter out undefined values
       const payload = Object.fromEntries(
         Object.entries(settings).filter(([, v]) => v !== undefined && v !== null)
       );
-      
+
       await adminApi.updateSettings(payload);
       toast.success('تم حفظ إعدادات المساعد الذكي بنجاح');
-      
+
       qc.invalidateQueries({ queryKey: ['site-settings'] });
     } catch (err: any) {
       toast.error(err.message || 'فشل حفظ الإعدادات');
@@ -88,60 +87,84 @@ export function AdminAISettings() {
     }
   };
 
-  if (loading) return <div className="flex flex-col gap-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 60 }} />)}</div>;
+  if (loading) {
+    return (
+      <div className="grid grid-2">
+        {[1, 2].map(i => (
+          <div key={i} className="skeleton" style={{ height: 360 }} />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-header__title flex items-center gap-2">
-            <Bot className="text-primary" size={28} />
-            إعدادات المساعد الذكي
-          </h1>
-          <p className="page-header__subtitle mt-2">التحكم الكامل في شخصية وردود الذكاء الاصطناعي</p>
+    <form onSubmit={handleSubmit}>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon">
+            <Bot size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>إعدادات المساعد الذكي</h1>
+            <p className="page-header__subtitle">التحكم الكامل في نموذج الذكاء الاصطناعي، درجة الإبداع، وتعليمات خدمة العملاء</p>
+          </div>
         </div>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? <div className="spinner" /> : <Save size={18} />}
+          {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+        </button>
       </div>
 
-      <div className="card max-w-3xl">
-        <form className="card-body" onSubmit={handleSubmit}>
-          
-          <div className="form-group flex items-center gap-3 p-4 rounded-lg mb-6" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-color)', flexDirection: 'row' }}>
-            <input
-              type="checkbox"
-              id="ai_enabled"
-              name="ai_enabled"
-              checked={settings.ai_enabled === 'true'}
-              onChange={handleChange}
-              style={{ width: 20, height: 20 }}
-            />
-            <label htmlFor="ai_enabled" className="form-label mb-0 cursor-pointer text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
-              تفعيل المساعد الذكي للزوار
+      <div className="grid grid-2">
+        {/* Column 1: Model & API Configuration */}
+        <div className="card card-body">
+          <div className="flex items-center gap-3 mb-5 pb-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
+            <div className="feature-card__icon" style={{ width: 38, height: 38 }}>
+              <Cpu size={18} />
+            </div>
+            <div>
+              <h3 className="text-primary" style={{ margin: 0, fontSize: 'var(--font-size-md)', fontWeight: 700 }}>
+                إعدادات النموذج والاتصال
+              </h3>
+              <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
+                تفعيل المساعد واختيار نموذج Gemini ومفتاح الربط
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <label
+              htmlFor="ai_enabled"
+              className="flex items-center gap-3 p-4 rounded-lg"
+              style={{
+                background: settings.ai_enabled === 'true' ? 'var(--brand-50)' : 'var(--bg-surface-2)',
+                border: settings.ai_enabled === 'true' ? '1.5px solid var(--brand-500)' : '1px solid var(--border-color)',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                id="ai_enabled"
+                name="ai_enabled"
+                checked={settings.ai_enabled === 'true'}
+                onChange={handleChange}
+                style={{ width: 20, height: 20 }}
+              />
+              <div>
+                <div className="text-primary" style={{ fontWeight: 700, fontSize: 'var(--font-size-base)' }}>
+                  تفعيل المساعد الذكي للزوار والعملاء
+                </div>
+                <div className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
+                  إظهار أيقونة المحادثة الذكية في أسفل صفحات المتجر
+                </div>
+              </div>
             </label>
-          </div>
 
-          <div className="form-group mb-4">
-            <label className="form-label">مفتاح API الخاص بـ Gemini (اختياري)</label>
-            <input
-              type="password"
-              name="ai_api_key"
-              className="input"
-              placeholder="AIzaSy..."
-              value={settings.ai_api_key}
-              onChange={handleChange}
-              dir="ltr"
-            />
-            <p className="text-muted mt-1 text-xs">
-              إذا تركته فارغاً، سيتم استخدام المفتاح الافتراضي المتوفر في السيرفر (Railway). 
-              البيانات المدخلة هنا لها الأولوية.
-            </p>
-          </div>
-
-          <div className="grid grid-2 gap-4">
             <div className="form-group">
               <label className="form-label">نموذج الذكاء الاصطناعي (Model)</label>
               <select
                 name="ai_model"
-                className="input"
+                className="form-select"
                 value={settings.ai_model}
                 onChange={handleChange}
               >
@@ -159,39 +182,61 @@ export function AdminAISettings() {
                 min="0.1"
                 max="1.0"
                 name="ai_temperature"
-                className="input"
+                className="form-input"
                 value={settings.ai_temperature}
                 onChange={handleChange}
               />
-              <p className="text-muted mt-1 text-xs">
-                (رقم بين 0.1 و 1.0) القيمة الأقل تعني ردود دقيقة ومحددة، والأعلى تعني ردود إبداعية. يفضل 0.7.
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>
+                (رقم بين 0.1 و 1.0) القيمة الأقل تعني ردوداً دقيقة ومحددة، والأعلى تعني ردوداً إبداعية. يفضل 0.7.
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">مفتاح API الخاص بـ Gemini (اختياري)</label>
+              <input
+                type="password"
+                name="ai_api_key"
+                className="form-input"
+                placeholder="AIzaSy..."
+                value={settings.ai_api_key}
+                onChange={handleChange}
+                dir="ltr"
+              />
+              <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>
+                إذا تركته فارغاً، سيتم استخدام المفتاح الافتراضي المتوفر في السيرفر.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 2: System Prompt Instructions */}
+        <div className="card card-body flex flex-col">
+          <div className="flex items-center gap-3 mb-5 pb-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
+            <div className="feature-card__icon" style={{ width: 38, height: 38 }}>
+              <MessageSquare size={18} />
+            </div>
+            <div>
+              <h3 className="text-primary" style={{ margin: 0, fontSize: 'var(--font-size-md)', fontWeight: 700 }}>
+                تعليمات النظام (System Prompt)
+              </h3>
+              <p className="text-muted" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
+                التوجيهات السرية التي تحدد شخصية المساعد الذكي وحدود إجاباته
               </p>
             </div>
           </div>
 
-          <div className="form-group mt-4">
-            <label className="form-label font-bold text-lg">تعليمات النظام (System Prompt)</label>
-            <p className="text-muted mb-2 text-sm">
-              هذه هي التعليمات السرية التي يتم توجيه المساعد الذكي بها قبل أن يتحدث مع العميل. يمكنك تعديلها لتغيير شخصيته بالكامل.
-            </p>
+          <div className="form-group flex-1 flex flex-col">
             <textarea
               name="ai_system_prompt"
-              className="input"
-              style={{ minHeight: '300px', lineHeight: '1.6', fontFamily: 'monospace' }}
+              className="form-textarea flex-1"
+              style={{ minHeight: 280, lineHeight: 1.75 }}
               value={settings.ai_system_prompt}
               onChange={handleChange}
               dir="rtl"
             />
           </div>
-
-          <div className="mt-6">
-            <button type="submit" className="btn btn-primary w-full" disabled={saving}>
-              {saving ? <div className="spinner" /> : <Save size={18} />}
-              {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
-    </>
+    </form>
   );
 }

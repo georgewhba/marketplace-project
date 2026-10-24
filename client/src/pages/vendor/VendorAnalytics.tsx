@@ -4,7 +4,7 @@ import { getVendorOverview, getVendorAnalyticsProducts } from '../../api';
 import { BarChart } from '../../components/ui/Chart';
 import { exportToCsv } from '../../utils/exportCsv';
 import { formatCurrency, formatDate } from '../../utils/format';
-import { Download } from 'lucide-react';
+import { Download, BarChart2 } from 'lucide-react';
 
 export default function VendorAnalytics() {
   const [days, setDays] = useState(30);
@@ -31,16 +31,21 @@ export default function VendorAnalytics() {
 
   return (
     <div>
-      <div className="page-header flex justify-between items-center mb-6">
-        <div>
-          <h1 className="page-header__title m-0">أداء المتجر</h1>
-          <p className="page-header__subtitle mt-1">نظرة تحليلية لمبيعاتك ومنتجاتك</p>
+      <div className="page-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+        <div className="flex items-center gap-3">
+          <div className="feature-card__icon" style={{ margin: 0 }}>
+            <BarChart2 size={22} />
+          </div>
+          <div>
+            <h1 className="page-header__title" style={{ marginBottom: 2 }}>أداء المتجر والتحليلات</h1>
+            <p className="page-header__subtitle">نظرة تحليلية شاملة لمبيعاتك وأداء منتجاتك</p>
+          </div>
         </div>
         <select 
           value={days} 
           onChange={(e) => setDays(Number(e.target.value))}
-          className="input"
-          style={{ width: 'auto' }}
+          className="form-select"
+          style={{ width: 'auto', minWidth: 160 }}
         >
           <option value={7}>آخر 7 أيام</option>
           <option value={30}>آخر 30 يوم</option>

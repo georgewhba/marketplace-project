@@ -103,7 +103,15 @@ export default function OrdersPage() {
 
   return (
     <div className="container page-content">
-      <h1 className="page-header__title mb-8">طلباتي</h1>
+      <div className="page-header flex items-center gap-3">
+        <div className="feature-card__icon" style={{ margin: 0 }}>
+          <Package size={22} />
+        </div>
+        <div>
+          <h1 className="page-header__title" style={{ marginBottom: 2 }}>طلباتي</h1>
+          <p className="page-header__subtitle">متابعة حالة طلباتك، تتبع الشحنات، وطلبات الاسترجاع</p>
+        </div>
+      </div>
 
       <div className="flex flex-col gap-4">
         {orders.map((order: any) => {
@@ -155,7 +163,7 @@ export default function OrdersPage() {
                   </button>
                 )}
                 {['shipped', 'delivered'].includes(order.status) && (
-                  <button className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--primary-600)' }} onClick={() => handleTrackOrder(order.id)}>
+                  <button className="btn btn-primary btn-sm" onClick={() => handleTrackOrder(order.id)}>
                     <Truck size={14} /> تتبع الشحنة
                   </button>
                 )}
@@ -166,26 +174,38 @@ export default function OrdersPage() {
       </div>
 
       {refundOrderId && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-overlay)', zIndex: 100 }}>
-          <div className="card card-body" style={{ width: '100%', maxWidth: 400 }}>
-            <h3 className="text-lg font-bold mb-4 flex gap-2 items-center">
-              <Undo size={18} /> طلب استرجاع
-            </h3>
-
-            <div className="form-group mb-6">
-              <label className="form-label">سبب الاسترجاع</label>
-              <textarea
-                className="form-textarea"
-                rows={4}
-                value={refundReason}
-                onChange={e => setRefundReason(e.target.value)}
-                placeholder="الرجاء توضيح سبب الاسترجاع (مثال: المنتج تالف أو غير مطابق للمواصفات)..."
-              />
+        <div className="modal-overlay" onClick={() => { setRefundOrderId(null); setRefundReason(''); }}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title flex gap-2 items-center">
+                <Undo size={18} style={{ color: 'var(--brand-600)' }} /> طلب استرجاع
+              </h3>
+              <button className="modal-close" onClick={() => { setRefundOrderId(null); setRefundReason(''); }}>
+                <X size={20} />
+              </button>
             </div>
-
-            <div className="flex gap-3 justify-end">
+            <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">سبب الاسترجاع</label>
+                <textarea
+                  className="form-textarea"
+                  rows={4}
+                  value={refundReason}
+                  onChange={e => setRefundReason(e.target.value)}
+                  placeholder="الرجاء توضيح سبب الاسترجاع (مثال: المنتج تالف أو غير مطابق للمواصفات)..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
               <button
-                className="btn btn-ghost"
+                className="btn btn-primary"
+                onClick={handleSubmitRefund}
+                disabled={isSubmittingRefund}
+              >
+                {isSubmittingRefund ? 'جاري الإرسال...' : 'تقديم الطلب'}
+              </button>
+              <button
+                className="btn btn-secondary"
                 onClick={() => {
                   setRefundOrderId(null);
                   setRefundReason('');
@@ -194,13 +214,6 @@ export default function OrdersPage() {
               >
                 إلغاء
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSubmitRefund}
-                disabled={isSubmittingRefund}
-              >
-                تقديم الطلب
-              </button>
             </div>
           </div>
         </div>
@@ -208,62 +221,65 @@ export default function OrdersPage() {
 
       {/* Tracking Modal */}
       {trackingOrderId && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-overlay)', zIndex: 100 }}>
-          <div className="card card-body" style={{ width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <button
-              className="icon-btn"
-              style={{ position: 'absolute', top: 12, insetInlineEnd: 12 }}
-              onClick={() => setTrackingOrderId(null)}
-              aria-label="إغلاق نافذة التتبع"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-lg font-bold mb-6 flex gap-2 items-center">
-              <Truck size={20} style={{ color: 'var(--primary-600)' }} /> تتبع شحنة الطلب #{orders.find(o => o.id === trackingOrderId)?.orderNumber}
-            </h3>
+        <div className="modal-overlay" onClick={() => setTrackingOrderId(null)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title flex gap-2 items-center">
+                <Truck size={20} style={{ color: 'var(--brand-600)' }} /> تتبع شحنة الطلب #{orders.find(o => o.id === trackingOrderId)?.orderNumber}
+              </h3>
+              <button
+                className="modal-close"
+                onClick={() => setTrackingOrderId(null)}
+                aria-label="إغلاق نافذة التتبع"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-            {isLoadingTracking ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {[1, 2].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
-              </div>
-            ) : trackingData.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state__title">لا توجد تفاصيل تتبع لهذا الطلب بعد</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-                {trackingData.map((shipment, idx) => (
-                  <div key={shipment.id} style={{ borderBottom: idx < trackingData.length - 1 ? '1px solid var(--neutral-200)' : 'none', paddingBottom: idx < trackingData.length - 1 ? 'var(--space-4)' : 0 }}>
-                    <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
-                      <div style={{ fontWeight: 600 }}>شحنة من البائع</div>
-                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--neutral-600)' }}>
-                        بوليصة: <strong style={{ color: 'var(--primary-600)' }}>{shipment.trackingNumber || 'غير متوفر'}</strong>
+            <div className="modal-body">
+              {isLoadingTracking ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  {[1, 2].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
+                </div>
+              ) : trackingData.length === 0 ? (
+                <div className="empty-state" style={{ padding: 'var(--space-8)' }}>
+                  <div className="empty-state__title">لا توجد تفاصيل تتبع لهذا الطلب بعد</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                  {trackingData.map((shipment, idx) => (
+                    <div key={shipment.id} style={{ borderBottom: idx < trackingData.length - 1 ? '1px solid var(--border-color)' : 'none', paddingBottom: idx < trackingData.length - 1 ? 'var(--space-4)' : 0 }}>
+                      <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ fontWeight: 600 }}>شحنة من البائع</div>
+                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                          بوليصة: <strong style={{ color: 'var(--brand-600)' }}>{shipment.trackingNumber || 'غير متوفر'}</strong>
+                        </div>
                       </div>
-                    </div>
 
-                    <div style={{ position: 'relative', paddingInlineStart: 'var(--space-4)' }}>
-                      {/* Timeline line */}
-                      <div style={{ position: 'absolute', insetInlineStart: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--neutral-200)' }} />
+                      <div style={{ position: 'relative', paddingInlineStart: 'var(--space-4)' }}>
+                        {/* Timeline line */}
+                        <div style={{ position: 'absolute', insetInlineStart: 7, top: 10, bottom: 10, width: 2, backgroundColor: 'var(--border-color)' }} />
 
-                      {shipment.events?.map((event: any, eIdx: number) => {
-                        const isLast = eIdx === shipment.events.length - 1;
-                        return (
-                          <div key={event.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 'var(--space-4)' }}>
-                            <div style={{ position: 'absolute', insetInlineStart: -16, top: 4, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--primary-500)', zIndex: 1 }} />
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{event.description || statusMap[event.status]?.label || event.status}</div>
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--neutral-500)' }}>
-                                {new Date(event.occurredAt).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })}
+                        {shipment.events?.map((event: any, eIdx: number) => {
+                          const isLast = eIdx === shipment.events.length - 1;
+                          return (
+                            <div key={event.id} style={{ position: 'relative', marginBottom: isLast ? 0 : 'var(--space-4)' }}>
+                              <div style={{ position: 'absolute', insetInlineStart: -16, top: 4, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--brand-500)', zIndex: 1 }} />
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{event.description || statusMap[event.status]?.label || event.status}</div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                                  {new Date(event.occurredAt).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
