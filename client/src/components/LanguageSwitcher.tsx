@@ -32,16 +32,15 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         aria-expanded={open}
         title={t('nav.language')}
       >
-        <Globe size={16} className="lang-switcher-btn__globe" />
-        <span className="lang-switcher-btn__flag">{langInfo.flag}</span>
-        {!compact && <span className="lang-switcher-btn__label">{langInfo.nativeName}</span>}
-        {compact && <span className="lang-switcher-btn__code">{langInfo.code.toUpperCase()}</span>}
+        <Globe size={15} className="lang-switcher-btn__globe" />
+        <span className="lang-switcher-btn__badge">{langInfo.code.toUpperCase()}</span>
+        {!compact && <span className="lang-switcher-btn__label max-sm:!hidden">{langInfo.nativeName}</span>}
         <ChevronDown
           size={13}
           style={{
-            transition: 'transform 200ms ease',
+            transition: 'transform 180ms ease',
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            opacity: 0.7,
+            opacity: 0.65,
           }}
         />
       </button>
@@ -62,7 +61,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
                 onClick={() => handleSelect(item.code)}
                 className={`dropdown__item lang-switcher-item ${isSelected ? 'active' : ''}`}
               >
-                <span className="lang-switcher-item__flag">{item.flag}</span>
+                <span className="lang-switcher-item__code">{item.code.toUpperCase()}</span>
                 <div className="lang-switcher-item__text">
                   <span className="lang-switcher-item__native">{item.nativeName}</span>
                   <span className="lang-switcher-item__sub">{item.name}</span>

@@ -1,8 +1,7 @@
-import { Star, ShoppingCart, Heart, Sparkles } from 'lucide-react';
+import { Star, ShoppingCart, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
-import { useState } from 'react';
 import { useLanguage } from '../i18n';
 
 interface ProductCardProps {
@@ -33,29 +32,9 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
   const isOutOfStock = product.stock !== undefined && product.stock <= 0;
 
   const shouldReduceMotion = useReducedMotion();
-  const [tiltStyle, setTiltStyle] = useState({ rotateX: 0, rotateY: 0 });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (shouldReduceMotion) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    const rotateX = ((y - centerY) / centerY) * -1.8;
-    const rotateY = ((x - centerX) / centerX) * 1.8;
-
-    setTiltStyle({ rotateX, rotateY });
-  };
-
-  const handleMouseLeave = () => {
-    setTiltStyle({ rotateX: 0, rotateY: 0 });
-  };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 20 },
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 14 },
     visible: {
       opacity: 1,
       y: 0,
@@ -67,23 +46,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
   };
 
   return (
-    <motion.div
-      className="product-card"
-      variants={itemVariants}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      animate={{
-        rotateX: tiltStyle.rotateX,
-        rotateY: tiltStyle.rotateY,
-      }}
-      transition={{
-        type: 'spring',
-        stiffness: 400,
-        damping: 30,
-        mass: 0.5,
-      }}
-      style={{ perspective: '1000px', transformStyle: 'preserve-3d' }}
-    >
+    <motion.article className="product-card" variants={itemVariants}>
       <div className="product-card__image-wrap">
         <Link to={`/products/${product.slug}`} style={{ display: 'block', width: '100%', height: '100%' }}>
           <img src={imageUrl} alt={product.name} className="product-card__image" loading="lazy" />
@@ -93,7 +56,7 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
           {discount && <span className="product-card__discount ltr">-{discount}%</span>}
           {product.isFeatured && !discount && (
             <span className="product-card__featured-badge">
-              <Sparkles size={11} /> {t('product.featured')}
+              {t('product.featured')}
             </span>
           )}
         </div>
@@ -118,50 +81,48 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist }: ProductC
             <span>{t('product.outOfStock')}</span>
           </div>
         )}
-
-        {onAddToCart && !isOutOfStock && (
-          <button
-            type="button"
-            className="product-card__add-btn"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onAddToCart(product.id);
-            }}
-          >
-            <ShoppingCart size={16} />
-            <span>{t('product.addToCart')}</span>
-          </button>
-        )}
       </div>
 
-      <Link to={`/products/${product.slug}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div className="product-card__body">
-          {rating > 0 && (
-            <div className="product-card__rating">
-              <div className="product-card__stars">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Star key={i} size={13} fill={i <= Math.round(rating) ? 'currentColor' : 'none'} />
-                ))}
-              </div>
-              <span className="product-card__rating-num ltr">{rating.toFixed(1)}</span>
-              <span className="product-card__review-count">({product.reviewCount || 0})</span>
-            </div>
-          )}
-
-          <div className="product-card__name">{product.name}</div>
-
-          <div className="product-card__footer">
-            <div className="product-card__price-row">
-              <span className="product-card__price">{formatPrice(price)}</span>
-              {comparePrice && comparePrice > price && (
-                <span className="product-card__compare-price">{formatPrice(comparePrice)}</span>
-              )}
-            </div>
+      <div className="product-card__body">
+        {rating > 0 && (
+          <div className="product-card__rating">
+            <Star size={13} fill="var(--accent-500)" color="var(--accent-500)" />
+            <span className="product-card__rating-num ltr">{rating.toFixed(1)}</span>
+            <span className="product-card__review-count">({product.reviewCount || 0})</span>
           </div>
+        )}
+
+        <Link to={`/products/${product.slug}`} className="product-card__name-link">
+          <h3 className="product-card__name">{product.name}</h3>
+        </Link>
+
+        <div className="product-card__footer">
+          <div className="product-card__price-col">
+            <span className="product-card__price">{formatPrice(price)}</span>
+            {comparePrice && comparePrice > price && (
+              <span className="product-card__compare-price">{formatPrice(comparePrice)}</span>
+            )}
+          </div>
+
+          {onAddToCart && !isOutOfStock && (
+            <button
+              type="button"
+              className="product-card__cart-action"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToCart(product.id);
+              }}
+              aria-label={t('product.addToCart')}
+              title={t('product.addToCart')}
+            >
+              <ShoppingCart size={16} />
+              <span>{t('product.addToCart')}</span>
+            </button>
+          )}
         </div>
-      </Link>
-    </motion.div>
+      </div>
+    </motion.article>
   );
 }
 
@@ -169,8 +130,8 @@ export function ProductCardSkeleton() {
   return (
     <div className="product-card">
       <div className="skeleton skeleton-image" />
-      <div style={{ padding: '1.25rem' }}>
-        <div className="skeleton skeleton-text" style={{ width: '35%', marginBottom: 10 }} />
+      <div style={{ padding: '1rem' }}>
+        <div className="skeleton skeleton-text" style={{ width: '35%', marginBottom: 8 }} />
         <div className="skeleton skeleton-title" />
         <div className="skeleton skeleton-text" style={{ width: '50%' }} />
       </div>

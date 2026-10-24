@@ -6,11 +6,13 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { motionTokens } from '../lib/motion-tokens';
 import { useAuth } from '../auth';
 import { useToast } from '../toast';
+import { useLanguage } from '../i18n';
 import { StarRating } from '../components/ProductCard';
-import { ShoppingCart, Heart, ChevronLeft, Minus, Plus, Store, Gem, Sparkles, Star } from 'lucide-react';
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Minus, Plus, Store, Gem, Sparkles, Star } from 'lucide-react';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ProductDetailPage() {
+  const { t, isRTL, formatPrice, translateCategory } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const { slug } = useParams();
   const { user } = useAuth();
@@ -29,6 +31,8 @@ export default function ProductDetailPage() {
   });
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  const BreadcrumbChevron = isRTL ? ChevronLeft : ChevronRight;
+
   useDocumentTitle(product?.name, {
     description: product?.description ? product.description.slice(0, 160) : undefined,
     canonicalPath: `/products/${slug}`,
@@ -39,7 +43,7 @@ export default function ProductDetailPage() {
     setLoading(true);
     storeApi.getProduct(slug)
       .then(res => setProduct((res as any).data || res))
-      .catch(() => toast.error('فشل تحميل المنتج'))
+      .catch(() => toast.error('Failed to load product'))
       .finally(() => setLoading(false));
   };
 
@@ -48,12 +52,15 @@ export default function ProductDetailPage() {
   }, [slug]);
 
   const handleAddToCart = async () => {
-    if (!user) { toast.info('سجّل الدخول أولاً'); return; }
+    if (!user) {
+      toast.info(t('product.loginFirst'));
+      return;
+    }
     setAddingToCart(true);
     try {
       await cartApi.addItem(product.id, quantity);
       qc.invalidateQueries({ queryKey: ['cart'] });
-      toast.success('تمت الإضافة للسلة');
+      toast.success(t('product.addedToCart'));
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -63,7 +70,10 @@ export default function ProductDetailPage() {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { toast.info('سجّل الدخول أولاً'); return; }
+    if (!user) {
+      toast.info(t('product.loginFirst'));
+      return;
+    }
     setSubmittingReview(true);
     try {
       await reviewApi.createReview({
@@ -73,22 +83,25 @@ export default function ProductDetailPage() {
         title: reviewForm.title || undefined,
         comment: reviewForm.comment || undefined,
       });
-      toast.success('تم إضافة تقييمك بنجاح');
+      toast.success('Review submitted');
       setReviewForm({ rating: 5, title: '', comment: '' });
       loadProduct();
     } catch (e: any) {
-      toast.error(e.message || 'حدث خطأ أثناء إرسال التقييم');
+      toast.error(e.message || 'Failed to submit review');
     } finally {
       setSubmittingReview(false);
     }
   };
 
   const handleWishlist = async () => {
-    if (!user) { toast.info('سجّل الدخول أولاً'); return; }
+    if (!user) {
+      toast.info(t('product.loginFirst'));
+      return;
+    }
     try {
       const res = (await wishlistApi.toggle(product.id)) as any;
       const data = res.data || res;
-      toast.success(data.wishlisted ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة');
+      toast.success(data.wishlisted ? 'Added to wishlist' : 'Removed from wishlist');
       qc.invalidateQueries({ queryKey: ['wishlist'] });
     } catch (e: any) {
       toast.error(e.message);
@@ -110,11 +123,19 @@ export default function ProductDetailPage() {
     );
   }
 
-  if (!product) return <div className="container page-content"><div className="empty-state"><div className="empty-state__title">المنتج غير موجود</div></div></div>;
+  if (!product) {
+    return (
+      <div className="container page-content">
+        <div className="empty-state">
+          <div className="empty-state__title">{t('catalog.noProducts')}</div>
+        </div>
+      </div>
+    );
+  }
 
   const price = parseFloat(product.price);
   const comparePrice = product.comparePrice ? parseFloat(product.comparePrice) : null;
-  const discount = comparePrice ? Math.round((1 - price / comparePrice) * 100) : null;
+  const discount = comparePrice && comparePrice > price ? Math.round((1 - price / comparePrice) * 100) : null;
   const images = product.images || [];
   const isOutOfStock = product.stock <= 0;
 
@@ -122,24 +143,26 @@ export default function ProductDetailPage() {
     <div className="container page-content">
       {/* Breadcrumb */}
       <div className="breadcrumb">
-        <Link to="/">الرئيسية</Link>
-        <ChevronLeft size={14} className="breadcrumb__separator" />
-        <Link to="/products">المنتجات</Link>
+        <Link to="/">{t('nav.home')}</Link>
+        <BreadcrumbChevron size={14} className="breadcrumb__separator" />
+        <Link to="/products">{t('nav.products')}</Link>
         {product.category && (
           <>
-            <ChevronLeft size={14} className="breadcrumb__separator" />
-            <Link to={`/products?category=${product.category.slug}`}>{product.category.name}</Link>
+            <BreadcrumbChevron size={14} className="breadcrumb__separator" />
+            <Link to={`/products?category=${product.category.slug}`}>
+              {translateCategory(product.category.name, product.category.slug)}
+            </Link>
           </>
         )}
-        <ChevronLeft size={14} className="breadcrumb__separator" />
+        <BreadcrumbChevron size={14} className="breadcrumb__separator" />
         <span>{product.name}</span>
       </div>
 
       <div className="flex gap-8 flex-wrap">
         {/* Images */}
-        <div className="w-full md:w-[480px] shrink-0" style={{ maxWidth: '100%' }}>
+        <div className="w-full md:w-[460px] shrink-0" style={{ maxWidth: '100%' }}>
           <div className="card mb-3">
-            <div className="relative overflow-hidden" style={{ aspectRatio: '1' }}>
+            <div className="relative overflow-hidden bg-[var(--bg-surface-2)]" style={{ aspectRatio: '1' }}>
               <AnimatePresence mode="wait">
                 <motion.img
                   key={selectedImage}
@@ -155,14 +178,16 @@ export default function ProductDetailPage() {
             </div>
           </div>
           {images.length > 1 && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {images.map((img: any, i: number) => (
                 <button
                   key={i}
                   onClick={() => setSelectedImage(i)}
-                  aria-label={`صورة المنتج ${i + 1}`}
-                  className={`overflow-hidden rounded-md cursor-pointer border ${i === selectedImage ? 'border-primary' : 'border-neutral-200'}`}
-                  style={{ width: 72, height: 72 }}
+                  aria-label={`Image ${i + 1}`}
+                  className={`overflow-hidden rounded-lg cursor-pointer border-2 transition-all ${
+                    i === selectedImage ? 'border-[var(--brand-500)]' : 'border-[var(--border-color)]'
+                  }`}
+                  style={{ width: 68, height: 68 }}
                 >
                   <img src={img.imageUrl || img.url} alt="" className="w-full h-full object-cover" />
                 </button>
@@ -173,32 +198,27 @@ export default function ProductDetailPage() {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold mb-3">
-            {product.name}
-          </h1>
+          <h1 className="text-2xl font-bold mb-3">{product.name}</h1>
 
           {/* Rating */}
           <div className="flex items-center flex-wrap gap-3 mb-4">
             <StarRating rating={parseFloat(product.rating || '0')} />
             <span className="text-sm text-muted">
-              ({product.reviewCount || 0} تقييم)
-            </span>
-            <span className="text-sm text-muted">
-              | {product.totalSold || 0} مبيع
+              ({product.reviewCount || 0} {t('product.reviews')})
             </span>
           </div>
 
           {/* Price */}
           <div className="flex items-center flex-wrap gap-3 mb-6">
-            <span className="text-3xl font-bold text-primary">
-              {price.toLocaleString('ar-EG')} ج.م
+            <span className="text-3xl font-bold text-[var(--brand-600)]">
+              {formatPrice(price)}
             </span>
-            {comparePrice && (
+            {comparePrice && comparePrice > price && (
               <>
                 <span className="price-tag--original text-lg">
-                  {comparePrice.toLocaleString('ar-EG')}
+                  {formatPrice(comparePrice)}
                 </span>
-                <span className="badge badge-error">خصم {discount}%</span>
+                <span className="badge badge-error ltr">-{discount}%</span>
               </>
             )}
           </div>
@@ -206,11 +226,9 @@ export default function ProductDetailPage() {
           {/* Stock */}
           <div className="mb-6">
             {isOutOfStock ? (
-              <span className="badge badge-error"><span className="badge-dot" /> نفذ من المخزون</span>
-            ) : product.stock <= 5 ? (
-              <span className="badge badge-warning"><span className="badge-dot" /> متبقي {product.stock} فقط</span>
+              <span className="badge badge-error"><span className="badge-dot" /> {t('product.outOfStock')}</span>
             ) : (
-              <span className="badge badge-success"><span className="badge-dot" /> متوفر</span>
+              <span className="badge badge-success"><span className="badge-dot" /> {t('product.inStock')} ({product.stock})</span>
             )}
           </div>
 
@@ -218,19 +236,19 @@ export default function ProductDetailPage() {
           {!isOutOfStock && (
             <div className="flex items-center flex-wrap gap-4 mb-6">
               <div className="quantity-control">
-                <button className="quantity-control__btn" aria-label="تقليل الكمية" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                <button className="quantity-control__btn" aria-label="Decrease" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
                   <Minus size={16} />
                 </button>
-                <input className="quantity-control__value" type="text" value={quantity} readOnly aria-label="الكمية" />
-                <button className="quantity-control__btn" aria-label="زيادة الكمية" onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}>
+                <input className="quantity-control__value" type="text" value={quantity} readOnly aria-label="Quantity" />
+                <button className="quantity-control__btn" aria-label="Increase" onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}>
                   <Plus size={16} />
                 </button>
               </div>
               <button className="btn btn-primary btn-lg" onClick={handleAddToCart} disabled={addingToCart}>
                 <ShoppingCart size={18} />
-                {addingToCart ? 'جارٍ الإضافة...' : 'أضف للسلة'}
+                {t('product.addToCart')}
               </button>
-              <button className="btn btn-ghost btn-lg p-4" aria-label="إضافة إلى المفضلة" onClick={handleWishlist}>
+              <button className="btn btn-secondary btn-lg" style={{ padding: '0.85rem' }} aria-label={t('nav.wishlist')} onClick={handleWishlist}>
                 <Heart size={20} />
               </button>
             </div>
@@ -238,28 +256,28 @@ export default function ProductDetailPage() {
 
           {/* Vendor */}
           {product.vendor && (
-            <div className="card p-4">
+            <div className="card p-4 mb-6">
               <Link to={`/store/${product.vendor.storeSlug}`} className="flex items-center gap-3 no-underline">
-                <div className="flex items-center justify-center rounded-md bg-primary-50" style={{ width: 44, height: 44 }}>
-                  <Store size={20} className="text-primary" />
+                <div className="flex items-center justify-center rounded-lg bg-[var(--brand-50)]" style={{ width: 44, height: 44 }}>
+                  <Store size={20} className="text-[var(--brand-500)]" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="font-semibold text-primary-dark">{product.vendor.storeName}</div>
+                    <div className="font-semibold text-[var(--text-primary)]">{product.vendor.storeName}</div>
                     {product.vendor.subscriptionPlanSlug === 'pro' && (
-                      <span className="badge badge-pro flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
-                        برو <Gem size={12} />
+                      <span className="badge badge-brand flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                        {t('nav.proBadge')} <Gem size={12} />
                       </span>
                     )}
                     {product.vendor.subscriptionPlanSlug === 'plus' && (
-                      <span className="badge badge-plus flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
-                        بلس <Sparkles size={12} />
+                      <span className="badge badge-info flex items-center gap-1" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
+                        {t('nav.plusBadge')} <Sparkles size={12} />
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted mt-1">
                     <StarRating rating={parseFloat(product.vendor.rating || '0')} size={12} />
-                    <span>({product.vendor.reviewCount} تقييم)</span>
+                    <span>({product.vendor.reviewCount} {t('product.reviews')})</span>
                   </div>
                 </div>
               </Link>
@@ -269,14 +287,13 @@ export default function ProductDetailPage() {
           {/* Description */}
           {product.description && (
             <motion.div
-              className="mt-6"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+              className="mt-4"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
+              transition={{ duration: motionTokens.duration.base }}
             >
-              <h3 className="text-base font-semibold mb-3">وصف المنتج</h3>
-              <p className="text-base text-secondary leading-relaxed">
+              <p className="text-base text-[var(--text-secondary)] leading-relaxed">
                 {product.description}
               </p>
             </motion.div>
@@ -287,24 +304,23 @@ export default function ProductDetailPage() {
       {/* Reviews */}
       <motion.section
         className="mt-12"
-        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 14 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-50px' }}
-        transition={{ duration: motionTokens.duration.slow, ease: motionTokens.easing.decelerate }}
+        transition={{ duration: motionTokens.duration.base }}
       >
         <h2 className="text-xl font-bold mb-6">
-          التقييمات ({product.reviewCount || 0})
+          {t('product.reviews')} ({product.reviewCount || 0})
         </h2>
 
         {user && user.role === 'customer' && (
           <form onSubmit={handleSubmitReview} className="card card-body mb-6">
-            <h3 className="text-base font-semibold mb-3">أضف تقييمك</h3>
             <div className="flex items-center gap-2 mb-3">
               {[1, 2, 3, 4, 5].map(star => (
                 <button
                   key={star}
                   type="button"
-                  aria-label={`تقييم ${star} نجوم`}
+                  aria-label={`${star} stars`}
                   onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
                   className="btn btn-ghost p-1"
                 >
@@ -315,7 +331,7 @@ export default function ProductDetailPage() {
             <div className="form-group mb-3">
               <input
                 className="form-input"
-                placeholder="عنوان التقييم (اختياري)"
+                placeholder="..."
                 value={reviewForm.title}
                 onChange={e => setReviewForm(prev => ({ ...prev, title: e.target.value }))}
               />
@@ -324,13 +340,13 @@ export default function ProductDetailPage() {
               <textarea
                 className="form-textarea"
                 rows={3}
-                placeholder="اكتب تجربتك مع المنتج..."
+                placeholder="..."
                 value={reviewForm.comment}
                 onChange={e => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
               />
             </div>
             <button type="submit" className="btn btn-primary btn-sm" disabled={submittingReview}>
-              {submittingReview ? 'جاري الإرسال...' : 'إرسال التقييم'}
+              {t('catalog.applyFilter')}
             </button>
           </form>
         )}
@@ -344,24 +360,17 @@ export default function ProductDetailPage() {
                     <StarRating rating={review.rating} size={14} />
                     {review.title && <strong className="text-sm">{review.title}</strong>}
                   </div>
-                  {review.isVerifiedPurchase && (
-                    <span className="badge badge-success">مشتري مؤكد</span>
-                  )}
                 </div>
                 {review.comment && (
-                  <p className="text-sm text-secondary mb-2">
+                  <p className="text-sm text-[var(--text-secondary)] mb-2">
                     {review.comment}
                   </p>
                 )}
                 {review.vendorReply && (
-                  <div className="mt-3 p-3 bg-surface-2 rounded-md text-sm">
-                    <strong className="text-primary">رد البائع: </strong>
+                  <div className="mt-3 p-3 bg-[var(--bg-surface-2)] rounded-md text-sm">
                     {review.vendorReply}
                   </div>
                 )}
-                <div className="text-xs text-muted mt-2">
-                  {new Date(review.createdAt).toLocaleDateString('ar-EG')}
-                </div>
               </div>
             ))}
           </div>
