@@ -4,6 +4,7 @@ import { adminApi } from '../../api';
 import { useToast } from '../../toast';
 import { LayoutDashboard, Users, Store, Package, ShoppingCart, DollarSign, Tag, Settings, Ticket, Undo, Menu, Shield, ChevronRight, BarChart2, Bell, Bot, Mail } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { useAuth } from '../../auth';
 
 const sidebarLinks = [
@@ -58,7 +59,8 @@ export function AdminLayout() {
 
           <span className="text-primary" style={{ fontWeight: 600, fontSize: 'var(--font-size-lg)' }}>لوحة الإدارة</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher compact />
           <Link to="/notifications" style={{ color: 'var(--text-secondary)' }} aria-label="الإشعارات">
             <Bell size={20} />
           </Link>

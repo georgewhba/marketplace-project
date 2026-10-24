@@ -456,4 +456,72 @@ storeRoutes.get('/subscription-plans', async (c) => {
   return sendSuccess(c, plansWithDiscounts);
 });
 
+// ─── Real-Time Neural Translation Engine with Memory Cache ───
+const translationMemoryCache = new Map<string, string>();
+const SUPPORTED_TARGET_LANGS = new Set(['ar', 'en', 'fr', 'es', 'de', 'tr']);
+
+async function translateSingleText(text: string, targetLang: string): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed) return text;
+  const cacheKey = `${targetLang}:${trimmed}`;
+  const cached = translationMemoryCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return text;
+    const data = (await res.json()) as any;
+    if (Array.isArray(data?.[0])) {
+      const translated = data[0].map((part: any) => part?.[0] || '').join('').trim();
+      if (translated) {
+        if (translationMemoryCache.size > 10000) {
+          const firstKey = translationMemoryCache.keys().next().value;
+          if (firstKey) translationMemoryCache.delete(firstKey);
+        }
+        translationMemoryCache.set(cacheKey, translated);
+        return translated;
+      }
+    }
+  } catch {
+    // Fallback to original text on network timeout
+  }
+  return text;
+}
+
+storeRoutes.post('/translate', async (c) => {
+  try {
+    const body = await c.req.json();
+    const targetLang = String(body?.targetLang || 'en').toLowerCase();
+    if (!SUPPORTED_TARGET_LANGS.has(targetLang)) {
+      return sendSuccess(c, { translations: {} });
+    }
+    const rawTexts: unknown[] = Array.isArray(body?.texts) ? body.texts.slice(0, 80) : [];
+    const uniqueTexts = Array.from(
+      new Set(
+        rawTexts
+          .filter((t): t is string => typeof t === 'string' && t.trim().length > 0 && t.length <= 1200)
+          .map(t => t.trim())
+      )
+    );
+
+    const translations: Record<string, string> = {};
+    // Process in concurrent batches of 10 for speed without rate-limiting upstream
+    for (let i = 0; i < uniqueTexts.length; i += 10) {
+      const chunk = uniqueTexts.slice(i, i + 10);
+      const results = await Promise.all(chunk.map(txt => translateSingleText(txt, targetLang)));
+      chunk.forEach((txt, idx) => {
+        translations[txt] = results[idx] || txt;
+      });
+    }
+
+    return sendSuccess(c, { translations });
+  } catch {
+    return sendSuccess(c, { translations: {} });
+  }
+});
+
 export default storeRoutes;

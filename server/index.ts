@@ -156,7 +156,7 @@ app.use('/api/*', generalRateLimit);
 
 // Spam protection (DDoS / Rapid Clicks) on all mutation endpoints
 app.use('/api/*', async (c, next) => {
-  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method) && c.req.path !== '/api/store/translate') {
     return spamProtectionRateLimit(c, next);
   }
   return next();

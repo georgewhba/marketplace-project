@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
 import { LanguageProvider } from './i18n';
 import { Header, Footer } from './components/Layout';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { PageWrapper } from './components/PageWrapper';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { adminApi } from './api';
@@ -92,7 +93,14 @@ function GuestRoute({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return <Loading />;
   if (user) return <Navigate to="/" replace />;
-  return <PageWrapper>{children}</PageWrapper>;
+  return (
+    <PageWrapper>
+      <div style={{ position: 'fixed', top: 16, insetInlineEnd: 16, zIndex: 200 }}>
+        <LanguageSwitcher />
+      </div>
+      {children}
+    </PageWrapper>
+  );
 }
 
 function VendorStoreRedirect() {
@@ -190,7 +198,7 @@ function StoreLayout({ children }: { children: ReactNode }) {
 function DashboardWrapper({ children }: { children: ReactNode }) {
   return (
     <>
-      <Header className="hidden md:block" />
+      <Header className="desktop-only" />
       <PageWrapper>
         <Suspense fallback={<Loading />}>{children}</Suspense>
       </PageWrapper>

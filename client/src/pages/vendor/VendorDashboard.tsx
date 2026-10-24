@@ -4,6 +4,7 @@ import { vendorApi } from '../../api';
 import { useToast } from '../../toast';
 import { LayoutDashboard, Package, ShoppingCart, DollarSign, Settings, AlertTriangle, Menu, ChevronRight, BarChart2, CreditCard, Bell } from 'lucide-react';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 
 const sidebarLinks = [
   { to: '/vendor', icon: LayoutDashboard, label: 'لوحة التحكم', exact: true },
@@ -41,7 +42,7 @@ export function VendorLayout() {
           <span className="font-semibold" style={{ fontSize: 'var(--font-size-lg)' }}>لوحة البائع</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link to="/notifications" style={{ color: 'var(--text-secondary)' }}>
+          <LanguageSwitcher compact /><Link to="/notifications" style={{ color: 'var(--text-secondary)' }}>
             <Bell size={20} />
           </Link>
           <Link to="/" className="flex items-center gap-1 font-semibold text-brand no-underline" style={{ fontSize: 'var(--font-size-sm)' }}>

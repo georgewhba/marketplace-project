@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 export type SupportedLang = 'ar' | 'en' | 'fr' | 'es' | 'de' | 'tr';
 
@@ -22,6 +22,7 @@ export const LANGUAGES: LanguageInfo[] = [
 ];
 
 type TranslationDict = Record<string, string>;
+type MultiLangEntry = Record<Exclude<SupportedLang, 'ar'>, string>;
 
 const translations: Record<SupportedLang, TranslationDict> = {
   ar: {
@@ -1021,8 +1022,6 @@ const ARABIC_CATEGORY_SLUG_MAP: Record<string, string> = {
   'إكسسوارات': 'accessories',
 };
 
-type MultiLangEntry = Record<Exclude<SupportedLang, 'ar'>, string>;
-
 const PRODUCT_NAME_TRANSLATIONS: Record<string, MultiLangEntry> = {
   'سماعات سوني WH-1000XM5': {
     en: 'Sony WH-1000XM5 Wireless Noise-Canceling Headphones',
@@ -1307,6 +1306,13 @@ const PRODUCT_NAME_TRANSLATIONS: Record<string, MultiLangEntry> = {
 };
 
 const STORE_NAME_TRANSLATIONS: Record<string, MultiLangEntry> = {
+  'سوني ستور مصر': {
+    en: 'Sony Store Egypt',
+    fr: 'Sony Store Égypte',
+    es: 'Sony Store Egipto',
+    de: 'Sony Store Ägypten',
+    tr: 'Sony Store Mısır',
+  },
   'متجر سوني الرسمي': {
     en: 'Sony Official Store',
     fr: 'Boutique Officielle Sony',
@@ -1314,12 +1320,26 @@ const STORE_NAME_TRANSLATIONS: Record<string, MultiLangEntry> = {
     de: 'Offizieller Sony Store',
     tr: 'Sony Resmi Mağazası',
   },
+  'دار الشروق للكتب': {
+    en: 'Dar El Shorouk Bookstore',
+    fr: 'Librairie Dar El Shorouk',
+    es: 'Librería Dar El Shorouk',
+    de: 'Dar El Shorouk Buchhandlung',
+    tr: 'Dar El Shorouk Kitabevi',
+  },
   'دار الشروق للنشر': {
     en: 'Dar El Shorouk Publishing',
     fr: 'Éditions Dar El Shorouk',
     es: 'Editorial Dar El Shorouk',
     de: 'Dar El Shorouk Verlag',
     tr: 'Dar El Shorouk Yayınevi',
+  },
+  'فاشن ماجستيك': {
+    en: 'Fashion Majestic',
+    fr: 'Fashion Majestic',
+    es: 'Fashion Majestic',
+    de: 'Fashion Majestic',
+    tr: 'Fashion Majestic',
   },
   'أزياء ماجستيك': {
     en: 'Majestic Fashion House',
@@ -1329,6 +1349,270 @@ const STORE_NAME_TRANSLATIONS: Record<string, MultiLangEntry> = {
     tr: 'Majestic Moda Evi',
   },
 };
+
+// Comprehensive UI & Seeded Content Phrase Dictionary (0ms Instant Translation across all pages)
+const GLOBAL_PHRASE_TRANSLATIONS: Record<string, MultiLangEntry> = {
+  ...PRODUCT_NAME_TRANSLATIONS,
+  ...STORE_NAME_TRANSLATIONS,
+  // Store Descriptions
+  'أحدث الأجهزة الإلكترونية والسماعات والكاميرات من سوني مصر. وكيل معتمد مع ضمان رسمي.': {
+    en: 'The latest electronics, headphones, and cameras from Sony Egypt. Authorized dealer with official warranty.',
+    fr: 'Les derniers appareils électroniques, casques et appareils photo de Sony Égypte. Distributeur agréé avec garantie officielle.',
+    es: 'Lo último en electrónica, auriculares y cámaras de Sony Egipto. Distribuidor autorizado con garantía oficial.',
+    de: 'Die neuesten Elektronikgeräte, Kopfhörer und Kameras von Sony Ägypten. Autorisierter Händler mit offizieller Garantie.',
+    tr: "Sony Mısır'dan en yeni elektronik cihazlar, kulaklıklar ve kameralar. Resmi garantili yetkili satıcı.",
+  },
+  'أكبر مكتبة عربية على الإنترنت. روايات، كتب تقنية، تطوير ذات، وتاريخ.': {
+    en: 'The largest Arabic online bookstore. Novels, tech books, self-development, and history.',
+    fr: 'La plus grande librairie en ligne. Romans, livres techniques, développement personnel et histoire.',
+    es: 'La mayor librería en línea. Novelas, libros técnicos, desarrollo personal e historia.',
+    de: 'Die größte Online-Buchhandlung. Romane, Fachbücher, Persönlichkeitsentwicklung und Geschichte.',
+    tr: 'En büyük çevrimiçi kitabevi. Romanlar, teknoloji kitapları, kişisel gelişim ve tarih.',
+  },
+  'أزياء عصرية للرجال والنساء والأطفال. ماركات أصلية بأسعار مناسبة.': {
+    en: 'Modern fashion for men, women, and kids. Authentic brands at great prices.',
+    fr: 'Mode moderne pour hommes, femmes et enfants. Marques authentiques à prix abordables.',
+    es: 'Moda moderna para hombres, mujeres y niños. Marcas auténticas a precios accesibles.',
+    de: 'Moderne Mode für Herren, Damen und Kinder. Originalmarken zu fairen Preisen.',
+    tr: 'Erkek, kadın ve çocuklar için modern moda. Uygun fiyatlarla orijinal markalar.',
+  },
+  // Seeded Reviews
+  'شراء موفق': { en: 'Great purchase', fr: 'Excellent achat', es: 'Excelente compra', de: 'Toller Kauf', tr: 'Harika alışveriş' },
+  'جودة ممتازة': { en: 'Excellent quality', fr: 'Excellente qualité', es: 'Calidad excelente', de: 'Ausgezeichnete Qualität', tr: 'Mükemmel kalite' },
+  'أنصح به': { en: 'Highly recommended', fr: 'Je recommande', es: 'Muy recomendado', de: 'Sehr empfehlenswert', tr: 'Kesinlikle tavsiye ederim' },
+  'سعر مناسب': { en: 'Great value', fr: 'Bon rapport qualité-prix', es: 'Buen precio', de: 'Gutes Preis-Leistungs-Verhältnis', tr: 'Uygun fiyat' },
+  'ممتاز': { en: 'Excellent', fr: 'Excellent', es: 'Excelente', de: 'Ausgezeichnet', tr: 'Mükemmel' },
+  'جيد': { en: 'Good', fr: 'Bien', es: 'Bueno', de: 'Gut', tr: 'İyi' },
+  'راضي جداً': { en: 'Very satisfied', fr: 'Très satisfait', es: 'Muy satisfecho', de: 'Sehr zufrieden', tr: 'Çok memnunum' },
+  'فوق المتوقع': { en: 'Exceeded expectations', fr: 'Au-delà des attentes', es: 'Superó las expectativas', de: 'Erwartungen übertroffen', tr: 'Beklentilerin üzerinde' },
+  'يستاهل': { en: 'Worth every penny', fr: 'Vaut vraiment le coup', es: 'Vale totalmente la pena', de: 'Jeden Cent wert', tr: 'Fiyatına değer' },
+  'رائع': { en: 'Wonderful', fr: 'Magnifique', es: 'Maravilloso', de: 'Wunderbar', tr: 'Harika' },
+  'منتج ممتاز والتوصيل كان سريع': { en: 'Excellent product and fast delivery!', fr: 'Excellent produit et livraison rapide !', es: '¡Excelente producto y entrega rápida!', de: 'Ausgezeichnetes Produkt und schnelle Lieferung!', tr: 'Mükemmel ürün ve hızlı teslimat!' },
+  'جودة عالية جداً وأنصح بالشراء': { en: 'Very high quality, highly recommend buying.', fr: 'Très haute qualité, je recommande vivement.', es: 'Muy alta calidad, recomiendo mucho su compra.', de: 'Sehr hohe Qualität, klare Kaufempfehlung.', tr: 'Çok yüksek kalite, satın almanızı tavsiye ederim.' },
+  'المنتج مطابق للوصف تماماً': { en: 'Product matches the description 100%.', fr: 'Le produit correspond parfaitement à la description.', es: 'El producto coincide exactamente con la descripción.', de: 'Das Produkt entspricht genau der Beschreibung.', tr: 'Ürün açıklamayla birebir aynı.' },
+  'سعر مناسب مقابل الجودة': { en: 'Great price for the quality offered.', fr: 'Excellent prix pour cette qualité.', es: 'Excelente precio para la calidad ofrecida.', de: 'Toller Preis für diese Qualität.', tr: 'Kalitesine göre fiyatı çok uygun.' },
+  'تجربة شراء مميزة وخدمة عملاء ممتازة': { en: 'Great shopping experience and wonderful customer service.', fr: "Superbe expérience d'achat et service client au top.", es: 'Gran experiencia de compra y excelente atención al cliente.', de: 'Tolles Einkaufserlebnis und hervorragender Kundenservice.', tr: 'Harika alışveriş deneyimi ve mükemmel müşteri hizmetleri.' },
+  'المنتج جيد لكن التغليف محتاج تحسين': { en: 'Good product, though packaging could be improved.', fr: "Bon produit, mais l'emballage pourrait être amélioré.", es: 'Buen producto, aunque el embalaje podría mejorar.', de: 'Gutes Produkt, aber die Verpackung könnte besser sein.', tr: 'Ürün iyi ancak paketleme geliştirilebilir.' },
+  'راضي عن المنتج بشكل عام': { en: 'Overall very satisfied with the product.', fr: 'Globalement très satisfait du produit.', es: 'Satisfecho con el producto en general.', de: 'Insgesamt sehr zufrieden mit dem Produkt.', tr: 'Genel olarak üründen memnunum.' },
+  'المنتج فاق توقعاتي بصراحة': { en: 'Honestly exceeded my expectations!', fr: 'A franchement dépassé mes attentes !', es: '¡Sinceramente superó mis expectativas!', de: 'Hat meine Erwartungen ehrlich übertroffen!', tr: 'Açıkçası beklentilerimi aştı!' },
+  'هيكون عندي تاني طلب قريب إن شاء الله': { en: 'Will definitely order again soon!', fr: 'Je recommanderai très bientôt !', es: '¡Definitivamente volveré a pedir pronto!', de: 'Ich werde definitiv bald wieder bestellen!', tr: 'Yakında tekrar sipariş vereceğim!' },
+  'أفضل سعر لقيته على الإنترنت': { en: 'Best price I found online.', fr: 'Le meilleur prix trouvé en ligne.', es: 'El mejor precio que encontré en internet.', de: 'Der beste Preis, den ich online gefunden habe.', tr: 'İnternette bulduğum en iyi fiyat.' },
+  'الخامات ممتازة والتصميم جميل': { en: 'Premium materials and beautiful design.', fr: 'Matériaux excellents et beau design.', es: 'Materiales excelentes y hermoso diseño.', de: 'Hochwertige Materialien und schönes Design.', tr: 'Malzeme kalitesi mükemmel ve tasarımı çok güzel.' },
+  'وصل في الموعد المحدد': { en: 'Arrived right on time.', fr: 'Arrivé pile à l’heure.', es: 'Llegó justo a tiempo.', de: 'Pünktlich geliefert.', tr: 'Tam zamanında ulaştı.' },
+  'المنتج أصلي ومطابق للمواصفات': { en: '100% authentic and matches specifications.', fr: 'Produit authentique et conforme aux spécifications.', es: 'Producto original y acorde a las especificaciones.', de: 'Originalprodukt und entspricht den Spezifikationen.', tr: 'Ürün orijinal ve özellikleriyle birebir uyumlu.' },
+  'خامات ممتازة وراقية': { en: 'High-end, refined materials.', fr: 'Matériaux nobles et d’excellente qualité.', es: 'Materiales excelentes y elegantes.', de: 'Exzellente und edle Materialien.', tr: 'Mükemmel ve kaliteli malzeme.' },
+  'هبقى عميل دائم عندكم': { en: 'I will be a regular customer here!', fr: 'Je vais devenir un client fidèle !', es: '¡Seré un cliente habitual!', de: 'Ich werde Stammkunde bei Ihnen!', tr: 'Daimi müşteriniz olacağım!' },
+  'منتج عملي ومفيد جداً': { en: 'Very practical and useful product.', fr: 'Produit très pratique et utile.', es: 'Producto muy práctico y útil.', de: 'Sehr praktisches und nützliches Produkt.', tr: 'Çok pratik ve kullanışlı bir ürün.' },
+  'شكراً لتقييمك الكريم! نسعد بخدمتك دائماً.': { en: 'Thank you for your kind review! Always happy to serve you.', fr: 'Merci pour votre avis ! Toujours ravis de vous servir.', es: '¡Gracias por tu amable reseña! Siempre encantados de atenderte.', de: 'Vielen Dank für Ihre Bewertung! Wir freuen uns, Sie wieder zu begrüßen.', tr: 'Değerli yorumunuz için teşekkürler! Size her zaman hizmet vermekten mutluluk duyarız.' },
+
+  // Common UI Labels across Admin, Vendor, Cart, Checkout, Orders, Profile, Wishlist, Auth, Chat
+  'لوحة التحكم': { en: 'Dashboard', fr: 'Tableau de bord', es: 'Panel de Control', de: 'Dashboard', tr: 'Kontrol Paneli' },
+  'لوحة الإدارة': { en: 'Admin Console', fr: 'Administration', es: 'Panel de Administración', de: 'Admin-Konsole', tr: 'Yönetim Paneli' },
+  'لوحة البائع': { en: 'Seller Hub', fr: 'Espace Vendeur', es: 'Panel de Vendedor', de: 'Händlerbereich', tr: 'Satıcı Paneli' },
+  'لوحة تحكم المتجر': { en: 'Store Dashboard', fr: 'Tableau de bord Boutique', es: 'Panel de la Tienda', de: 'Shop-Dashboard', tr: 'Mağaza Paneli' },
+  'التحليلات': { en: 'Analytics', fr: 'Analytique', es: 'Analíticas', de: 'Analysen', tr: 'Analitik' },
+  'البائعين': { en: 'Vendors', fr: 'Vendeurs', es: 'Vendedores', de: 'Händler', tr: 'Satıcılar' },
+  'البائعين المعتمدين': { en: 'Approved Vendors', fr: 'Vendeurs Approuvés', es: 'Vendedores Aprobados', de: 'Geprüfte Händler', tr: 'Onaylı Satıcılar' },
+  'بائعين بانتظار الموافقة': { en: 'Pending Vendors', fr: 'Vendeurs en Attente', es: 'Vendedores Pendientes', de: 'Ausstehende Händler', tr: 'Onay Bekleyen Satıcılar' },
+  'قواعد العمولة': { en: 'Commission Rules', fr: 'Règles de Commission', es: 'Reglas de Comisión', de: 'Provisionsregeln', tr: 'Komisyon Kuralları' },
+  'المنتجات': { en: 'Products', fr: 'Produits', es: 'Productos', de: 'Produkte', tr: 'Ürünler' },
+  'الطلبات': { en: 'Orders', fr: 'Commandes', es: 'Pedidos', de: 'Bestellungen', tr: 'Siparişler' },
+  'إجمالي الطلبات': { en: 'Total Orders', fr: 'Total Commandes', es: 'Total de Pedidos', de: 'Gesamtbestellungen', tr: 'Toplam Sipariş' },
+  'إجمالي الإيرادات': { en: 'Total Revenue', fr: 'Revenu Total', es: 'Ingresos Totales', de: 'Gesamtumsatz', tr: 'Toplam Gelir' },
+  'الإيرادات': { en: 'Revenue', fr: 'Revenus', es: 'Ingresos', de: 'Umsatz', tr: 'Gelir' },
+  'طلبات معلقة': { en: 'Pending Orders', fr: 'Commandes en Attente', es: 'Pedidos Pendientes', de: 'Offene Bestellungen', tr: 'Bekleyen Siparişler' },
+  'العمولة': { en: 'Commission', fr: 'Commission', es: 'Comisión', de: 'Provision', tr: 'Komisyon' },
+  'التسويات': { en: 'Settlements', fr: 'Règlements', es: 'Liquidaciones', de: 'Abrechnungen', tr: 'Mutabakatlar' },
+  'طلبات السحب': { en: 'Payout Requests', fr: 'Demandes de Retrait', es: 'Solicitudes de Retiro', de: 'Auszahlungsanträge', tr: 'Ödeme Talepleri' },
+  'المعاملات المالية': { en: 'Financial Transactions', fr: 'Transactions Financières', es: 'Transacciones Financieras', de: 'Finanztransaktionen', tr: 'Finansal İşlemler' },
+  'المستخدمين': { en: 'Users', fr: 'Utilisateurs', es: 'Usuarios', de: 'Benutzer', tr: 'Kullanıcılar' },
+  'الأدوار والصلاحيات': { en: 'Roles & Permissions', fr: 'Rôles & Permissions', es: 'Roles y Permisos', de: 'Rollen & Berechtigungen', tr: 'Roller ve İzinler' },
+  'الأقسام': { en: 'Categories', fr: 'Catégories', es: 'Categorías', de: 'Kategorien', tr: 'Kategoriler' },
+  'المرتجعات': { en: 'Refunds & Returns', fr: 'Remboursements', es: 'Devoluciones', de: 'Rückerstattungen', tr: 'İadeler' },
+  'الكوبونات': { en: 'Coupons', fr: 'Coupons', es: 'Cupones', de: 'Gutscheine', tr: 'Kuponlar' },
+  'عروض الباقات': { en: 'Plan Promotions', fr: 'Promotions Forfaits', es: 'Promociones de Planes', de: 'Paket-Aktionen', tr: 'Paket Kampanyaları' },
+  'سجل الرسائل': { en: 'Message Logs', fr: 'Journal des Messages', es: 'Registro de Mensajes', de: 'Nachrichtenprotokoll', tr: 'Mesaj Kayıtları' },
+  'الإعدادات': { en: 'Settings', fr: 'Paramètres', es: 'Configuración', de: 'Einstellungen', tr: 'Ayarlar' },
+  'إعدادات المتجر': { en: 'Store Settings', fr: 'Paramètres Boutique', es: 'Ajustes de Tienda', de: 'Shop-Einstellungen', tr: 'Mağaza Ayarları' },
+  'المساعد الذكي': { en: 'AI Assistant', fr: 'Assistant IA', es: 'Asistente IA', de: 'KI-Assistent', tr: 'Yapay Zeka Asistanı' },
+  'الأرباح': { en: 'Earnings', fr: 'Revenus', es: 'Ganancias', de: 'Einnahmen', tr: 'Kazançlar' },
+  'الباقات والاشتراكات': { en: 'Subscriptions & Plans', fr: 'Forfaits & Abonnements', es: 'Planes y Suscripciones', de: 'Pakete & Abonnements', tr: 'Paketler ve Abonelikler' },
+  'عرض الباقات والترقية': { en: 'View Plans & Upgrade', fr: 'Voir les Forfaits', es: 'Ver Planes y Mejorar', de: 'Pakete Ansehen & Upgraden', tr: 'Paketleri Gör ve Yükselt' },
+  'أحدث الطلبات': { en: 'Recent Orders', fr: 'Commandes Récentes', es: 'Pedidos Recientes', de: 'Neueste Bestellungen', de_alt: 'Neueste Bestellungen', tr: 'Son Siparişler' } as any,
+  'رقم الطلب': { en: 'Order #', fr: 'N° Commande', es: 'N.º Pedido', de: 'Bestell-Nr.', tr: 'Sipariş No' },
+  'العميل': { en: 'Customer', fr: 'Client', es: 'Cliente', de: 'Kunde', tr: 'Müşteri' },
+  'المبلغ': { en: 'Amount', fr: 'Montant', es: 'Importe', de: 'Betrag', tr: 'Tutar' },
+  'الحالة': { en: 'Status', fr: 'Statut', es: 'Estado', de: 'Status', tr: 'Durum' },
+  'التاريخ': { en: 'Date', fr: 'Date', es: 'Fecha', de: 'Datum', tr: 'Tarih' },
+  'المتجر': { en: 'Store', fr: 'Boutique', es: 'Tienda', de: 'Shop', tr: 'Mağaza' },
+  'النوع': { en: 'Type', fr: 'Type', es: 'Tipo', de: 'Typ', tr: 'Tür' },
+  'الوصف': { en: 'Description', fr: 'Description', es: 'Descripción', de: 'Beschreibung', tr: 'Açıklama' },
+  'العودة للمتجر': { en: 'Back to Store', fr: 'Retour à la Boutique', es: 'Volver a la Tienda', de: 'Zurück zum Shop', tr: 'Mağazaya Dön' },
+  'سلة التسوق': { en: 'Shopping Cart', fr: 'Panier', es: 'Carrito de Compras', de: 'Warenkorb', tr: 'Alışveriş Sepeti' },
+  'السلة فارغة': { en: 'Your cart is empty', fr: 'Votre panier est vide', es: 'Tu carrito está vacío', de: 'Ihr Warenkorb ist leer', tr: 'Sepetiniz boş' },
+  'ابدأ التسوق وأضف منتجات لسلتك': { en: 'Start shopping and add items to your cart', fr: 'Commencez vos achats et ajoutez des articles', es: 'Empieza a comprar y añade productos a tu carrito', de: 'Starten Sie Ihren Einkauf und fügen Sie Artikel hinzu', tr: 'Alışverişe başlayın ve sepetinize ürün ekleyin' },
+  'تصفّح المنتجات': { en: 'Browse Products', fr: 'Parcourir les Produits', es: 'Explorar Productos', de: 'Produkte Entdecken', tr: 'Ürünleri Keşfet' },
+  'تصفح المنتجات': { en: 'Browse Products', fr: 'Parcourir les Produits', es: 'Explorar Productos', de: 'Produkte Entdecken', tr: 'Ürünleri Keşfet' },
+  'تفريغ السلة': { en: 'Clear Cart', fr: 'Vider le Panier', es: 'Vaciar Carrito', de: 'Warenkorb Leeren', tr: 'Sepeti Boşalt' },
+  'ملخص الطلب': { en: 'Order Summary', fr: 'Récapitulatif', es: 'Resumen del Pedido', de: 'Bestellübersicht', tr: 'Sipariş Özeti' },
+  'المجموع الفرعي': { en: 'Subtotal', fr: 'Sous-total', es: 'Subtotal', de: 'Zwischensumme', tr: 'Ara Toplam' },
+  'الشحن': { en: 'Shipping', fr: 'Livraison', es: 'Envío', de: 'Versand', tr: 'Kargo' },
+  'يُحسب عند الدفع': { en: 'Calculated at checkout', fr: 'Calculé au paiement', es: 'Calculado al pagar', de: 'Wird an der Kasse berechnet', tr: 'Ödeme adımında hesaplanır' },
+  'الإجمالي': { en: 'Total', fr: 'Total', es: 'Total', de: 'Gesamt', tr: 'Toplam' },
+  'إتمام الشراء': { en: 'Proceed to Checkout', fr: 'Passer la Commande', es: 'Finalizar Compra', de: 'Zur Kasse', tr: 'Alışverişi Tamamla' },
+  'المفضلة': { en: 'Wishlist', fr: 'Favoris', es: 'Favoritos', de: 'Wunschliste', tr: 'Favorilerim' },
+  'المفضلة فارغة': { en: 'Your wishlist is empty', fr: 'Votre liste de favoris est vide', es: 'Tu lista de favoritos está vacía', de: 'Ihre Wunschliste ist leer', tr: 'Favori listeniz boş' },
+  'أضف منتجات إلى المفضلة لتجدها بسهولة لاحقاً': { en: 'Save your favorite items here to find them easily later', fr: 'Ajoutez des produits à vos favoris pour les retrouver facilement', es: 'Añade productos a favoritos para encontrarlos fácilmente después', de: 'Fügen Sie Produkte zur Wunschliste hinzu, um sie später leicht wiederzufinden', tr: 'Daha sonra kolayca bulmak için ürünleri favorilerinize ekleyin' },
+  'إزالة من المفضلة': { en: 'Remove from Wishlist', fr: 'Retirer des Favoris', es: 'Quitar de Favoritos', de: 'Von Wunschliste Entfernen', tr: 'Favorilerden Çıkar' },
+  'طلباتي': { en: 'My Orders', fr: 'Mes Commandes', es: 'Mis Pedidos', de: 'Meine Bestellungen', tr: 'Siparişlerim' },
+  'لا توجد طلبات': { en: 'No orders yet', fr: 'Aucune commande', es: 'No hay pedidos aún', de: 'Noch keine Bestellungen', tr: 'Henüz sipariş yok' },
+  'ابدأ التسوق وأنشئ أول طلب لك': { en: 'Start shopping and place your first order', fr: 'Commencez vos achats et passez votre première commande', es: 'Empieza a comprar y realiza tu primer pedido', de: 'Jetzt einkaufen und erste Bestellung aufgeben', tr: 'Alışverişe başlayın ve ilk siparişinizi oluşturun' },
+  'إلغاء الطلب': { en: 'Cancel Order', fr: 'Annuler la Commande', es: 'Cancelar Pedido', de: 'Bestellung Stornieren', tr: 'Siparişi İptal Et' },
+  'طلب استرجاع': { en: 'Request Return', fr: 'Demander un Retour', es: 'Solicitar Devolución', de: 'Rückgabe Anfordern', tr: 'İade Talebi' },
+  'تتبع الشحنة': { en: 'Track Shipment', fr: 'Suivre le Colis', es: 'Rastrear Envío', de: 'Sendung Verfolgen', tr: 'Kargo Takibi' },
+  'حسابي': { en: 'My Account', fr: 'Mon Compte', es: 'Mi Cuenta', de: 'Mein Konto', tr: 'Hesabım' },
+  'المعلومات الشخصية': { en: 'Personal Information', fr: 'Informations Personnelles', es: 'Información Personal', de: 'Persönliche Daten', tr: 'Kişisel Bilgiler' },
+  'الاسم الأول': { en: 'First Name', fr: 'Prénom', es: 'Nombre', de: 'Vorname', tr: 'Ad' },
+  'اسم العائلة': { en: 'Last Name', fr: 'Nom', es: 'Apellido', de: 'Nachname', tr: 'Soyad' },
+  'رقم الهاتف': { en: 'Phone Number', fr: 'Téléphone', es: 'Teléfono', de: 'Telefonnummer', tr: 'Telefon Numarası' },
+  'البريد الإلكتروني': { en: 'Email Address', fr: 'Adresse E-mail', es: 'Correo Electrónico', de: 'E-Mail-Adresse', tr: 'E-posta Adresi' },
+  'حفظ التغييرات': { en: 'Save Changes', fr: 'Enregistrer', es: 'Guardar Cambios', de: 'Änderungen Speichern', tr: 'Değişiklikleri Kaydet' },
+  'تغيير كلمة المرور': { en: 'Change Password', fr: 'Changer le Mot de Passe', es: 'Cambiar Contraseña', de: 'Passwort Ändern', tr: 'Şifreyi Değiştir' },
+  'كلمة المرور الحالية': { en: 'Current Password', fr: 'Mot de Passe Actuel', es: 'Contraseña Actual', de: 'Aktuelles Passwort', tr: 'Mevcut Şifre' },
+  'كلمة المرور الجديدة': { en: 'New Password', fr: 'Nouveau Mot de Passe', es: 'Nueva Contraseña', de: 'Neues Passwort', tr: 'Yeni Şifre' },
+  'تأكيد كلمة المرور': { en: 'Confirm Password', fr: 'Confirmer le Mot de Passe', es: 'Confirmar Contraseña', de: 'Passwort Bestätigen', tr: 'Şifreyi Onayla' },
+  'المصادقة الثنائية (2FA)': { en: 'Two-Factor Authentication (2FA)', fr: 'Authentification à Deux Facteurs (2FA)', es: 'Autenticación de Dos Factores (2FA)', de: 'Zwei-Faktor-Authentifizierung (2FA)', tr: 'İki Faktörlü Kimlik Doğrulama (2FA)' },
+  'إعداد المصادقة الثنائية': { en: 'Setup Two-Factor Auth', fr: 'Configurer la 2FA', es: 'Configurar 2FA', de: '2FA Einrichten', tr: '2FA Kurulumu' },
+  'تفضيلات الإشعارات': { en: 'Notification Preferences', fr: 'Préférences de Notification', es: 'Preferencias de Notificación', de: 'Benachrichtigungseinstellungen', tr: 'Bildirim Tercihleri' },
+  'تحديثات الطلبات': { en: 'Order Updates', fr: 'Mises à jour des Commandes', es: 'Actualizaciones de Pedidos', de: 'Bestell-Updates', tr: 'Sipariş Güncellemeleri' },
+  'العروض والخصومات': { en: 'Promotions & Deals', fr: 'Offres & Promotions', es: 'Ofertas y Descuentos', de: 'Angebote & Rabatte', tr: 'Kampanyalar ve İndirimler' },
+  'تنبيهات المخزون': { en: 'Stock Alerts', fr: 'Alertes de Stock', es: 'Alertas de Stock', de: 'Lagerbestandswarnungen', tr: 'Stok Uyarıları' },
+  'إشعارات النظام': { en: 'System Notifications', fr: 'Notifications Système', es: 'Notificaciones del Sistema', de: 'Systembenachrichtigungen', tr: 'Sistem Bildirimleri' },
+  'الرسائل النصية': { en: 'SMS', fr: 'SMS', es: 'SMS', de: 'SMS', tr: 'SMS' },
+  'إشعارات التطبيق': { en: 'In-App Notifications', fr: 'Notifications In-App', es: 'Notificaciones en la App', de: 'In-App-Benachrichtigungen', tr: 'Uygulama İçi Bildirimler' },
+  'الإشعارات': { en: 'Notifications', fr: 'Notifications', es: 'Notificaciones', de: 'Benachrichtigungen', tr: 'Bildirimler' },
+  'قيد الانتظار': { en: 'Pending', fr: 'En attente', es: 'Pendiente', de: 'Ausstehend', tr: 'Beklemede' },
+  'مؤكد': { en: 'Confirmed', fr: 'Confirmée', es: 'Confirmado', de: 'Bestätigt', tr: 'Onaylandı' },
+  'قيد التجهيز': { en: 'Processing', fr: 'En préparation', es: 'En proceso', de: 'In Bearbeitung', tr: 'Hazırlanıyor' },
+  'تم الشحن': { en: 'Shipped', fr: 'Expédiée', es: 'Enviado', de: 'Versandt', tr: 'Kargoya Verildi' },
+  'تم التوصيل': { en: 'Delivered', fr: 'Livrée', es: 'Entregado', de: 'Zugestellt', tr: 'Teslim Edildi' },
+  'ملغي': { en: 'Cancelled', fr: 'Annulée', es: 'Cancelado', de: 'Storniert', tr: 'İptal Edildi' },
+  'مسترجع': { en: 'Refunded', fr: 'Remboursée', es: 'Reembolsado', de: 'Erstattet', tr: 'İade Edildi' },
+  'أضف للسلة': { en: 'Add to Cart', fr: 'Ajouter au Panier', es: 'Añadir al Carrito', de: 'In den Warenkorb', tr: 'Sepete Ekle' },
+  'نفذ من المخزون': { en: 'Out of Stock', fr: 'Rupture de Stock', es: 'Agotado', de: 'Ausverkauft', tr: 'Stokta Yok' },
+  'إلغاء': { en: 'Cancel', fr: 'Annuler', es: 'Cancelar', de: 'Abbrechen', tr: 'İptal' },
+  'حفظ': { en: 'Save', fr: 'Enregistrer', es: 'Guardar', de: 'Speichern', tr: 'Kaydet' },
+  'تعديل': { en: 'Edit', fr: 'Modifier', es: 'Editar', de: 'Bearbeiten', tr: 'Düzenle' },
+  'حذف': { en: 'Delete', fr: 'Supprimer', es: 'Eliminar', de: 'Löschen', tr: 'Sil' },
+  'إضافة': { en: 'Add', fr: 'Ajouter', es: 'Añadir', de: 'Hinzufügen', tr: 'Ekle' },
+  'بحث': { en: 'Search', fr: 'Rechercher', es: 'Buscar', de: 'Suchen', tr: 'Ara' },
+};
+
+const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/;
+const ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+function normalizeArabicDigits(str: string): string {
+  let out = str;
+  for (let i = 0; i < 10; i++) {
+    out = out.replaceAll(ARABIC_DIGITS[i]!, String(i));
+  }
+  return out.replaceAll('٬', ',').replaceAll('٫', '.');
+}
+
+// Persistent Neural Translation Cache (Memory + localStorage)
+const memoryNeuralCache: Record<SupportedLang, Record<string, string>> = {
+  ar: {},
+  en: {},
+  fr: {},
+  es: {},
+  de: {},
+  tr: {},
+};
+
+function loadCachedTranslations(lang: SupportedLang): Record<string, string> {
+  if (Object.keys(memoryNeuralCache[lang]).length > 0) {
+    return memoryNeuralCache[lang];
+  }
+  try {
+    const raw = localStorage.getItem(`i18n_neural_v2_${lang}`);
+    if (raw) {
+      memoryNeuralCache[lang] = JSON.parse(raw);
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return memoryNeuralCache[lang];
+}
+
+function saveCachedTranslations(lang: SupportedLang, additions: Record<string, string>) {
+  const bucket = loadCachedTranslations(lang);
+  Object.assign(bucket, additions);
+  try {
+    localStorage.setItem(`i18n_neural_v2_${lang}`, JSON.stringify(bucket));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function translateInstant(rawText: string, targetLang: SupportedLang): string | null {
+  if (!rawText || targetLang === 'ar') return rawText;
+  const trimmed = rawText.trim();
+  if (!trimmed) return rawText;
+
+  // 1. Check Category Slug Map
+  const catSlug = ARABIC_CATEGORY_SLUG_MAP[trimmed];
+  if (catSlug && translations[targetLang]?.[`cat.${catSlug}`]) {
+    return rawText.replace(trimmed, translations[targetLang][`cat.${catSlug}`]!);
+  }
+
+  // 2. Check Global Phrase & Product Dictionary
+  const dictHit = GLOBAL_PHRASE_TRANSLATIONS[trimmed];
+  if (dictHit) {
+    const val = dictHit[targetLang] || dictHit.en;
+    if (val) return rawText.replace(trimmed, val);
+  }
+
+  // 3. Check Neural Cache
+  const cache = loadCachedTranslations(targetLang);
+  if (cache[trimmed]) {
+    return rawText.replace(trimmed, cache[trimmed]!);
+  }
+
+  // 4. Smart Pattern Matchers (Prices, Order #s, Counts)
+  if (trimmed.includes('ج.م')) {
+    const converted = normalizeArabicDigits(trimmed).replace(/\s*ج\.م/g, ' EGP');
+    if (!ARABIC_CHAR_REGEX.test(converted)) {
+      return converted;
+    }
+  }
+
+  const orderMatch = trimmed.match(/^طلب\s*#(.+)$/);
+  if (orderMatch) {
+    const prefixMap: MultiLangEntry = {
+      en: 'Order #',
+      fr: 'Commande #',
+      es: 'Pedido #',
+      de: 'Bestellung #',
+      tr: 'Sipariş #',
+    };
+    return `${prefixMap[targetLang]}${orderMatch[1]}`;
+  }
+
+  const remainingMatch = trimmed.match(/^متبقي\s*(\d+|[٠-٩]+)$/);
+  if (remainingMatch) {
+    const num = normalizeArabicDigits(remainingMatch[1]!);
+    const fmtMap: MultiLangEntry = {
+      en: `${num} left`,
+      fr: `${num} restants`,
+      es: `Quedan ${num}`,
+      de: `Noch ${num}`,
+      tr: `${num} adet kaldı`,
+    };
+    return fmtMap[targetLang];
+  }
+
+  return null;
+}
 
 interface LanguageContextType {
   lang: SupportedLang;
@@ -1361,6 +1645,11 @@ function getInitialLang(): SupportedLang {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<SupportedLang>(getInitialLang);
+  const originalTextMapRef = useRef<WeakMap<Text, string>>(new WeakMap());
+  const lastTranslatedValueMapRef = useRef<WeakMap<Text, string>>(new WeakMap());
+  const originalAttrMapRef = useRef<WeakMap<Element, Map<string, string>>>(new WeakMap());
+  const pendingQueueRef = useRef<Set<string>>(new Set());
+  const flushTimerRef = useRef<number | null>(null);
 
   const langInfo = useMemo(
     () => LANGUAGES.find(l => l.code === lang) || LANGUAGES[0]!,
@@ -1376,6 +1665,176 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       // ignore storage errors
     }
   }, [langInfo]);
+
+  // Automatic Real-Time DOM + Dynamic Content Translator
+  useEffect(() => {
+    if (typeof window === 'undefined' || !document.body) return;
+
+    const originalTextMap = originalTextMapRef.current;
+    const lastTranslatedValueMap = lastTranslatedValueMapRef.current;
+    const originalAttrMap = originalAttrMapRef.current;
+    let isDisposed = false;
+
+    const flushPendingNeuralTranslations = async (targetLang: SupportedLang) => {
+      if (targetLang === 'ar' || pendingQueueRef.current.size === 0) return;
+      const batch = Array.from(pendingQueueRef.current).slice(0, 60);
+      batch.forEach(item => pendingQueueRef.current.delete(item));
+
+      try {
+        const res = await fetch('/api/store/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: batch, targetLang }),
+        });
+        if (!res.ok || isDisposed) return;
+        const json = await res.json();
+        const map: Record<string, string> = json?.data?.translations || json?.translations || {};
+        if (Object.keys(map).length > 0) {
+          saveCachedTranslations(targetLang, map);
+          if (!isDisposed) {
+            scanAndTranslateSubtree(document.body, targetLang, false);
+          }
+        }
+      } catch {
+        // ignore network errors
+      }
+    };
+
+    const scheduleFlush = (targetLang: SupportedLang) => {
+      if (flushTimerRef.current !== null) return;
+      flushTimerRef.current = window.setTimeout(() => {
+        flushTimerRef.current = null;
+        void flushPendingNeuralTranslations(targetLang);
+      }, 60);
+    };
+
+    const processTextNode = (node: Text, targetLang: SupportedLang, enqueueMissing: boolean) => {
+      const parent = node.parentElement;
+      if (!parent) return;
+      const tag = parent.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'CODE' || tag === 'TEXTAREA') {
+        return;
+      }
+      if (parent.closest('.lang-switcher-menu')) return;
+
+      const currentVal = node.nodeValue || '';
+      const lastSetVal = lastTranslatedValueMap.get(node);
+
+      // If React updated the underlying text node with a new source string, update originalTextMap
+      if (!originalTextMap.has(node) || (lastSetVal !== undefined && currentVal !== lastSetVal)) {
+        originalTextMap.set(node, currentVal);
+      }
+
+      const sourceText = originalTextMap.get(node) || '';
+      if (!sourceText.trim()) return;
+
+      if (targetLang === 'ar') {
+        if (node.nodeValue !== sourceText) {
+          lastTranslatedValueMap.set(node, sourceText);
+          node.nodeValue = sourceText;
+        }
+        return;
+      }
+
+      const instant = translateInstant(sourceText, targetLang);
+      if (instant !== null) {
+        if (node.nodeValue !== instant) {
+          lastTranslatedValueMap.set(node, instant);
+          node.nodeValue = instant;
+        }
+        return;
+      }
+
+      // If the text still contains Arabic script, queue it for automatic neural translation
+      if (enqueueMissing && ARABIC_CHAR_REGEX.test(sourceText)) {
+        // Also normalize digits/currency immediately while neural translation is in flight
+        const interim = normalizeArabicDigits(sourceText).replace(/\s*ج\.م/g, ' EGP');
+        if (node.nodeValue !== interim) {
+          lastTranslatedValueMap.set(node, interim);
+          node.nodeValue = interim;
+        }
+        pendingQueueRef.current.add(sourceText.trim());
+        scheduleFlush(targetLang);
+      }
+    };
+
+    const processElementAttributes = (el: Element, targetLang: SupportedLang, enqueueMissing: boolean) => {
+      if (el.closest('.lang-switcher-menu')) return;
+      const attrs = ['placeholder', 'title', 'aria-label'];
+      let attrMap = originalAttrMap.get(el);
+      if (!attrMap) {
+        attrMap = new Map<string, string>();
+        originalAttrMap.set(el, attrMap);
+      }
+
+      for (const attr of attrs) {
+        const current = el.getAttribute(attr);
+        if (!current) continue;
+        if (!attrMap.has(attr)) {
+          attrMap.set(attr, current);
+        }
+        const source = attrMap.get(attr)!;
+        if (targetLang === 'ar') {
+          if (current !== source) el.setAttribute(attr, source);
+          continue;
+        }
+        const instant = translateInstant(source, targetLang);
+        if (instant !== null) {
+          if (current !== instant) el.setAttribute(attr, instant);
+        } else if (enqueueMissing && ARABIC_CHAR_REGEX.test(source)) {
+          pendingQueueRef.current.add(source.trim());
+          scheduleFlush(targetLang);
+        }
+      }
+    };
+
+    const scanAndTranslateSubtree = (root: Node, targetLang: SupportedLang, enqueueMissing = true) => {
+      if (root.nodeType === Node.TEXT_NODE) {
+        processTextNode(root as Text, targetLang, enqueueMissing);
+        return;
+      }
+      if (root.nodeType === Node.ELEMENT_NODE) {
+        processElementAttributes(root as Element, targetLang, enqueueMissing);
+      }
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+      let current: Node | null = walker.nextNode();
+      while (current) {
+        if (current.nodeType === Node.TEXT_NODE) {
+          processTextNode(current as Text, targetLang, enqueueMissing);
+        } else if (current.nodeType === Node.ELEMENT_NODE) {
+          processElementAttributes(current as Element, targetLang, enqueueMissing);
+        }
+        current = walker.nextNode();
+      }
+    };
+
+    scanAndTranslateSubtree(document.body, lang, true);
+
+    const observer = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        if (m.type === 'characterData' && m.target.nodeType === Node.TEXT_NODE) {
+          processTextNode(m.target as Text, lang, true);
+        } else if (m.type === 'childList') {
+          m.addedNodes.forEach(added => scanAndTranslateSubtree(added, lang, true));
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => {
+      isDisposed = true;
+      observer.disconnect();
+      if (flushTimerRef.current !== null) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+    };
+  }, [lang]);
 
   const setLang = useCallback((nextLang: SupportedLang) => {
     setLangState(nextLang);
@@ -1428,7 +1887,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       if (key && translations[lang]?.[`cat.${key}`]) {
         return translations[lang][`cat.${key}`]!;
       }
-      return name;
+      return translateInstant(name, lang) || name;
     },
     [lang]
   );
@@ -1437,7 +1896,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (name: string): string => {
       if (!name || lang === 'ar') return name;
       const entry = PRODUCT_NAME_TRANSLATIONS[name.trim()];
-      return entry?.[lang] || entry?.en || name;
+      if (entry) return entry[lang] || entry.en || name;
+      return translateInstant(name, lang) || name;
     },
     [lang]
   );
@@ -1446,7 +1906,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     (name: string): string => {
       if (!name || lang === 'ar') return name;
       const entry = STORE_NAME_TRANSLATIONS[name.trim()];
-      return entry?.[lang] || entry?.en || name;
+      if (entry) return entry[lang] || entry.en || name;
+      return translateInstant(name, lang) || name;
     },
     [lang]
   );
