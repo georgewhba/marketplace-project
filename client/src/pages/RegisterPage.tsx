@@ -6,9 +6,13 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useToast } from '../toast';
 import { GoogleLogin } from '@react-oauth/google';
 
-import { ArrowRight, Mail } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Mail } from 'lucide-react';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { useLanguage } from '../i18n';
 
 export default function RegisterPage() {
+  const { isRTL } = useLanguage();
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
   const { pathname } = useLocation();
   const isVendor = pathname.includes('/vendor');
   useDocumentTitle(isVendor ? 'انضم كبائع جديد' : 'إنشاء حساب جديد', { canonicalPath: '/register' });
@@ -132,11 +136,17 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-page">
-      <Link to="/" className="auth-back-btn">
-        <ArrowRight size={18} />
-        <span>العودة للمتجر</span>
-      </Link>
+      <div className="auth-top-bar">
+        <Link to="/" className="auth-back-btn">
+          <BackArrow size={18} />
+          <span>العودة للمتجر</span>
+        </Link>
+        <LanguageSwitcher />
+      </div>
       <div className="auth-card" style={{ maxWidth: isVendor ? 520 : 440 }}>
+        <div className="auth-card__logo">
+          <img src="/favicon.svg" alt={siteName} width="40" height="40" />
+        </div>
         <h1 className="auth-card__title">
           {step === 'otp' ? 'تحقق من بريدك الإلكتروني' : (isVendor ? `ابدأ البيع على ${siteName}` : `انضم إلى ${siteName}`)}
         </h1>

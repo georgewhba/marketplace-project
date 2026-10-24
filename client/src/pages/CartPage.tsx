@@ -116,10 +116,10 @@ export default function CartPage() {
                   style={{ width: 80, height: 80 }}
                 />
                 <div className="flex-1">
-                  <Link to={`/products/${item.productSlug}`} className="font-semibold text-primary-dark no-underline">
+                  <Link to={`/products/${item.productSlug}`} className="font-semibold text-primary no-underline">
                     {item.productName}
                   </Link>
-                  <div className="text-lg font-bold text-primary mt-2">
+                  <div className="text-lg font-bold text-brand mt-2">
                     {parseFloat(item.productPrice).toLocaleString('ar-EG')} ج.م
                   </div>
                   {!item.productIsActive && (
@@ -172,7 +172,7 @@ export default function CartPage() {
             <hr className="divider" />
             <div className="flex justify-between mb-6">
               <span className="font-bold text-lg">الإجمالي</span>
-              <span className="font-bold text-lg text-primary">
+              <span className="font-bold text-lg text-brand">
                 {parseFloat(cart.subtotal).toLocaleString('ar-EG')} ج.م
               </span>
             </div>

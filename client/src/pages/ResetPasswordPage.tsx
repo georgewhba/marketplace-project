@@ -2,8 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api';
 import { useToast } from '../toast';
+import { useLanguage } from '../i18n';
+import { useSiteName } from '../hooks/useSiteSettings';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function ResetPasswordPage() {
+  const { isRTL } = useLanguage();
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
+  const siteName = useSiteName();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,59 +43,72 @@ export default function ResetPasswordPage() {
     }
   };
 
-  if (!token) {
-    return (
-      <div className="auth-container">
-        <div className="card p-6 text-center" style={{ width: '100%', maxWidth: '400px', margin: '100px auto' }}>
-          <h1 className="text-xl font-bold mb-4">رابط غير صالح</h1>
-          <p className="mb-6 text-secondary">الرابط الذي تحاول استخدامه غير صالح أو انتهت صلاحيته.</p>
-          <Link to="/forgot-password" className="btn btn-primary w-full">طلب رابط جديد</Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="auth-container">
-      <div className="card p-6" style={{ width: '100%', maxWidth: '400px', margin: '100px auto' }}>
-        <h1 className="text-xl font-bold mb-6 text-center">إعادة تعيين كلمة المرور</h1>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block mb-2 text-sm font-semibold">كلمة المرور الجديدة</label>
-            <input
-              type="password"
-              className="input w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="أدخل كلمة المرور الجديدة"
-              required
-              disabled={loading}
-              minLength={8}
-            />
-          </div>
-          <div>
-            <label className="block mb-2 text-sm font-semibold">تأكيد كلمة المرور</label>
-            <input
-              type="password"
-              className="input w-full"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="تأكيد كلمة المرور الجديدة"
-              required
-              disabled={loading}
-              minLength={8}
-            />
-          </div>
-          <button
-            type="submit"
-            className="btn btn-primary w-full mt-2"
-            disabled={loading || !password || !confirmPassword}
-          >
-            {loading ? 'جاري الحفظ...' : 'تغيير كلمة المرور'}
-          </button>
-        </form>
+    <div className="auth-page">
+      <div className="auth-top-bar">
+        <Link to="/" className="auth-back-btn">
+          <BackArrow size={18} />
+          <span>العودة للمتجر</span>
+        </Link>
+        <LanguageSwitcher />
       </div>
+
+      {!token ? (
+        <div className="auth-card text-center">
+          <div className="auth-card__logo">
+            <img src="/favicon.svg" alt={siteName} width="40" height="40" />
+          </div>
+          <h1 className="auth-card__title">رابط غير صالح</h1>
+          <p className="auth-card__subtitle">الرابط الذي تحاول استخدامه غير صالح أو انتهت صلاحيته.</p>
+          <Link to="/forgot-password" className="btn btn-primary btn-lg w-full">طلب رابط جديد</Link>
+        </div>
+      ) : (
+        <div className="auth-card">
+          <div className="auth-card__logo">
+            <img src="/favicon.svg" alt={siteName} width="40" height="40" />
+          </div>
+          <h1 className="auth-card__title">إعادة تعيين كلمة المرور</h1>
+          <p className="auth-card__subtitle">أدخل كلمة المرور الجديدة لحسابك</p>
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group mb-4">
+              <label className="form-label">كلمة المرور الجديدة</label>
+              <input
+                type="password"
+                className="form-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="أدخل كلمة المرور الجديدة"
+                dir="ltr"
+                required
+                disabled={loading}
+                minLength={8}
+              />
+            </div>
+            <div className="form-group mb-5">
+              <label className="form-label">تأكيد كلمة المرور</label>
+              <input
+                type="password"
+                className="form-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="تأكيد كلمة المرور الجديدة"
+                dir="ltr"
+                required
+                disabled={loading}
+                minLength={8}
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg w-full"
+              disabled={loading || !password || !confirmPassword}
+            >
+              {loading ? 'جاري الحفظ...' : 'تغيير كلمة المرور'}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

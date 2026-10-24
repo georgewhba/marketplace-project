@@ -105,16 +105,16 @@ export function AdminAISettings() {
       <div className="card max-w-3xl">
         <form className="card-body" onSubmit={handleSubmit}>
           
-          <div className="form-group flex items-center gap-3 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
+          <div className="form-group flex items-center gap-3 p-4 rounded-lg mb-6" style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-color)', flexDirection: 'row' }}>
             <input
               type="checkbox"
               id="ai_enabled"
               name="ai_enabled"
               checked={settings.ai_enabled === 'true'}
               onChange={handleChange}
-              className="w-5 h-5 text-primary rounded focus:ring-primary cursor-pointer"
+              style={{ width: 20, height: 20 }}
             />
-            <label htmlFor="ai_enabled" className="form-label mb-0 cursor-pointer text-lg font-medium">
+            <label htmlFor="ai_enabled" className="form-label mb-0 cursor-pointer text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
               تفعيل المساعد الذكي للزوار
             </label>
           </div>

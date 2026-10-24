@@ -105,7 +105,7 @@ export default function VendorDashboard() {
         <div className="card p-4 mb-6" style={{ background: 'var(--brand-50)', border: '1px solid var(--brand-200)' }}>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-full text-brand shadow-sm">
+              <div className="p-3 rounded-full text-brand shadow-sm" style={{ background: 'var(--bg-surface)' }}>
                 <CreditCard size={24} />
               </div>
               <div>

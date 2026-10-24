@@ -32,7 +32,11 @@ export default function NotificationsPage() {
   };
 
   if (isLoading) {
-    return <div style={{ padding: 'var(--space-6)', textAlign: 'center' }}>جاري التحميل...</div>;
+    return (
+      <div className="container page-content" style={{ maxWidth: 800 }}>
+        {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 84, marginBottom: 'var(--space-3)' }} />)}
+      </div>
+    );
   }
 
   const getIcon = (category: string) => {
@@ -46,36 +50,36 @@ export default function NotificationsPage() {
 
   const getColor = (category: string) => {
     switch (category) {
-      case 'order_updates': return 'var(--primary-600)';
+      case 'order_updates': return 'var(--brand-600)';
       case 'promotions': return 'var(--success-600)';
       case 'stock_alerts': return 'var(--warning-600)';
-      default: return 'var(--neutral-600)';
+      default: return 'var(--text-secondary)';
     }
   };
 
   const getBackground = (category: string) => {
     switch (category) {
-      case 'order_updates': return 'var(--primary-100)';
-      case 'promotions': return 'var(--success-100)';
-      case 'stock_alerts': return 'var(--warning-100)';
-      default: return 'var(--neutral-100)';
+      case 'order_updates': return 'var(--brand-50)';
+      case 'promotions': return 'var(--success-50)';
+      case 'stock_alerts': return 'var(--warning-50)';
+      default: return 'var(--bg-surface-2)';
     }
   };
 
   const unreadCount = notifications?.filter((n: any) => !n.isRead)?.length || 0;
 
   return (
-    <div className="container" style={{ padding: 'var(--space-6) 0', maxWidth: 800 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <Bell size={28} />
-          الإشعارات
+    <div className="container page-content" style={{ maxWidth: 820 }}>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <Bell size={26} className="text-brand" />
+          <h1 className="page-header__title m-0">الإشعارات</h1>
           {unreadCount > 0 && (
-            <span className="badge" style={{ background: 'var(--primary-100)', color: 'var(--primary-700)', fontSize: '1rem' }}>
+            <span className="badge badge-brand" style={{ fontSize: '0.85rem' }}>
               {unreadCount}
             </span>
           )}
-        </h1>
+        </div>
         {unreadCount > 0 && (
           <button
             className="btn btn-outline btn-sm"
@@ -87,23 +91,25 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        {notifications?.length === 0 ? (
-          <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--neutral-500)' }}>
-            <Bell size={48} style={{ margin: '0 auto var(--space-4)', opacity: 0.2 }} />
-            <p>لا توجد إشعارات حالياً</p>
+      <div className="flex flex-col gap-3">
+        {!notifications || notifications.length === 0 ? (
+          <div className="card">
+            <div className="empty-state">
+              <Bell size={48} className="empty-state__icon" />
+              <div className="empty-state__title">لا توجد إشعارات حالياً</div>
+            </div>
           </div>
         ) : (
-          notifications?.map((notification: any) => (
+          notifications.map((notification: any) => (
             <div
               key={notification.id}
               className="card"
               style={{
-                padding: 'var(--space-4)',
+                padding: 'var(--space-4) var(--space-5)',
                 display: 'flex',
                 gap: 'var(--space-4)',
-                opacity: notification.isRead ? 0.7 : 1,
-                borderLeft: !notification.isRead ? '4px solid var(--primary-500)' : '4px solid transparent',
+                opacity: notification.isRead ? 0.78 : 1,
+                borderInlineStart: !notification.isRead ? '4px solid var(--brand-500)' : '4px solid transparent',
                 cursor: !notification.isRead || notification.actionUrl ? 'pointer' : 'default',
                 transition: 'all 0.2s ease',
               }}
@@ -130,15 +136,15 @@ export default function NotificationsPage() {
                 {getIcon(notification.type)}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-1)' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: !notification.isRead ? 700 : 500 }}>
+                <div className="flex justify-between items-start gap-2 mb-1 flex-wrap">
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: !notification.isRead ? 700 : 600 }}>
                     {notification.title}
                   </h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
+                  <span className="text-muted" style={{ fontSize: 'var(--font-size-xs)', whiteSpace: 'nowrap' }}>
                     {formatDate(notification.createdAt)}
                   </span>
                 </div>
-                <p style={{ margin: 0, color: 'var(--neutral-600)', fontSize: '0.875rem' }}>
+                <p className="text-secondary m-0" style={{ fontSize: 'var(--font-size-sm)' }}>
                   {notification.message}
                 </p>
               </div>

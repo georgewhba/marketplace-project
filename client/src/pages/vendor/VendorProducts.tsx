@@ -343,7 +343,7 @@ export default function VendorProducts() {
                         {firstImg ? (
                           <img src={firstImg} alt="" className="rounded-md object-cover" style={{ width: 48, height: 48 }} />
                         ) : (
-                          <div className="rounded-md flex items-center justify-center bg-gray-100" style={{ width: 48, height: 48 }}>
+                          <div className="rounded-md flex items-center justify-center bg-surface-2" style={{ width: 48, height: 48 }}>
                             <Image size={20} className="text-muted" />
                           </div>
                         )}

@@ -93,14 +93,7 @@ function GuestRoute({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return <Loading />;
   if (user) return <Navigate to="/" replace />;
-  return (
-    <PageWrapper>
-      <div style={{ position: 'fixed', top: 16, insetInlineEnd: 16, zIndex: 200 }}>
-        <LanguageSwitcher />
-      </div>
-      {children}
-    </PageWrapper>
-  );
+  return <PageWrapper>{children}</PageWrapper>;
 }
 
 function VendorStoreRedirect() {

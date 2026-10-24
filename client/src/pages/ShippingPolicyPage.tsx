@@ -1,28 +1,41 @@
 import { useSiteName } from '../hooks/useSiteSettings';
+import { Truck } from 'lucide-react';
 
 export default function ShippingPolicyPage() {
   const siteName = useSiteName();
   return (
-    <div className="container" style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1 className="page-header__title mb-6">الشحن والتوصيل</h1>
-      <div className="card p-6">
-        <h3 className="text-xl font-bold mb-3">1. مناطق التوصيل</h3>
-        <p className="mb-4">نسعى في {siteName} لتوفير أفضل تجربة شحن لتصلك مشترياتك في أسرع وقت ممكن.</p>
-        
-        <h2 className="mb-2 font-bold mt-6">مناطق التغطية</h2>
-        <p className="mb-4 text-secondary">
-          نوفر خدمات الشحن إلى جميع محافظات جمهورية مصر العربية من خلال شركائنا الموثوقين في خدمات التوصيل.
-        </p>
-        
-        <h2 className="mb-2 font-bold mt-6">مدة التوصيل</h2>
-        <p className="mb-4 text-secondary">
-          تستغرق عملية التوصيل داخل القاهرة والجيزة من يوم إلى 3 أيام عمل. أما لباقي المحافظات، فتستغرق من 3 إلى 7 أيام عمل حسب البعد الجغرافي.
-        </p>
+    <div className="container page-content" style={{ maxWidth: 860 }}>
+      <div className="page-header mb-6">
+        <div>
+          <h1 className="page-header__title flex items-center gap-3">
+            <Truck size={28} className="text-brand" />
+            الشحن والتوصيل
+          </h1>
+          <p className="page-header__subtitle">نسعى في {siteName} لتوفير أفضل تجربة شحن لتصلك مشترياتك في أسرع وقت ممكن.</p>
+        </div>
+      </div>
 
-        <h2 className="mb-2 font-bold mt-6">رسوم الشحن</h2>
-        <p className="mb-4 text-secondary">
-          يتم احتساب رسوم الشحن بناءً على وزن الطلب وموقع التوصيل، وسيتم عرض قيمة الشحن بوضوح أثناء عملية إتمام الدفع قبل تأكيد الطلب.
-        </p>
+      <div className="policy-card">
+        <div className="policy-section">
+          <h3 className="policy-section__title">مناطق التغطية</h3>
+          <p className="policy-section__text">
+            نوفر خدمات الشحن إلى جميع محافظات جمهورية مصر العربية من خلال شركائنا الموثوقين في خدمات التوصيل.
+          </p>
+        </div>
+
+        <div className="policy-section">
+          <h3 className="policy-section__title">مدة التوصيل</h3>
+          <p className="policy-section__text">
+            تستغرق عملية التوصيل داخل القاهرة والجيزة من يوم إلى 3 أيام عمل. أما لباقي المحافظات، فتستغرق من 3 إلى 7 أيام عمل حسب البعد الجغرافي.
+          </p>
+        </div>
+
+        <div className="policy-section">
+          <h3 className="policy-section__title">رسوم الشحن</h3>
+          <p className="policy-section__text">
+            يتم احتساب رسوم الشحن بناءً على وزن الطلب وموقع التوصيل، وسيتم عرض قيمة الشحن بوضوح أثناء عملية إتمام الدفع قبل تأكيد الطلب.
+          </p>
+        </div>
       </div>
     </div>
   );

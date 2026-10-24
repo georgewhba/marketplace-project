@@ -73,14 +73,14 @@ export default function ProfilePage() {
   });
 
   return (
-    <div className="container page-content" style={{ maxWidth: 600, margin: '0 auto', padding: 'var(--space-8) var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-        <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary-100)', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-xl)', fontWeight: 700 }}>
+    <div className="container page-content" style={{ maxWidth: 680 }}>
+      <div className="flex items-center gap-4 mb-6">
+        <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--brand-50)', border: '1.5px solid var(--brand-200)', color: 'var(--brand-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--font-size-xl)', fontWeight: 800 }}>
           {user?.firstName?.[0] ?? '?'}
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>حسابي</h1>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--neutral-500)' }}>{user?.email}</p>
+          <h1 className="page-header__title m-0">حسابي</h1>
+          <p className="text-muted m-0" style={{ fontSize: 'var(--font-size-sm)' }}>{user?.email}</p>
         </div>
       </div>
 
@@ -281,23 +281,23 @@ function NotificationPreferences() {
       </h3>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 'var(--space-4)' }}>
+        <table className="data-table" style={{ marginTop: 'var(--space-4)' }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'right', padding: 'var(--space-2)', borderBottom: '1px solid var(--neutral-200)' }}>النوع</th>
+              <th>النوع</th>
               {channels.map(chan => (
-                <th key={chan.id} style={{ textAlign: 'center', padding: 'var(--space-2)', borderBottom: '1px solid var(--neutral-200)' }}>{chan.label}</th>
+                <th key={chan.id} style={{ textAlign: 'center' }}>{chan.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {categories.map(cat => (
               <tr key={cat.id}>
-                <td style={{ padding: 'var(--space-3) var(--space-2)', borderBottom: '1px solid var(--neutral-100)' }}>
+                <td className="font-medium">
                   {cat.label}
                 </td>
                 {channels.map(chan => (
-                  <td key={chan.id} style={{ textAlign: 'center', padding: 'var(--space-3) var(--space-2)', borderBottom: '1px solid var(--neutral-100)' }}>
+                  <td key={chan.id} style={{ textAlign: 'center' }}>
                     <input
                       type="checkbox"
                       checked={isEnabled(cat.id, chan.id)}

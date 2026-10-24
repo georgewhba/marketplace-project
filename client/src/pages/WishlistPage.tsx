@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { wishlistApi } from '../api';
+import { wishlistApi, cartApi } from '../api';
 import { useToast } from '../toast';
+import { useLanguage } from '../i18n';
 import { Heart, Trash2, ShoppingCart } from 'lucide-react';
 
 interface WishlistItem {
@@ -12,12 +13,13 @@ interface WishlistItem {
     slug: string;
     price: string;
     compareAtPrice: string | null;
-    images: { url: string }[];
+    images: { url: string; imageUrl?: string }[];
   };
 }
 
 export default function WishlistPage() {
   const { addToast } = useToast();
+  const { formatPrice, translateProductName } = useLanguage();
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -35,39 +37,51 @@ export default function WishlistPage() {
     },
   });
 
+  const addToCartMutation = useMutation({
+    mutationFn: (productId: number) => cartApi.addItem(productId, 1),
+    onSuccess: () => {
+      addToast('تمت الإضافة للسلة', 'success');
+      qc.invalidateQueries({ queryKey: ['cart'] });
+    },
+    onError: (err: any) => addToast(err.message || 'حدث خطأ', 'error'),
+  });
+
   return (
     <div className="container page-content">
-      <div className="flex items-center gap-3 mb-6">
-        <Heart size={24} style={{ color: 'var(--primary-500)', fill: 'var(--primary-500)' }} />
-        <h1 className="m-0 text-2xl font-bold">المفضلة</h1>
-        <span className="text-sm text-muted">({items.length} منتج)</span>
+      <div className="page-header mb-6">
+        <div className="flex items-center gap-3">
+          <Heart size={26} style={{ color: 'var(--brand-500)', fill: 'var(--brand-500)' }} />
+          <h1 className="page-header__title m-0">المفضلة</h1>
+          <span className="catalog-count-badge">({items.length} منتج)</span>
+        </div>
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
-          {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 280 }} />)}
+        <div className="grid grid-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 320 }} />)}
         </div>
       ) : items.length === 0 ? (
         <div className="empty-state">
-          <Heart size={48} className="text-muted" />
-          <div className="empty-state__title mt-4">المفضلة فارغة</div>
-          <p className="text-muted mb-4">أضف منتجات إلى المفضلة لتجدها بسهولة لاحقاً</p>
-          <Link to="/products" className="btn btn-primary">تصفح المنتجات</Link>
+          <Heart size={56} className="empty-state__icon" />
+          <div className="empty-state__title">المفضلة فارغة</div>
+          <p className="empty-state__description">أضف منتجات إلى المفضلة لتجدها بسهولة لاحقاً</p>
+          <Link to="/products" className="btn btn-primary btn-md">تصفح المنتجات</Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-4)' }}>
+        <div className="grid grid-4">
           {items.map(item => {
             const p = item?.product;
             if (!p) return null;
             const price = parseFloat(p.price || '0');
             const comparePrice = p.compareAtPrice ? parseFloat(p.compareAtPrice) : 0;
             const hasDiscount = comparePrice > price;
+            const imgUrl = p.images?.[0]?.url || p.images?.[0]?.imageUrl;
             return (
-              <div key={item.id} className="card product-card overflow-hidden">
+              <div key={item.id} className="product-card">
                 <Link to={`/products/${p.slug}`} className="block">
-                  <div className="bg-neutral-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
-                    {p.images?.[0] ? (
-                      <img src={p.images[0].url} alt={p.name} className="w-full h-full object-cover" />
+                  <div className="product-card__image-wrap">
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={p.name} className="product-card__image" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted">
                         <ShoppingCart size={32} />
@@ -75,25 +89,41 @@ export default function WishlistPage() {
                     )}
                   </div>
                 </Link>
-                <div className="p-3">
-                  <Link to={`/products/${p.slug}`} className="no-underline text-inherit">
-                    <h4 className="m-0 mb-2 text-sm font-semibold leading-snug">{p.name}</h4>
+                <div className="product-card__body">
+                  <Link to={`/products/${p.slug}`} className="product-card__name-link">
+                    <h4 className="product-card__name">{translateProductName(p.name)}</h4>
                   </Link>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="font-bold text-primary">{price.toLocaleString('ar-EG')} ج.م</span>
-                    {hasDiscount && (
-                      <span className="line-through text-xs text-muted">
-                        {comparePrice.toLocaleString('ar-EG')} ج.م
-                      </span>
-                    )}
+                  <div className="product-card__footer">
+                    <div className="product-card__price-col">
+                      <span className="product-card__price">{formatPrice(price)}</span>
+                      {hasDiscount && (
+                        <span className="product-card__compare-price">
+                          {formatPrice(comparePrice)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="product-card__cart-action"
+                        onClick={() => addToCartMutation.mutate(p.id)}
+                        disabled={addToCartMutation.isPending}
+                      >
+                        <ShoppingCart size={14} /> أضف للسلة
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        style={{ color: 'var(--error-500)' }}
+                        title="إزالة من المفضلة"
+                        aria-label="إزالة من المفضلة"
+                        onClick={() => removeMutation.mutate(p.id)}
+                        disabled={removeMutation.isPending}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    className="btn btn-outline w-full text-sm"
-                    onClick={() => removeMutation.mutate(p.id)}
-                    disabled={removeMutation.isPending}
-                  >
-                    <Trash2 size={14} /> إزالة من المفضلة
-                  </button>
                 </div>
               </div>
             );
