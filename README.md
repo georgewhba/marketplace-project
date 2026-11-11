@@ -7,7 +7,7 @@ A full-stack, production-grade **Multi-Vendor E-Commerce Marketplace** built wit
 ## 🔗 Links
 
 - **GitHub Repository:** [https://github.com/georgewhba/marketplace-project](https://github.com/georgewhba/marketplace-project)
-- **Live Deployment (Railway):** [https://marketplace-project-production-00f1.up.railway.app](https://marketplace-project-production-00f1.up.railway.app)
+- **Live Deployment (Railway):** [https://marketplace-project-production-de9f4e32.up.railway.app](https://marketplace-project-production-de9f4e32.up.railway.app)
 
 ---
 
