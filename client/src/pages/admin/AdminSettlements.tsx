@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminApi } from '../../api';
+import { adminApi, api } from '../../api';
 import { useToast } from '../../toast';
-import { CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { CheckCircle, Clock, DollarSign, Plus } from 'lucide-react';
 
 const formatCurrency = (val: number) => parseFloat(String(val)).toLocaleString('ar-EG') + ' ج.م';
 
@@ -38,6 +38,15 @@ export function AdminSettlements() {
     onError: (err: any) => addToast(err.message || 'حدث خطأ', 'error'),
   });
 
+  const generateMutation = useMutation({
+    mutationFn: () => api.post('/admin/settlements/generate', {}),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settlements'] });
+      addToast(res?.data?.message || 'تم توليد دورات التسوية بنجاح', 'success');
+    },
+    onError: (err: any) => addToast(err.message || 'حدث خطأ أثناء توليد التسويات', 'error'),
+  });
+
   return (
     <div>
       <div className="page-header mb-6">
@@ -50,6 +59,14 @@ export function AdminSettlements() {
             <p className="page-header__subtitle">مراجعة واعتماد المبالغ المستحقة للبائعين بعد خصم العمولات</p>
           </div>
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => generateMutation.mutate()}
+          disabled={generateMutation.isPending}
+        >
+          <Plus size={18} />
+          {generateMutation.isPending ? 'جاري التوليد...' : 'توليد تسويات جديدة'}
+        </button>
       </div>
 
       <div className="card" style={{ overflowX: 'auto' }}>

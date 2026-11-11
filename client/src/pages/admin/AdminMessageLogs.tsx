@@ -14,6 +14,7 @@ export default function AdminMessageLogs() {
   });
 
   const data = rawRes?.data;
+  const logs: any[] = Array.isArray(data) ? data : (data?.logs || []);
   const meta = (rawRes as any)?.meta || data?.meta;
 
   const formatDate = (isoString: string) => {
@@ -69,7 +70,7 @@ export default function AdminMessageLogs() {
               <option value="">الكل</option>
               <option value="sent">تم الإرسال</option>
               <option value="failed">فشل الإرسال</option>
-              <option value="pending">قيد الانتظار</option>
+              <option value="queued">قيد الانتظار</option>
             </select>
           </div>
         </div>
@@ -94,14 +95,14 @@ export default function AdminMessageLogs() {
               </tr>
             </thead>
             <tbody>
-              {(!data?.logs || data.logs.length === 0) && (
+              {logs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
                     لا توجد رسائل مسجلة
                   </td>
                 </tr>
               )}
-              {data?.logs?.map((log: any) => (
+              {logs.map((log: any) => (
                 <tr key={log.id}>
                   <td>
                     {log.channel === 'email' ? (

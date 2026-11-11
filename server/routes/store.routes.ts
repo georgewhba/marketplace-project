@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { products, categories, vendors, productImages, reviews, siteSettings, subscriptionPlans, subscriptionPromotions, vendorSubscriptions } from '../db/schema/index.js';
 import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from 'drizzle-orm';
 import { sendSuccess } from '../utils/response.js';
+import { AppError } from '../utils/errors.js';
 import { getPaginationMeta, getOffset, paginationSchema } from '../utils/pagination.js';
 import { validate, getValidated } from '../middleware/validate.js';
 import { emailQueue } from '../jobs/email.queue.js';
@@ -497,7 +498,7 @@ storeRoutes.post('/translate', async (c) => {
     const body = await c.req.json();
     const targetLang = String(body?.targetLang || 'en').toLowerCase();
     if (!SUPPORTED_TARGET_LANGS.has(targetLang)) {
-      return sendSuccess(c, { translations: {} });
+      throw AppError.badRequest('لغة غير مدعومة');
     }
     const rawTexts: unknown[] = Array.isArray(body?.texts) ? body.texts.slice(0, 80) : [];
     const uniqueTexts = Array.from(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { storeApi, cartApi } from '../api';
 import { ProductCard, ProductCardSkeleton, StarRating } from '../components/ProductCard';

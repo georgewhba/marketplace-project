@@ -115,7 +115,7 @@ export default function VendorDashboard() {
     );
   }
 
-  const stats = data?.stats || {};
+  const stats = data?.sales || data?.stats || {};
 
   return (
     <div>

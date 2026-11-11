@@ -10,7 +10,8 @@ interface OrderItem {
   orderNumber: string;
   productName: string;
   quantity: number;
-  unitPrice: string;
+  price?: string;
+  unitPrice?: string;
   total: string;
   status?: string;
   vendorStatus?: string;
@@ -175,7 +176,7 @@ export default function VendorOrders() {
                     <div className="font-bold text-primary mb-1">{item.productName}</div>
                     <div className="text-secondary flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--font-size-sm)' }}>
                       <span>
-                        الكمية: {item.quantity} × {parseFloat(item.unitPrice).toLocaleString('ar-EG')} ج.م
+                        الكمية: {item.quantity} × {parseFloat(item.price ?? item.unitPrice ?? '0').toLocaleString('ar-EG')} ج.م
                       </span>
                       <span>•</span>
                       <span>العميل: {item.customerName || '—'}</span>

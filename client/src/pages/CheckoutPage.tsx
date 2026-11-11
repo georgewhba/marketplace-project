@@ -296,11 +296,19 @@ export default function CheckoutPage() {
               <span className="text-muted">المجموع الفرعي</span>
               <span style={{ fontWeight: 600 }}>{parseFloat(cart?.subtotal || '0').toLocaleString('ar-EG')} ج.م</span>
             </div>
-            <div className="flex justify-between mb-4">
-              <span className="text-muted">الشحن</span>
-              <span style={{ fontWeight: 600 }}>30.00 ج.م / بائع</span>
+            <div className="flex justify-between mb-2">
+              <span className="text-muted">الشحن ({new Set((cart?.items || []).map((i: any) => i.vendorId)).size || 1} متجر)</span>
+              <span style={{ fontWeight: 600 }}>
+                {((new Set((cart?.items || []).map((i: any) => i.vendorId)).size || 1) * 30).toLocaleString('ar-EG')} ج.م
+              </span>
             </div>
             <hr className="divider" />
+            <div className="flex justify-between mb-4" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 800 }}>
+              <span>الإجمالي التقديري</span>
+              <span className="text-brand">
+                {(parseFloat(cart?.subtotal || '0') + (new Set((cart?.items || []).map((i: any) => i.vendorId)).size || 1) * 30).toLocaleString('ar-EG')} ج.م
+              </span>
+            </div>
 
             <button
               className="btn btn-primary btn-lg"

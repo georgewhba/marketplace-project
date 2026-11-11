@@ -29,9 +29,15 @@ export default function LoginPage() {
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
       if (credentialResponse.credential) {
-        await googleAuth(credentialResponse.credential);
-        toast.success('Signed in with Google');
-        navigate('/');
+        const result: any = await googleAuth(credentialResponse.credential);
+        if (result?.requiresMfa) {
+          setShowMfa(true);
+          setTempToken(result.tempToken || '');
+          toast.success(lang === 'ar' ? 'يرجى إدخال رمز التحقق الثنائي' : 'Please enter your 2FA code');
+        } else {
+          toast.success(lang === 'ar' ? 'تم تسجيل الدخول عبر جوجل بنجاح' : 'Signed in with Google');
+          navigate('/');
+        }
       }
     } catch (err: any) {
       toast.error(err.message || 'Google Sign-In failed');

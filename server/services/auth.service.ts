@@ -491,51 +491,48 @@ export async function login(input: LoginInput) {
 export async function refreshAccessToken(tokenValue: string) {
   const tokenHash = hashToken(tokenValue);
 
-  const [storedToken] = await db
-    .select()
-    .from(refreshTokens)
-    .where(eq(refreshTokens.tokenHash, tokenHash))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // Atomically delete and return the consumed refresh token to prevent concurrent race conditions
+    const [storedToken] = await tx
+      .delete(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .returning();
 
-  if (!storedToken) {
-    throw AppError.unauthorized('رمز التحديث غير صالح');
-  }
+    if (!storedToken) {
+      throw AppError.unauthorized('رمز التحديث غير صالح');
+    }
 
-  if (storedToken.expiresAt < new Date()) {
-    // Expired — delete and reject
-    await db.delete(refreshTokens).where(eq(refreshTokens.id, storedToken.id));
-    throw AppError.unauthorized('انتهت صلاحية رمز التحديث');
-  }
+    if (storedToken.expiresAt < new Date()) {
+      throw AppError.unauthorized('انتهت صلاحية رمز التحديث');
+    }
 
-  // Delete old token (rotation — used token is consumed)
-  await db.delete(refreshTokens).where(eq(refreshTokens.id, storedToken.id));
+    const [user] = await tx
+      .select({ id: users.id, email: users.email, role: users.role, isActive: users.isActive })
+      .from(users)
+      .where(eq(users.id, storedToken.userId))
+      .limit(1);
 
-  const [user] = await db
-    .select({ id: users.id, email: users.email, role: users.role, isActive: users.isActive })
-    .from(users)
-    .where(eq(users.id, storedToken.userId))
-    .limit(1);
+    if (!user || !user.isActive) {
+      throw AppError.unauthorized('الحساب غير نشط');
+    }
 
-  if (!user || !user.isActive) {
-    throw AppError.unauthorized('الحساب غير نشط');
-  }
+    // Issue new pair
+    const newAccessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
+    const newRefreshTokenValue = generateRefreshTokenValue();
+    const newRefreshTokenHash = hashToken(newRefreshTokenValue);
+    const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
 
-  // Issue new pair
-  const newAccessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
-  const newRefreshTokenValue = generateRefreshTokenValue();
-  const newRefreshTokenHash = hashToken(newRefreshTokenValue);
-  const expiresAt = new Date(Date.now() + parseExpiry(env.JWT_REFRESH_EXPIRES));
+    await tx.insert(refreshTokens).values({
+      userId: user.id,
+      tokenHash: newRefreshTokenHash,
+      expiresAt,
+    });
 
-  await db.insert(refreshTokens).values({
-    userId: user.id,
-    tokenHash: newRefreshTokenHash,
-    expiresAt,
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshTokenValue,
+    };
   });
-
-  return {
-    accessToken: newAccessToken,
-    refreshToken: newRefreshTokenValue,
-  };
 }
 
 export async function logout(tokenValue: string) {
@@ -600,9 +597,9 @@ export async function getProfile(userId: number) {
       .where(eq(userRoles.userId, user.id));
 
     isSuperAdmin =
-      user.role === 'admin' ||
       user.role === 'super_admin' ||
-      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin') ||
+      (user.role === 'admin' && userRoleList.length === 0);
 
     if (isSuperAdmin) {
       userPermissions = ['*'];

@@ -213,6 +213,9 @@ authRoutes.post('/mfa/challenge', authRateLimit, validate('body', mfaTokenSchema
   let userId: number;
   try {
     const payload = jwt.verify(tempToken, env.JWT_ACCESS_SECRET) as { userId: number; purpose?: string };
+    if (payload.purpose && payload.purpose !== 'mfa_temp') {
+      throw AppError.unauthorized('رمز مصادقة غير صالح');
+    }
     userId = payload.userId;
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {

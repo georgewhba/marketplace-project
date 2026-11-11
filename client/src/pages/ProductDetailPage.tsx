@@ -332,7 +332,7 @@ export default function ProductDetailPage() {
             <div className="form-group mb-3">
               <input
                 className="form-input"
-                placeholder="..."
+                placeholder="عنوان التقييم (اختياري)"
                 value={reviewForm.title}
                 onChange={e => setReviewForm(prev => ({ ...prev, title: e.target.value }))}
               />
@@ -341,13 +341,13 @@ export default function ProductDetailPage() {
               <textarea
                 className="form-textarea"
                 rows={3}
-                placeholder="..."
+                placeholder="اكتب تجربتك مع المنتج..."
                 value={reviewForm.comment}
                 onChange={e => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
               />
             </div>
             <button type="submit" className="btn btn-primary btn-sm" disabled={submittingReview}>
-              {t('catalog.applyFilter')}
+              {submittingReview ? 'جارٍ الإرسال...' : 'إرسال التقييم'}
             </button>
           </form>
         )}

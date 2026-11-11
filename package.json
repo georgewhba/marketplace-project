@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "tsx server/db/migrate.ts",
+    "db:seed": "tsx server/db/seed.ts",
     "test:concurrency": "tsx server/__tests__/integration/concurrency-http.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",

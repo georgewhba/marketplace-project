@@ -23,6 +23,13 @@ export default tseslint.config(
       '*.cjs',
       'scripts/**/*.cjs',
       'run-migration.js',
+      'apply_view.ts',
+      'check_analytics.ts',
+      'detailed_check.ts',
+      'refresh_view.ts',
+      'test-ai.ts',
+      'feature-products.ts',
+      'seed-products.ts',
     ],
   },
   {
@@ -38,6 +45,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',

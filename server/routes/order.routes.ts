@@ -205,13 +205,15 @@ orderRoutes.post('/', validate('body', checkoutSchema), async (c) => {
     if (!order) throw AppError.internal();
     createdOrder = order;
 
-    // 4. Insert order items (snapshot of price/commission at order time)
+    // 4. Insert order items (snapshot of price/commission at order time, pro-rating any order discount)
+    const discountRatio = subtotal > 0 ? Math.max(0, (subtotal - discount) / subtotal) : 1;
     const vendorsWithShipping = new Set<number>();
     for (const item of cartItemsList) {
       const commissionRate = itemCommissionRates.get(item.productId) ?? 10;
       const itemTotal = parseFloat(item.productPrice) * item.quantity;
-      const commissionAmount = itemTotal * (commissionRate / 100);
-      const vendorAmount = itemTotal - commissionAmount;
+      const effectiveItemTotal = itemTotal * discountRatio;
+      const commissionAmount = effectiveItemTotal * (commissionRate / 100);
+      const vendorAmount = effectiveItemTotal - commissionAmount;
       const firstImage = imagesResult.find(img => img.productId === item.productId);
       const itemShipping = vendorsWithShipping.has(item.vendorId) ? 0 : shippingPerVendor;
       vendorsWithShipping.add(item.vendorId);

@@ -51,6 +51,7 @@ laptop.jpg
 smartphone.jpg
 smartwatch.jpg
 cover.html
+Untitled-1.html
 screenshots/
 upwork_screenshots/
 atoz-theme/
@@ -58,3 +59,19 @@ atoz-theme/
 !ecosystem.config.cjs
 !scripts/ecosystem.config.cjs
 !scripts/fix_rtl.cjs
+
+# Local scratch & audit files
+*.ipynb
+apply_view.ts
+check_analytics.ts
+detailed_check.ts
+refresh_view.ts
+run-migration.js
+test-ai.ts
+feature-products.ts
+seed-products.ts
+import os.py
+client/axe-results.json
+PROBLEM_REGISTER.md
+FULL_AUDIT.md
+DECISIONS.md

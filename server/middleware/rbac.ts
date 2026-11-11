@@ -12,11 +12,6 @@ export const requirePermission = (permissionKey: string) => {
       throw AppError.unauthorized('غير مصرح');
     }
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
-      throw AppError.forbidden('ليس لديك صلاحية لهذا الإجراء');
-    }
-
-    // Always allow super_admin
     const userRoleList = await db
       .select({
         roleName: roles.name,
@@ -26,10 +21,15 @@ export const requirePermission = (permissionKey: string) => {
       .innerJoin(roles, eq(userRoles.roleId, roles.id))
       .where(eq(userRoles.userId, user.id));
 
+    if (user.role !== 'admin' && user.role !== 'super_admin' && userRoleList.length === 0) {
+      throw AppError.forbidden('ليس لديك صلاحية لهذا الإجراء');
+    }
+
+    // Super admin: explicit super_admin role, or default admin with no restricted RBAC role assignments
     const isSuperAdmin =
-      user.role === 'admin' ||
       user.role === 'super_admin' ||
-      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin');
+      userRoleList.some(r => r.isSystem && r.roleName === 'super_admin') ||
+      (user.role === 'admin' && userRoleList.length === 0);
     if (isSuperAdmin) {
       await next();
       return;

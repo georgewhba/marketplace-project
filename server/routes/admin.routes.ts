@@ -655,13 +655,19 @@ adminRoutes.post('/commission-rules', requirePermission('commission.manage'), va
     throw AppError.badRequest('نسبة العمولة لا يمكن أن تتجاوز 100%');
   }
 
+  const effectiveFromDate = input.effectiveFrom ? new Date(input.effectiveFrom) : new Date();
+  const effectiveToDate = input.effectiveTo ? new Date(input.effectiveTo) : null;
+  if (Number.isNaN(effectiveFromDate.getTime()) || (effectiveToDate && Number.isNaN(effectiveToDate.getTime()))) {
+    throw AppError.badRequest('تاريخ غير صالح');
+  }
+
   const [rule] = await db.insert(commissionRules).values({
     scope: input.scope,
     targetId: input.targetId || null,
     rate: input.rate,
     priority: input.priority,
-    effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : new Date(),
-    effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+    effectiveFrom: effectiveFromDate,
+    effectiveTo: effectiveToDate,
   }).returning();
 
   return sendCreated(c, rule);

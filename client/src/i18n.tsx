@@ -1697,6 +1697,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         // ignore network errors
+      } finally {
+        if (!isDisposed && pendingQueueRef.current.size > 0) {
+          scheduleFlush(targetLang);
+        }
       }
     };
 
@@ -1720,9 +1724,23 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       const currentVal = node.nodeValue || '';
       const lastSetVal = lastTranslatedValueMap.get(node);
 
-      // If React updated the underlying text node with a new source string, update originalTextMap
-      if (!originalTextMap.has(node) || (lastSetVal !== undefined && currentVal !== lastSetVal)) {
-        originalTextMap.set(node, currentVal);
+      // If React updated the text node directly (e.g. via {t(...)} when switching languages),
+      // or if we haven't recorded an Arabic source string yet:
+      if (lastSetVal !== undefined && currentVal !== lastSetVal) {
+        if (ARABIC_CHAR_REGEX.test(currentVal)) {
+          originalTextMap.set(node, currentVal);
+        } else {
+          // React itself localized this node into a non-Arabic language; clear our override!
+          originalTextMap.delete(node);
+          lastTranslatedValueMap.delete(node);
+          return;
+        }
+      } else if (!originalTextMap.has(node)) {
+        if (ARABIC_CHAR_REGEX.test(currentVal)) {
+          originalTextMap.set(node, currentVal);
+        } else {
+          return;
+        }
       }
 
       const sourceText = originalTextMap.get(node) || '';
@@ -1770,10 +1788,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       for (const attr of attrs) {
         const current = el.getAttribute(attr);
         if (!current) continue;
-        if (!attrMap.has(attr)) {
-          attrMap.set(attr, current);
+        if (!attrMap.has(attr) || ARABIC_CHAR_REGEX.test(current)) {
+          if (ARABIC_CHAR_REGEX.test(current)) {
+            attrMap.set(attr, current);
+          } else if (!attrMap.has(attr)) {
+            continue;
+          }
         }
-        const source = attrMap.get(attr)!;
+        const source = attrMap.get(attr);
+        if (!source) continue;
         if (targetLang === 'ar') {
           if (current !== source) el.setAttribute(attr, source);
           continue;

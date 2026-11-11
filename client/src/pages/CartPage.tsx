@@ -139,6 +139,7 @@ export default function CartPage() {
                     <button
                       className="quantity-control__btn"
                       aria-label="زيادة الكمية"
+                      disabled={item.productStock !== undefined && item.quantity >= item.productStock}
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                     >
                       <Plus size={14} />

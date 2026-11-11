@@ -19,7 +19,7 @@ export function useDocumentTitle(pageTitle?: string, options?: TitleOptions) {
 
     // 2. Update Meta Description if provided
     if (options?.description) {
-      let metaDesc = document.querySelector('meta[name="description"]');
+      const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
         metaDesc.setAttribute('content', options.description);
       }

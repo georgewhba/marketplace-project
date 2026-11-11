@@ -11,6 +11,9 @@ interface Vendor {
   storeSlug: string;
   status: string;
   commissionRate: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerEmail?: string;
   user?: { firstName: string; lastName: string; email: string };
   createdAt: string;
 }
@@ -150,7 +153,7 @@ export default function AdminVendors() {
                         <span className={`badge ${badge.cls}`}>{badge.label}</span>
                       </div>
                       <div className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>
-                        {v.user?.firstName} {v.user?.lastName} • <span className="ltr">{v.user?.email}</span>
+                        {v.user?.firstName || v.ownerFirstName} {v.user?.lastName || v.ownerLastName} • <span className="ltr">{v.user?.email || v.ownerEmail}</span>
                       </div>
                       <div className="mt-1 text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>
                         نسبة العمولة: <strong className="text-brand">{v.commissionRate}%</strong> • تاريخ الانضمام:{' '}

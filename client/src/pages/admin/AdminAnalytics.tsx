@@ -293,7 +293,7 @@ export default function AdminAnalytics() {
                     <td className="text-primary" style={{ fontWeight: 600 }}>
                       {product.name}
                     </td>
-                    <td>{product.totalSold}</td>
+                    <td>{product.totalSold ?? product.totalSoldQuantity ?? 0}</td>
                     <td className="text-brand" style={{ fontWeight: 700 }}>
                       {formatCurrency(product.totalRevenue)}
                     </td>

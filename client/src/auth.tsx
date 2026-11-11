@@ -159,8 +159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const googleAuth = async (idToken: string, vendorData?: any) => {
     const res = (await authApi.googleAuth({ idToken, vendorData })) as any;
     const data = res.data || res;
+    if (data.requiresMfa) {
+      return { requiresMfa: true, tempToken: data.tempToken };
+    }
     saveTokens(data);
     setUser(data.user);
+    return data;
   };
 
   const registerVendor = async (formData: any) => {
@@ -181,7 +185,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshToken = rawRefresh && rawRefresh !== 'undefined' && rawRefresh !== 'null' ? rawRefresh : undefined;
     try {
       await authApi.logout(refreshToken);
-    } catch {}
+    } catch {
+      // Ignore network errors during logout cleanup
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);

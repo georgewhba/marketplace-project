@@ -44,9 +44,9 @@ This project is a multi-vendor marketplace platform built as a TypeScript monore
 7. **Settlement & Payout:** Cron job generates periodic settlements. Vendors request payouts against finalized settlements. Admin approves payouts, deducting from the vendor's balance.
 
 ## Scheduled Jobs Architecture
-- `node-cron` runs within the main Node.js process (`server/index.ts`).
-- Generates daily settlements (`generateSettlements`).
-- **Risk:** In PM2 cluster mode, this cron will run independently on every worker process, causing duplicate execution.
+- `node-cron` runs within the Node.js process (`server/index.ts`).
+- Generates daily settlements (`generateSettlements`) and processes expired subscriptions (`processExpiredSubscriptions`).
+- **Cluster Safety:** Guarded by `NODE_APP_INSTANCE === '0'` (or `undefined` in single-process mode) so scheduled jobs execute on a single primary instance in PM2 cluster deployments.
 
 ## External Integrations
 - **Payment:** Paymob (Cards, Wallets, Fawry).

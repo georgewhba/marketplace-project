@@ -57,6 +57,7 @@ export default function AdminCoupons() {
         type: formData.discountType,
         value: String(formData.discountValue),
         minOrderAmount: formData.minOrderValue ? String(formData.minOrderValue) : undefined,
+        maxDiscountAmount: formData.maxDiscount ? String(formData.maxDiscount) : undefined,
         usageLimit: formData.usageLimit ? Number(formData.usageLimit) : undefined,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined,
         isActive: true,

@@ -58,7 +58,11 @@ export default function VendorProducts() {
 
   const products: Product[] = data?.data ?? [];
   const meta = data?.meta;
-  const categories = categoriesData?.data || [];
+  const rawCategories = categoriesData?.data || [];
+  const categories = rawCategories.flatMap((c: any) => [
+    c,
+    ...(Array.isArray(c.children) ? c.children.map((sub: any) => ({ ...sub, name: `${c.name} ← ${sub.name}` })) : []),
+  ]);
 
   const editingProduct = editId ? products.find(p => p.id === editId) : null;
 
@@ -68,7 +72,7 @@ export default function VendorProducts() {
         name: form.name,
         description: form.description,
         price: form.price,
-        comparePrice: form.compareAtPrice || undefined,
+        comparePrice: form.compareAtPrice ? form.compareAtPrice : (editId ? null : undefined),
         stock: form.stock,
         categoryId: form.categoryId,
         sku: form.sku || undefined,

@@ -25,7 +25,7 @@ export default function VendorSubscriptions() {
 
   const { data: currentSub, isLoading: loadingSub } = useQuery({
     queryKey: ['vendor-current-subscription'],
-    queryFn: () => api.get<any>('/vendor/subscription/current'),
+    queryFn: () => api.get<any>('/vendor/subscription'),
   });
 
   const subscribeMutation = useMutation({

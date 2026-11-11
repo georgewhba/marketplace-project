@@ -5,7 +5,6 @@ import { AuthProvider, useAuth } from './auth';
 import { ToastProvider } from './toast';
 import { LanguageProvider } from './i18n';
 import { Header, Footer } from './components/Layout';
-import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { PageWrapper } from './components/PageWrapper';
 import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { adminApi } from './api';

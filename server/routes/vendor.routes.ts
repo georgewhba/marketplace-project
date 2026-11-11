@@ -166,12 +166,12 @@ async function getVendorLimits(vendorId: number) {
 vendorRoutes.get('/dashboard', async (c) => {
   const vendor = c.get('vendor');
 
-  // Sales stats
+  // Sales stats (exclude cancelled order items)
   const [stats] = await db.select({
     totalOrders: sql<number>`count(DISTINCT ${orderItems.orderId})::int`,
     totalRevenue: sql<string>`COALESCE(SUM(${orderItems.vendorAmount}::numeric), 0)`,
     totalCommission: sql<string>`COALESCE(SUM(${orderItems.commissionAmount}::numeric), 0)`,
-  }).from(orderItems).where(eq(orderItems.vendorId, vendor.id));
+  }).from(orderItems).where(and(eq(orderItems.vendorId, vendor.id), ne(orderItems.vendorStatus, 'cancelled')));
 
   const [pendingOrders] = await db.select({
     count: sql<number>`count(*)::int`,
@@ -532,10 +532,19 @@ vendorRoutes.put('/orders/:itemId/status', validate('body', updateStatusSchema),
       }
 
       const saleAmount = parseFloat(lockedItem.total);
-      
-      const commissionRate = await resolveCommissionRate(vendor.id, categoryId ?? 0);
-      const commissionAmount = saleAmount * (commissionRate / 100);
-      const vendorAmount = saleAmount - commissionAmount;
+      const snapshottedRate = parseFloat(lockedItem.commissionRate ?? '0');
+      const snapshottedVendorAmt = parseFloat(lockedItem.vendorAmount ?? '0');
+      const snapshottedCommAmt = parseFloat(lockedItem.commissionAmount ?? '0');
+
+      const commissionRate = snapshottedRate > 0
+        ? snapshottedRate
+        : await resolveCommissionRate(vendor.id, categoryId ?? 0);
+      const commissionAmount = snapshottedVendorAmt > 0
+        ? snapshottedCommAmt
+        : saleAmount * (commissionRate / 100);
+      const vendorAmount = snapshottedVendorAmt > 0
+        ? snapshottedVendorAmt
+        : saleAmount - commissionAmount;
 
       // Read vendor balance INSIDE the tx (prevents stale read-then-write race on balance)
       const [vendorRecord] = await tx
@@ -743,8 +752,8 @@ vendorRoutes.post('/orders/:itemId/ship', validate('body', createShipmentSchema)
 });
 
 
-// GET /api/vendor/settlements
-vendorRoutes.get('/settlements', validate('query', paginationSchema), async (c) => {
+// GET /api/vendor/settlements & /api/vendor/earnings
+const handleGetSettlements = async (c: any) => {
   const vendor = c.get('vendor');
   const { page, limit } = getValidated<z.infer<typeof paginationSchema>>(c, 'query');
 
@@ -766,7 +775,9 @@ vendorRoutes.get('/settlements', validate('query', paginationSchema), async (c) 
     settlements: list,
     balance: vendorRecord?.totalSales ?? '0',
   }, 200, getPaginationMeta(page, limit, total));
-});
+};
+vendorRoutes.get('/settlements', validate('query', paginationSchema), handleGetSettlements);
+vendorRoutes.get('/earnings', validate('query', paginationSchema), handleGetSettlements);
 
 // GET /api/vendor/payouts
 vendorRoutes.get('/payouts', async (c) => {
@@ -913,7 +924,7 @@ vendorRoutes.put('/notifications/:id/read', async (c) => {
 // Vendor Subscription API
 // ==============================================
 
-vendorRoutes.get('/subscription', async (c) => {
+const handleGetVendorSubscription = async (c: any) => {
   const vendor = c.get('vendor');
 
   // Ensure free plan is provisioned if vendor has no active subscription yet
@@ -947,7 +958,10 @@ vendorRoutes.get('/subscription', async (c) => {
   }
 
   return sendSuccess(c, sub[0]);
-});
+};
+vendorRoutes.get('/subscription', handleGetVendorSubscription);
+vendorRoutes.get('/subscription/current', handleGetVendorSubscription);
+vendorRoutes.get('/subscription/my', handleGetVendorSubscription);
 
 vendorRoutes.post('/subscription/subscribe', validate('body', z.object({ planId: z.number().int().positive() })), async (c) => {
   const vendor = c.get('vendor');

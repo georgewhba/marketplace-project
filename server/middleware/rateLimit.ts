@@ -76,7 +76,7 @@ export function rateLimit(options: {
     // Add a unique prefix based on maxRequests and windowMs to differentiate limiters
     const limiterPrefix = options.message?.includes('تسجيل الدخول') ? 'auth' : 
                           options.message?.includes('عمليات الرفع') ? 'upload' : 
-                          options.maxRequests === 100 ? 'general' : 'default';
+                          options.maxRequests === 100 ? 'general' : `lim_${options.maxRequests}_${options.windowMs}`;
     
     const key = `ratelimit:${limiterPrefix}:${rawKey}`;
 

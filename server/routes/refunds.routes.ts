@@ -7,7 +7,8 @@ import { orderItems } from '../db/schema/order-items.js';
 import { payments } from '../db/schema/payments.js';
 import { transactions } from '../db/schema/transactions.js';
 import { vendors } from '../db/schema/vendors.js';
-import { eq, and, ne, desc } from 'drizzle-orm';
+import { products } from '../db/schema/products.js';
+import { eq, and, ne, desc, inArray, sql } from 'drizzle-orm';
 import { authenticate } from '../middleware/authenticate.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { validate, getValidated } from '../middleware/validate.js';
@@ -122,21 +123,30 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
   const { adminNote } = getValidated<z.infer<typeof approveSchema>>(c, 'body');
   const user = c.get('user');
 
-  const reqList = await db.select().from(refundRequests).where(eq(refundRequests.id, id));
-  const req = reqList[0];
-  if (!req) throw AppError.notFound('طلب الاسترجاع');
-  if (req.status !== 'pending') throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
+  // Atomically claim the refund request first ('processing') to prevent double-refund race conditions
+  const claimedReq = await db.transaction(async (tx) => {
+    const [lockedReq] = await tx.select().from(refundRequests)
+      .where(eq(refundRequests.id, id))
+      .for('update');
+    if (!lockedReq) throw AppError.notFound('طلب الاسترجاع');
+    if (lockedReq.status !== 'pending') throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
 
-  // Find the successful payment
+    await tx.update(refundRequests)
+      .set({ status: 'processing' })
+      .where(eq(refundRequests.id, id));
+    return lockedReq;
+  });
+
+  // Find the payment (including partially refunded orders so second item refund still calls Paymob)
   const paymentList = await db.select().from(payments)
-    .where(and(eq(payments.orderId, req.orderId), eq(payments.status, 'succeeded')));
+    .where(and(eq(payments.orderId, claimedReq.orderId), inArray(payments.status, ['succeeded', 'refunded'])));
   
   const payment = paymentList[0];
 
   // For Paymob electronic payments:
   if (payment && payment.providerTransactionId) {
     try {
-      await paymobService.issueRefund(payment.providerTransactionId, Number(req.amount));
+      await paymobService.issueRefund(payment.providerTransactionId, Number(claimedReq.amount));
       
       await db.update(payments)
         .set({ status: 'refunded', updatedAt: new Date() })
@@ -144,19 +154,21 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
     } catch (e: any) {
       await db.update(refundRequests)
         .set({ status: 'failed', adminNote: `فشل بوابة الدفع: ${e.message}`, processedAt: new Date() })
-        .where(eq(refundRequests.id, req.id));
+        .where(eq(refundRequests.id, claimedReq.id));
       throw AppError.internal('فشل الاسترجاع عبر بوابة الدفع');
     }
   }
 
-  // Execute the refund state changes and ledger deduction inside a transaction
+  // Execute the refund state changes, stock restoration, and ledger deduction inside a transaction
   await db.transaction(async (tx) => {
     const [lockedReq] = await tx.select().from(refundRequests)
       .where(eq(refundRequests.id, id))
       .for('update');
 
     if (!lockedReq) throw AppError.notFound('طلب الاسترجاع');
-    if (lockedReq.status !== 'pending') throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
+    if (lockedReq.status !== 'processing' && lockedReq.status !== 'pending') {
+      throw AppError.badRequest('الطلب تمت معالجته مسبقاً');
+    }
 
     // Update refund request status
     await tx.update(refundRequests)
@@ -174,32 +186,45 @@ router.put('/admin/:id/approve', authenticate, requirePermission('orders.refund'
 
     for (const item of itemsToRefund) {
       const refundAmount = parseFloat(item.vendorAmount ?? item.total);
-      if (refundAmount <= 0) continue;
+      if (refundAmount > 0) {
+        // Lock vendor balance
+        const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
+          .from(vendors)
+          .where(eq(vendors.id, item.vendorId))
+          .for('update');
 
-      // Lock vendor balance
-      const [vendorRecord] = await tx.select({ totalSales: vendors.totalSales })
-        .from(vendors)
-        .where(eq(vendors.id, item.vendorId))
-        .for('update');
+        const balanceBefore = parseFloat(vendorRecord?.totalSales ?? '0');
+        const balanceAfter = balanceBefore - refundAmount;
 
-      const balanceBefore = parseFloat(vendorRecord?.totalSales ?? '0');
-      const balanceAfter = balanceBefore - refundAmount;
+        // Record negative transaction for vendor
+        await tx.insert(transactions).values({
+          vendorId: item.vendorId,
+          orderItemId: item.id,
+          type: 'refund',
+          amount: (-refundAmount).toFixed(2),
+          balanceBefore: balanceBefore.toFixed(2),
+          balanceAfter: balanceAfter.toFixed(2),
+          description: `استرجاع للعنصر #${item.id}`,
+        });
+        
+        // Atomically update vendor totalSales (balance)
+        await tx.update(vendors)
+          .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
+          .where(eq(vendors.id, item.vendorId));
+      }
 
-      // Record negative transaction for vendor
-      await tx.insert(transactions).values({
-        vendorId: item.vendorId,
-        orderItemId: item.id,
-        type: 'refund',
-        amount: (-refundAmount).toFixed(2),
-        balanceBefore: balanceBefore.toFixed(2),
-        balanceAfter: balanceAfter.toFixed(2),
-        description: `استرجاع للعنصر #${item.id}`,
-      });
-      
-      // Atomically update vendor totalSales (balance)
-      await tx.update(vendors)
-        .set({ totalSales: balanceAfter.toFixed(2), updatedAt: new Date() })
-        .where(eq(vendors.id, item.vendorId));
+      // Restore product stock and update item status
+      if (item.productId) {
+        await tx.update(products)
+          .set({
+            stock: sql`${products.stock} + ${item.quantity}`,
+            totalSold: sql`GREATEST(${products.totalSold} - ${item.quantity}, 0)`,
+          })
+          .where(eq(products.id, item.productId));
+      }
+      await tx.update(orderItems)
+        .set({ vendorStatus: 'cancelled', updatedAt: new Date() })
+        .where(eq(orderItems.id, item.id));
     }
   });
 
