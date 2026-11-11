@@ -4,8 +4,8 @@ import { GoogleGenAI } from '@google/genai';
 import { env } from '../env.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { db } from '../db/index.js';
-import { siteSettings } from '../db/schema/index.js';
-import { inArray } from 'drizzle-orm';
+import { siteSettings, products } from '../db/schema/index.js';
+import { inArray, eq, desc } from 'drizzle-orm';
 
 const chatRoutes = new Hono();
 
@@ -66,7 +66,42 @@ chatRoutes.post('/', aiRateLimit, async (c) => {
     const apiKey = settingsMap['ai_api_key'] || env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return c.json({ error: 'خدمة الدعم الفني الذكي غير متاحة حالياً (مفتاح API غير متوفر).' }, 503);
+      const q = message.toLowerCase();
+      if (q.includes('شحن') || q.includes('توصيل') || q.includes('ship') || q.includes('delivery')) {
+        return c.json({
+          reply: 'يتم شحن جميع الطلبات خلال 24–48 ساعة عبر شركة بوسطة مع تتبع مباشر للشحنة. رسوم الشحن الافتراضية 30 ج.م.',
+        });
+      }
+      if (q.includes('استرجاع') || q.includes('إرجاع') || q.includes('استبدال') || q.includes('refund') || q.includes('return')) {
+        return c.json({
+          reply: 'يمكنك طلب إرجاع أو استبدال المنتجات خلال 14 يوماً من تاريخ الاستلام من صفحة "طلباتي" بشرط أن يكون المنتج بحالته الأصلية.',
+        });
+      }
+      if (q.includes('دفع') || q.includes('فيزا') || q.includes('كاش') || q.includes('pay')) {
+        return c.json({
+          reply: 'نوفر الدفع عند الاستلام (كاش)، بالإضافة إلى الدفع الإلكتروني الآمن بالبطاقات البنكية والمحافظ الإلكترونية عبر Paymob.',
+        });
+      }
+      if (q.includes('خصم') || q.includes('كوبون') || q.includes('عرض') || q.includes('coupon') || q.includes('discount')) {
+        return c.json({
+          reply: 'يمكنك استخدام أكواد الخصم المتاحة حالياً عند إتمام الشراء: WELCOME10 (خصم 10%)، SAVE50 (خصم 50 ج.م للطلبات فوق 500 ج.م)، أو SUMMER25 (خصم 25%).',
+        });
+      }
+
+      const topProducts = await db
+        .select({ name: products.name, price: products.price })
+        .from(products)
+        .where(eq(products.isActive, true))
+        .orderBy(desc(products.isFeatured), desc(products.rating))
+        .limit(4);
+
+      const sampleList = topProducts.length > 0
+        ? `\nأبرز المنتجات المتاحة حالياً:\n${topProducts.map(p => `• ${p.name} (${p.price} ج.م)`).join('\n')}`
+        : '';
+
+      return c.json({
+        reply: `مرحباً بك في سوق مصر! يسعدني مساعدتك في تصفح المنتجات، معرفة تفاصيل الشحن (24-48 ساعة)، الدفع (عند الاستلام أو بالبطاقة)، وسياسة الاسترجاع (خلال 14 يوماً).${sampleList}`,
+      });
     }
 
     const systemInstruction = settingsMap['ai_system_prompt'] || DEFAULT_SYSTEM_INSTRUCTION;

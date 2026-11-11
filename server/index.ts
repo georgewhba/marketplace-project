@@ -14,6 +14,8 @@ import * as Sentry from '@sentry/node';
 import { db, queryClient } from './db/index.js';
 import { sql } from 'drizzle-orm';
 import { subscriptionPlans } from './db/schema/subscriptions.js';
+import { users } from './db/schema/users.js';
+import { seed } from './db/seed.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import cron from 'node-cron';
@@ -344,6 +346,13 @@ if (env.NODE_ENV !== 'test') {
 
   const autoSeedPlans = async () => {
     try {
+      const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
+      if (!userCount[0] || Number(userCount[0].count) === 0) {
+        console.log('[Auto-Seed] Empty database detected. Seeding initial marketplace data (admin, vendors, categories, products)...');
+        await seed(false);
+        return;
+      }
+
       const existing = await db.select({ count: sql<number>`count(*)` }).from(subscriptionPlans);
       if (!existing[0] || Number(existing[0].count) === 0) {
         console.log('[Auto-Seed] No subscription plans found. Seeding default (Basic, Plus, Pro) plans...');

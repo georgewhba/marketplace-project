@@ -91,8 +91,14 @@ async function ensureDefaultVendorSubscription(tx: typeof db | Parameters<Parame
   }
 }
 
+const hasEmailProvider = Boolean(
+  env.RESEND_API_KEY ||
+  env.BREVO_API_KEY ||
+  (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS)
+);
+
 export async function register(input: RegisterInput) {
-  const skipOtp = env.NODE_ENV === 'test';
+  const skipOtp = env.NODE_ENV === 'test' || !hasEmailProvider;
 
   const existing = await db
     .select({ id: users.id, isActive: users.isActive, emailVerifiedAt: users.emailVerifiedAt })
@@ -228,7 +234,7 @@ export async function verifyRegistrationOTP(email: string, otp: string) {
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
-  const skipOtp = env.NODE_ENV === 'test';
+  const skipOtp = env.NODE_ENV === 'test' || !hasEmailProvider;
 
   // Pre-flight uniqueness checks (outside tx for early, user-friendly errors)
   const existing = await db

@@ -15,7 +15,7 @@ import { env } from '../env.js';
 
 const SALT_ROUNDS = 12;
 
-async function seed() {
+export async function seed(closeConnection = true) {
   console.log('🌱 Seeding database...\n');
 
   // Clear existing data in strict reverse dependency order
@@ -607,10 +607,18 @@ async function seed() {
   console.log('');
   console.log('  ⚠️  Change admin password before any real deployment!\n');
 
-  await queryClient.end();
+  if (closeConnection) {
+    await queryClient.end();
+  }
 }
 
-seed().catch((err) => {
-  console.error('❌ Seed failed:', err);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1]?.replace(/\\/g, '/').endsWith('/seed.ts') ||
+  process.argv[1]?.replace(/\\/g, '/').endsWith('/seed.js');
+
+if (isDirectRun) {
+  seed(true).catch((err) => {
+    console.error('❌ Seed failed:', err);
+    process.exit(1);
+  });
+}
