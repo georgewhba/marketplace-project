@@ -14,6 +14,11 @@ RUN cd client && npm ci
 # Copy all source code
 COPY . .
 
+# Pass optional build-time client variables
+ARG VITE_GOOGLE_CLIENT_ID=""
+ARG GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+
 # Build both backend and frontend
 RUN npm run build
 

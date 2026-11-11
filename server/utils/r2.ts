@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import dns from 'node:dns';
 import { env } from '../env.js';
 
@@ -89,5 +89,28 @@ export async function deleteFromR2(fileUrl: string): Promise<void> {
     await s3Client.send(command);
   } catch (err) {
     console.error(`Failed to delete ${key} from R2`, err);
+  }
+}
+
+/**
+ * Fetches an object buffer from Cloudflare R2 if available.
+ */
+export async function getFromR2(filename: string): Promise<Buffer | null> {
+  if (!s3Client || !env.R2_BUCKET_NAME) {
+    return null;
+  }
+  const key = filename.startsWith('uploads/') ? filename : `uploads/${filename}`;
+  try {
+    const res = await s3Client.send(
+      new GetObjectCommand({
+        Bucket: env.R2_BUCKET_NAME.trim(),
+        Key: key,
+      })
+    );
+    if (!res.Body) return null;
+    const bytes = await res.Body.transformToByteArray();
+    return Buffer.from(bytes);
+  } catch {
+    return null;
   }
 }

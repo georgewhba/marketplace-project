@@ -63,15 +63,19 @@ export async function processImage(buffer: Buffer): Promise<string> {
     .rotate() // Auto-rotate based on EXIF orientation, then strip
     .toBuffer();
 
-  if (isR2FullyConfigured) {
-    return await uploadToR2(processedBuffer, filename, 'image/webp');
-  }
-
-  // Fallback to local disk
+  // Save to local disk cache
   const uploadDir = path.resolve(env.UPLOAD_DIR);
   await fs.mkdir(uploadDir, { recursive: true });
   const outputPath = path.join(uploadDir, filename);
   await fs.writeFile(outputPath, processedBuffer);
+
+  if (isR2FullyConfigured) {
+    try {
+      return await uploadToR2(processedBuffer, filename, 'image/webp');
+    } catch {
+      return `/uploads/${filename}`;
+    }
+  }
 
   return `/uploads/${filename}`;
 }

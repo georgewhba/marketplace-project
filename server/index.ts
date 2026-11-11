@@ -23,6 +23,7 @@ import { generateSettlements } from './services/settlement.service.js';
 import { initAnalyticsJobs } from './jobs/analytics.js';
 import { processExpiredSubscriptions } from './jobs/subscription.job.js';
 import { closeQueues } from './jobs/index.js';
+import { getFromR2 } from './utils/r2.js';
 
 // Route imports
 import authRoutes from './routes/auth.routes.js';
@@ -264,7 +265,29 @@ app.route('/api/webhooks', webhooksRoutes);
 app.route('/api/roles', roleRoutes);
 app.route('/api/chat', chatRoutes);
 
-// Serve uploaded files
+// Serve uploaded files (local disk first, then Cloudflare R2 fallback)
+app.get('/uploads/:filename', async (c, next) => {
+  const filename = path.basename(c.req.param('filename'));
+  const localPath = path.join(path.resolve(env.UPLOAD_DIR), filename);
+  try {
+    await fs.access(localPath);
+    return next();
+  } catch {
+    const r2Buffer = await getFromR2(filename);
+    if (r2Buffer) {
+      await fs.mkdir(path.resolve(env.UPLOAD_DIR), { recursive: true }).catch(() => {});
+      await fs.writeFile(localPath, r2Buffer).catch(() => {});
+      return new Response(new Uint8Array(r2Buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/webp',
+          'Cache-Control': 'public, max-age=604800',
+        },
+      });
+    }
+    return c.notFound();
+  }
+});
 app.use('/uploads/*', serveStatic({ root: './' }));
 
 // In production, serve the built client
