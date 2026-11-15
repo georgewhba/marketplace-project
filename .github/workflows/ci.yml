@@ -37,6 +37,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long
           JWT_REFRESH_SECRET: test_secret_minimum_32_characters_long_2
+          MFA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          BOSTA_WEBHOOK_SECRET: bosta_secret_123
       - name: Run tests
         run: npm test
         env:
@@ -44,6 +46,8 @@ jobs:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long
           JWT_REFRESH_SECRET: test_secret_minimum_32_characters_long_2
+          MFA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          BOSTA_WEBHOOK_SECRET: bosta_secret_123
       - name: Build
         run: npm run build
       - name: Security audit
@@ -79,6 +83,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long
           JWT_REFRESH_SECRET: test_secret_minimum_32_characters_long_2
+          MFA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          BOSTA_WEBHOOK_SECRET: bosta_secret_123
       - name: Run E2E tests
         run: npm run test:e2e
         env:
@@ -87,6 +93,8 @@ jobs:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marketplace_test
           JWT_ACCESS_SECRET: test_secret_minimum_32_characters_long
           JWT_REFRESH_SECRET: test_secret_minimum_32_characters_long_2
+          MFA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          BOSTA_WEBHOOK_SECRET: bosta_secret_123
       - uses: actions/upload-artifact@v4
         if: always()
         with:
